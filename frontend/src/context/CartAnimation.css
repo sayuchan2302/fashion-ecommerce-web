@@ -10,7 +10,7 @@
   
   /* Start state */
   opacity: 1;
-  transition: all 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+  transition: all 1.5s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .cart-flying-img.flying {

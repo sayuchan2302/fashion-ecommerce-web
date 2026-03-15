@@ -1,0 +1,150 @@
+.address-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.address-modal-container {
+  background-color: var(--co-white);
+  width: 100%;
+  max-width: 500px;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  animation: modalFadeIn 0.3s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.address-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--co-gray-200);
+}
+
+.address-modal-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--co-gray-500);
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: var(--co-black);
+}
+
+.address-modal-body {
+  padding: 24px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.address-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.address-item {
+  border: 1px solid var(--co-gray-200);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.address-item:hover {
+  border-color: var(--co-gray-400);
+}
+
+.address-item.selected {
+  border-color: var(--co-blue);
+  background-color: #F8FAFC;
+}
+
+.address-item-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.address-name {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--co-black);
+}
+
+.address-badge {
+  background-color: #FEF3C7;
+  color: #D97706;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.address-phone {
+  color: var(--co-gray-600);
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.address-full {
+  color: var(--co-gray-500);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.address-check-icon {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+.address-modal-footer {
+  padding: 20px 24px;
+  border-top: 1px solid var(--co-gray-200);
+}
+
+.address-confirm-btn {
+  width: 100%;
+  background-color: var(--co-blue);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.address-confirm-btn:disabled {
+  background-color: var(--co-gray-300);
+  cursor: not-allowed;
+}
+
+.address-confirm-btn:hover:not(:disabled) {
+  background-color: #1D4ED8;
+}

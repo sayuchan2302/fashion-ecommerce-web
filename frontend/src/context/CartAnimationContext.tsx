@@ -26,7 +26,7 @@ export const CartAnimationProvider: React.FC<{ children: React.ReactNode }> = ({
     // Remove the animation element after it completes
     setTimeout(() => {
       setAnimations(prev => prev.filter(anim => anim.id !== newAnimationId));
-    }, 800); // Duration matches CSS transition
+    }, 1500); // Duration matches CSS transition
   }, []);
 
   return (

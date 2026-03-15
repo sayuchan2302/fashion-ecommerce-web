@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, Check, CreditCard, Wallet, Banknote, Truck, Shield, RefreshCw, Award, Loader2 } from 'lucide-react';
 import './Checkout.css';
 import { useCart } from '../../contexts/CartContext';
-
+import AddressBookModal from './AddressBookModal';
 
 interface FormErrors {
   name?: string;
@@ -33,6 +33,21 @@ const Checkout = () => {
   const total = subtotal + finalShippingFee;
 
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+
+  const handleAddressSelect = (addr: any) => {
+    setFormValues(prev => ({
+      ...prev,
+      name: addr.name,
+      phone: addr.phone,
+      address: addr.address,
+      ward: addr.ward,
+      district: addr.district,
+      city: addr.city,
+    }));
+    // Clear errors for auto-filled fields
+    setFormErrors({});
+  };
 
   const validate = (): FormErrors => {
     const errors: FormErrors = {};
@@ -100,8 +115,16 @@ const Checkout = () => {
               
               {/* Section: Contact & Shipping Info */}
               <section className="checkout-section">
-                <div className="section-header-flex">
-                  <h2 className="checkout-section-title">Thông tin giao hàng</h2>
+                <div className="section-header-flex" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <h2 className="checkout-section-title" style={{ marginBottom: 0 }}>Thông tin giao hàng</h2>
+                  <button 
+                    type="button" 
+                    className="address-book-toggle-btn"
+                    onClick={() => setIsAddressModalOpen(true)}
+                    style={{ color: 'var(--co-blue)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    <Award size={16} /> Chọn từ sổ địa chỉ
+                  </button>
                 </div>
 
                 <div className="form-grid">
@@ -437,6 +460,11 @@ const Checkout = () => {
         </div>
       )}
 
+      <AddressBookModal
+        isOpen={isAddressModalOpen}
+        onClose={() => setIsAddressModalOpen(false)}
+        onSelectAddress={handleAddressSelect}
+      />
     </div>
   );
 };
