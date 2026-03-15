@@ -1,0 +1,30 @@
+.cart-flying-img {
+  position: fixed;
+  z-index: 9999;
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  
+  /* Start state */
+  opacity: 1;
+  transition: all 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.cart-flying-img.flying {
+  opacity: 0;
+  /* Transform is handled inline for dynamic coordinates */
+}
+
+/* Add a pulse animation to the cart icon when item arrives */
+@keyframes cartBounce {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.cart-bounce {
+  animation: cartBounce 0.3s ease-in-out;
+}

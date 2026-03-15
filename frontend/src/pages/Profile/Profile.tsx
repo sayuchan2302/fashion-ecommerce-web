@@ -66,7 +66,7 @@ const Profile = () => {
       case 'account':
         return (
           <div className="tab-pane">
-            <div className="profile-content-header">
+            <div className="profile-content-header mb-6">
               <h2 className="profile-content-title">Thông tin tài khoản</h2>
             </div>
 
@@ -107,8 +107,8 @@ const Profile = () => {
               </div>
 
               {/* Login Info */}
-              <div className="info-group mt-12">
-                <div className="profile-content-header">
+              <div className="info-group mt-10">
+                <div className="profile-content-header mb-6">
                   <h3 className="profile-content-title">Thông tin đăng nhập</h3>
                 </div>
                 <div className="info-row">

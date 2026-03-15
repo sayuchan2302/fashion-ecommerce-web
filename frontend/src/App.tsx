@@ -10,6 +10,7 @@ import Cart from './pages/Cart/Cart';
 import Checkout from './pages/Checkout/Checkout';
 import Profile from './pages/Profile/Profile';
 import ScrollToTop from './components/ScrollToTop/ScrollToTop';
+import { CartAnimationProvider } from './context/CartAnimationContext';
 
 const MainLayout = () => {
   return (
@@ -24,22 +25,24 @@ const MainLayout = () => {
 
 function App() {
   return (
-    <Router>
-      <ScrollToTop />
-      <div className="app-container">
-        <Routes>
-          {/* All routes share standard layout (Header, Footer) */}
-          <Route element={<MainLayout />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/category/:id" element={<ProductListing />} />
-            <Route path="/product/:id" element={<ProductDetail />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/account" element={<Profile />} />
-          </Route>
-        </Routes>
-      </div>
-    </Router>
+    <CartAnimationProvider>
+      <Router>
+        <ScrollToTop />
+        <div className="app-container">
+          <Routes>
+            {/* All routes share standard layout (Header, Footer) */}
+            <Route element={<MainLayout />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/category/:id" element={<ProductListing />} />
+              <Route path="/product/:id" element={<ProductDetail />} />
+              <Route path="/cart" element={<Cart />} />
+              <Route path="/checkout" element={<Checkout />} />
+              <Route path="/profile" element={<Profile />} />
+            </Route>
+          </Routes>
+        </div>
+      </Router>
+    </CartAnimationProvider>
   );
 }
 

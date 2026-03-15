@@ -154,7 +154,7 @@
 
 .profile-content-header {
   margin-bottom: 24px;
-  padding-bottom: 16px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--co-gray-200);
 }
 
@@ -825,6 +825,164 @@
 
 .order-btn-primary:hover {
   opacity: 0.85;
+}
+
+/* --- Reviews & Feedback Tab --- */
+.review-section {
+  margin-bottom: 32px;
+}
+
+.review-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--co-black);
+  margin: 0 0 16px 0;
+}
+
+.review-pending-list,
+.review-completed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.review-pending-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid var(--co-gray-200);
+  border-radius: 8px;
+  transition: border-color 0.2s;
+}
+
+.review-pending-card:hover {
+  border-color: var(--co-blue);
+}
+
+.review-pending-product {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.review-product-img {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background-color: var(--co-gray-100);
+}
+
+.review-product-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.review-product-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--co-black);
+  margin: 0 0 3px 0;
+}
+
+.review-product-variant {
+  font-size: 13px;
+  color: var(--co-gray-500);
+  margin: 0 0 2px 0;
+}
+
+.review-product-order {
+  font-size: 12px;
+  color: var(--co-gray-400);
+  margin: 0;
+}
+
+.review-write-btn {
+  background-color: var(--co-black);
+  color: white;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+
+.review-write-btn:hover {
+  opacity: 0.85;
+}
+
+.review-completed-card {
+  padding: 20px;
+  border: 1px solid var(--co-gray-200);
+  border-radius: 8px;
+}
+
+.review-completed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.review-date {
+  font-size: 13px;
+  color: var(--co-gray-400);
+  white-space: nowrap;
+}
+
+.review-stars {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.review-star {
+  font-size: 18px;
+  color: var(--co-gray-300);
+}
+
+.review-star.filled {
+  color: #f59e0b;
+}
+
+.review-text {
+  font-size: 14px;
+  color: var(--co-gray-600);
+  line-height: 1.6;
+  margin: 0 0 16px 0;
+}
+
+.review-reply {
+  background-color: var(--co-gray-100);
+  border-radius: 8px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--co-blue);
+}
+
+.review-reply-header {
+  margin-bottom: 8px;
+}
+
+.review-reply-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--co-blue);
+  background-color: rgba(0, 123, 255, 0.08);
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.review-reply-text {
+  font-size: 13px;
+  color: var(--co-gray-600);
+  line-height: 1.5;
+  margin: 0;
 }
 
 /* --- Voucher Wallet Tab --- */

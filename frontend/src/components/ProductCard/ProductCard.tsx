@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
+import { useCartAnimation } from '../../context/CartAnimationContext';
 import './ProductCard.css';
 
 interface ProductCardProps {
@@ -20,6 +21,7 @@ const DEFAULT_SIZES = ['S', 'M', 'L', 'XL', '2XL', '3XL'];
 const ProductCard = ({ id, name, price, originalPrice, image, badge, colors, sizes }: ProductCardProps) => {
   const discount = originalPrice ? Math.round((1 - price / originalPrice) * 100) : 0;
   const { addToCart } = useCart();
+  const { triggerAnimation } = useCartAnimation();
   const [addedSize, setAddedSize] = useState<string | null>(null);
   const [selectedColorIdx, setSelectedColorIdx] = useState(0);
 
@@ -41,6 +43,8 @@ const ProductCard = ({ id, name, price, originalPrice, image, badge, colors, siz
     });
 
     setAddedSize(size);
+    triggerAnimation(e, image);
+    
     setTimeout(() => setAddedSize(null), 1500);
   };
 

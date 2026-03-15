@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, ShoppingCart } from 'lucide-react';
 import AuthModal from '../AuthModal/AuthModal';
+import { useCartAnimation } from '../../context/CartAnimationContext';
 import { useCart } from '../../contexts/CartContext';
 import './Header.css';
 
@@ -10,6 +11,19 @@ const Header = () => {
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const navigate = useNavigate();
   const { totalItems } = useCart();
+  const { cartIconRef } = useCartAnimation();
+
+  // Pulse animation state
+  const [isBouncing, setIsBouncing] = useState(false);
+  const prevItemsRef = React.useRef(totalItems);
+
+  React.useEffect(() => {
+    if (totalItems > prevItemsRef.current) {
+      setIsBouncing(true);
+      setTimeout(() => setIsBouncing(false), 300);
+    }
+    prevItemsRef.current = totalItems;
+  }, [totalItems]);
 
   const openAuthModal = (tab: 'login' | 'register') => {
     setAuthTab(tab);
@@ -176,7 +190,12 @@ const Header = () => {
             <span className="auth-divider">/</span>
             <a href="#" className="auth-link" onClick={(e) => { e.preventDefault(); openAuthModal('register'); }}>Đăng ký</a>
           </div>
-          <button className="icon-btn cart-btn" aria-label="Giỏ hàng" onClick={() => navigate('/cart')}>
+          <button 
+            ref={cartIconRef}
+            className={`icon-btn cart-btn ${isBouncing ? 'cart-bounce' : ''}`} 
+            aria-label="Giỏ hàng" 
+            onClick={() => navigate('/cart')}
+          >
             <ShoppingCart size={22} />
             {totalItems > 0 && <span className="cart-badge">{totalItems > 99 ? '99+' : totalItems}</span>}
           </button>

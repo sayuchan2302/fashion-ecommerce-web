@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Minus, Plus, ShoppingCart, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
+import { useCartAnimation } from '../../context/CartAnimationContext';
 import './ProductActions.css';
 
 interface ProductActionsProps {
@@ -20,9 +21,10 @@ const ProductActions = ({ product, selectedColor, selectedSize }: ProductActions
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const { addToCart } = useCart();
+  const { triggerAnimation } = useCartAnimation();
   const navigate = useNavigate();
 
-  const handleAddToCart = () => {
+  const handleAddToCart = (e: React.MouseEvent) => {
     addToCart({
       id: product.id,
       name: product.name,
@@ -33,12 +35,15 @@ const ProductActions = ({ product, selectedColor, selectedSize }: ProductActions
       size: selectedSize,
       quantity,
     });
+    
+    triggerAnimation(e, product.image);
+    
     // Show success feedback
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
 
-  const handleBuyNow = () => {
+  const handleBuyNow = (e: React.MouseEvent) => {
     addToCart({
       id: product.id,
       name: product.name,
@@ -49,6 +54,7 @@ const ProductActions = ({ product, selectedColor, selectedSize }: ProductActions
       size: selectedSize,
       quantity,
     });
+    triggerAnimation(e, product.image);
     navigate('/cart');
   };
 
@@ -82,9 +88,11 @@ const ProductActions = ({ product, selectedColor, selectedSize }: ProductActions
 
       {/* Action Buttons */}
       <div className="action-buttons">
+        {/* Add to Cart Button */}
         <button
-          className={`btn-add-to-cart ${added ? 'added' : ''}`}
+          className={`btn-add-cart ${added ? 'added' : ''}`}
           onClick={handleAddToCart}
+          disabled={added}
         >
           {added ? (
             <><Check size={20} /> ĐÃ THÊM VÀO GIỎ</>
@@ -92,6 +100,7 @@ const ProductActions = ({ product, selectedColor, selectedSize }: ProductActions
             <><ShoppingCart size={20} /> THÊM VÀO GIỎ</>
           )}
         </button>
+        {/* Buy Now Button */}
         <button className="btn-buy-now" onClick={handleBuyNow}>
           MUA NGAY
         </button>
