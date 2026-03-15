@@ -45,7 +45,6 @@ const Profile = () => {
     height: "163 cm",
     weight: "57 kg",
     email: "thinh23022004@gmail.com",
-    tier: "Thành viên Vàng",
     avatar: "N"
   };
 
@@ -67,7 +66,9 @@ const Profile = () => {
       case 'account':
         return (
           <div className="tab-pane">
-            <h2 className="profile-content-title" style={{ marginBottom: '25px' }}>Thông tin tài khoản</h2>
+            <div className="profile-content-header">
+              <h2 className="profile-content-title">Thông tin tài khoản</h2>
+            </div>
 
             <div className="account-info-form">
               {/* Personal Info */}
@@ -106,8 +107,10 @@ const Profile = () => {
               </div>
 
               {/* Login Info */}
-              <div className="info-group mt-12" style={{ marginTop: '48px' }}>
-                <h3 className="profile-content-title" style={{ marginBottom: '40px' }}>Thông tin đăng nhập</h3>
+              <div className="info-group mt-12">
+                <div className="profile-content-header">
+                  <h3 className="profile-content-title">Thông tin đăng nhập</h3>
+                </div>
                 <div className="info-row">
                   <span className="info-label text-gray-500">Email</span>
                   <span className="info-value font-medium">{user.email}</span>
@@ -365,12 +368,85 @@ const Profile = () => {
             <div className="profile-content-header">
               <h2 className="profile-content-title">Đánh giá & Phản hồi</h2>
             </div>
-            <div className="tab-placeholder">
-              <MessageSquare className="tab-placeholder-icon" />
-              <h3 className="tab-placeholder-title">Chưa có sản phẩm để đánh giá</h3>
-              <p className="tab-placeholder-desc text-gray-500">
-                Bạn không có sản phẩm nào chờ đánh giá.
-              </p>
+
+            {/* Review Filter Tabs */}
+            <div className="order-filter-tabs">
+              <button className="order-filter-btn active">Chờ đánh giá (2)</button>
+              <button className="order-filter-btn">Đã đánh giá (1)</button>
+            </div>
+
+            {/* Pending Reviews */}
+            <div className="review-section">
+              <h3 className="review-section-title">Sản phẩm chờ đánh giá</h3>
+              <div className="review-pending-list">
+                {/* Pending 1 */}
+                <div className="review-pending-card">
+                  <div className="review-pending-product">
+                    <div className="review-product-img">
+                      <img src="https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=80&h=80&fit=crop" alt="Áo Polo" />
+                    </div>
+                    <div className="review-product-info">
+                      <p className="review-product-name">Áo Polo Nam Excool</p>
+                      <p className="review-product-variant">Màu: Xanh navy | Size: XL</p>
+                      <p className="review-product-order">Đơn hàng: #CM20260312</p>
+                    </div>
+                  </div>
+                  <button className="review-write-btn">Viết đánh giá</button>
+                </div>
+
+                {/* Pending 2 */}
+                <div className="review-pending-card">
+                  <div className="review-pending-product">
+                    <div className="review-product-img">
+                      <img src="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=80&h=80&fit=crop" alt="Áo Thun" />
+                    </div>
+                    <div className="review-product-info">
+                      <p className="review-product-name">Áo Thun Nam Cổ Tròn Cotton</p>
+                      <p className="review-product-variant">Màu: Trắng | Size: L</p>
+                      <p className="review-product-order">Đơn hàng: #CM20260301</p>
+                    </div>
+                  </div>
+                  <button className="review-write-btn">Viết đánh giá</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Completed Reviews */}
+            <div className="review-section">
+              <h3 className="review-section-title">Đánh giá của bạn</h3>
+              <div className="review-completed-list">
+                <div className="review-completed-card">
+                  <div className="review-completed-header">
+                    <div className="review-pending-product">
+                      <div className="review-product-img">
+                        <img src="https://images.unsplash.com/photo-1542272604-787c3835535d?w=80&h=80&fit=crop" alt="Quần Jeans" />
+                      </div>
+                      <div className="review-product-info">
+                        <p className="review-product-name">Quần Jeans Nam Slim Fit</p>
+                        <p className="review-product-variant">Màu: Xanh đậm | Size: 32</p>
+                      </div>
+                    </div>
+                    <span className="review-date">01/03/2026</span>
+                  </div>
+                  <div className="review-stars">
+                    {'★★★★★'.split('').map((star, i) => (
+                      <span key={i} className={`review-star ${i < 5 ? 'filled' : ''}`}>{star}</span>
+                    ))}
+                  </div>
+                  <p className="review-text">
+                    Vải jeans mềm, co giãn tốt, mặc rất thoải mái. Form slim fit vừa vặn, không quá ôm. Sẽ mua thêm màu khác!
+                  </p>
+                  {/* Shop Reply */}
+                  <div className="review-reply">
+                    <div className="review-reply-header">
+                      <span className="review-reply-badge">Phản hồi từ shop</span>
+                    </div>
+                    <p className="review-reply-text">
+                      Cảm ơn bạn đã tin tưởng và mua hàng tại Coolmate! Rất vui khi biết bạn hài lòng với sản phẩm. Chúc bạn một ngày tốt lành! ❤️
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         );
@@ -388,7 +464,7 @@ const Profile = () => {
         <nav className="profile-breadcrumbs">
           <Link to="/">Trang chủ</Link>
           <ChevronRight size={14} className="breadcrumb-separator" />
-          <span className="current">Tài khoản của tôi</span>
+          <span className="current">Hồ sơ của tôi</span>
         </nav>
 
         <div className="profile-layout">
@@ -401,10 +477,6 @@ const Profile = () => {
               </div>
               <div>
                 <div className="profile-name">{user.name}</div>
-                <div className="profile-tier">
-                  <span className="w-2 h-2 rounded-full bg-yellow-400"></span>
-                  {user.tier}
-                </div>
               </div>
             </div>
 
