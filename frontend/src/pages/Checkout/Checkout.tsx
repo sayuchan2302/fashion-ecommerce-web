@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronRight, Check, Wallet, Banknote, Loader2, Trash2, X } from 'lucide-react';
+import { ChevronRight, Check, Wallet, Loader2, Trash2, X, ChevronDown } from 'lucide-react';
 import './Checkout.css';
 import { useCart } from '../../contexts/CartContext';
 import AddressBookModal from './AddressBookModal';
@@ -15,6 +15,23 @@ interface FormErrors {
   ward?: string;
   note?: string;
 }
+
+interface Province {
+  code: number;
+  name: string;
+}
+
+interface District {
+  code: number;
+  name: string;
+}
+
+interface Ward {
+  code: number;
+  name: string;
+}
+
+const API_BASE = 'https://provinces.open-api.vn/api';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -31,6 +48,61 @@ const Checkout = () => {
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
 
+  // Address states
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [wards, setWards] = useState<Ward[]>([]);
+
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
+  const [selectedDistrictCode, setSelectedDistrictCode] = useState('');
+  const [selectedWardCode, setSelectedWardCode] = useState('');
+
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+  const [loadingWards, setLoadingWards] = useState(false);
+  // Fetch provinces on mount
+  useEffect(() => {
+    setLoadingProvinces(true);
+    fetch(`${API_BASE}/?depth=1`)
+      .then(res => res.json())
+      .then((data: Province[]) => {
+        setProvinces(data);
+        setLoadingProvinces(false);
+      })
+      .catch(() => setLoadingProvinces(false));
+  }, []);
+
+  // Fetch districts when province changes
+  useEffect(() => {
+    if (!selectedProvinceCode) {
+      setDistricts([]);
+      return;
+    }
+    setLoadingDistricts(true);
+    fetch(`${API_BASE}/p/${selectedProvinceCode}?depth=2`)
+      .then(res => res.json())
+      .then((data: { districts: District[] }) => {
+        setDistricts(data.districts || []);
+        setLoadingDistricts(false);
+      })
+      .catch(() => setLoadingDistricts(false));
+  }, [selectedProvinceCode]);
+
+  // Fetch wards when district changes
+  useEffect(() => {
+    if (!selectedDistrictCode) {
+      setWards([]);
+      return;
+    }
+    setLoadingWards(true);
+    fetch(`${API_BASE}/d/${selectedDistrictCode}?depth=2`)
+      .then(res => res.json())
+      .then((data: { wards: Ward[] }) => {
+        setWards(data.wards || []);
+        setLoadingWards(false);
+      })
+      .catch(() => setLoadingWards(false));
+  }, [selectedDistrictCode]);
   const handleQuantityChange = (cartId: string, delta: number) => {
     const item = items.find(i => i.cartId === cartId);
     if (item) {
@@ -53,6 +125,10 @@ const Checkout = () => {
       ...prev, name: addr.name, phone: addr.phone, address: addr.address,
       ward: addr.ward, district: addr.district, city: addr.city,
     }));
+    // Try to match codes if possible, though modal provides names
+    setSelectedProvinceCode('');
+    setSelectedDistrictCode('');
+    setSelectedWardCode('');
     setFormErrors({});
   };
 
@@ -182,19 +258,79 @@ const Checkout = () => {
                   </div>
 
                   <div className="form-group col-span-1">
-                    <input type="text" className={`checkout-input ${formErrors.city ? 'input-error' : ''}`}
-                      placeholder="Tỉnh/Thành phố" value={formValues.city}
-                      onChange={e => handleFieldChange('city', e.target.value)} />
+                    <div className="select-wrapper">
+                      <select
+                        className={`checkout-input checkout-select ${formErrors.city ? 'input-error' : ''}`}
+                        value={selectedProvinceCode}
+                        onChange={e => {
+                          const code = e.target.value;
+                          setSelectedProvinceCode(code);
+                          const p = provinces.find(p => String(p.code) === code);
+                          handleFieldChange('city', p ? p.name : '');
+                          // Reset nested
+                          setSelectedDistrictCode('');
+                          setSelectedWardCode('');
+                          handleFieldChange('district', '');
+                          handleFieldChange('ward', '');
+                        }}
+                      >
+                        <option value="">{loadingProvinces ? 'Đang tải...' : 'Tỉnh/Thành phố'}</option>
+                        {provinces.map(p => (
+                          <option key={p.code} value={p.code}>{p.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={16} className="select-arrow" />
+                    </div>
+                    {formErrors.city && <span className="field-error">{formErrors.city}</span>}
                   </div>
+
                   <div className="form-group col-span-1">
-                    <input type="text" className={`checkout-input ${formErrors.district ? 'input-error' : ''}`}
-                      placeholder="Quận/Huyện" value={formValues.district}
-                      onChange={e => handleFieldChange('district', e.target.value)} />
+                    <div className="select-wrapper">
+                      <select
+                        className={`checkout-input checkout-select ${formErrors.district ? 'input-error' : ''}`}
+                        value={selectedDistrictCode}
+                        disabled={!selectedProvinceCode}
+                        onChange={e => {
+                          const code = e.target.value;
+                          setSelectedDistrictCode(code);
+                          const d = districts.find(d => String(d.code) === code);
+                          handleFieldChange('district', d ? d.name : '');
+                          // Reset nested
+                          setSelectedWardCode('');
+                          handleFieldChange('ward', '');
+                        }}
+                      >
+                        <option value="">{loadingDistricts ? 'Đang tải...' : 'Quận/Huyện'}</option>
+                        {districts.map(d => (
+                          <option key={d.code} value={d.code}>{d.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={16} className="select-arrow" />
+                    </div>
+                    {formErrors.district && <span className="field-error">{formErrors.district}</span>}
                   </div>
+
                   <div className="form-group col-span-1">
-                    <input type="text" className={`checkout-input ${formErrors.ward ? 'input-error' : ''}`}
-                      placeholder="Phường/Xã" value={formValues.ward}
-                      onChange={e => handleFieldChange('ward', e.target.value)} />
+                    <div className="select-wrapper">
+                      <select
+                        className={`checkout-input checkout-select ${formErrors.ward ? 'input-error' : ''}`}
+                        value={selectedWardCode}
+                        disabled={!selectedDistrictCode}
+                        onChange={e => {
+                          const code = e.target.value;
+                          setSelectedWardCode(code);
+                          const w = wards.find(w => String(w.code) === code);
+                          handleFieldChange('ward', w ? w.name : '');
+                        }}
+                      >
+                        <option value="">{loadingWards ? 'Đang tải...' : 'Phường/Xã'}</option>
+                        {wards.map(w => (
+                          <option key={w.code} value={w.code}>{w.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={16} className="select-arrow" />
+                    </div>
+                    {formErrors.ward && <span className="field-error">{formErrors.ward}</span>}
                   </div>
 
                   <div className="form-group col-span-2">

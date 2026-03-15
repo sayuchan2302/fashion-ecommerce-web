@@ -82,6 +82,14 @@ const Header = () => {
                     </ul>
                   </div>
                   <div className="mega-menu-col">
+                    <h3 className="mega-menu-title">ĐỒ MẶC NHÀ</h3>
+                    <ul className="mega-menu-list">
+                      <li><a href="#">Áo mặc nhà</a></li>
+                      <li><a href="#">Quần mặc nhà</a></li>
+                      <li><a href="#">Bộ mặc nhà</a></li>
+                    </ul>
+                  </div>
+                  <div className="mega-menu-col">
                     <h3 className="mega-menu-title">PHỤ KIỆN</h3>
                     <ul className="mega-menu-list">
                       <li><a href="#">Nón / mũ</a></li>
@@ -109,7 +117,7 @@ const Header = () => {
                     </ul>
                   </div>
                   <div className="mega-menu-col">
-                    <h3 className="mega-menu-title">VÁY</h3>
+                    <h3 className="mega-menu-title">VÁY / ĐẦM</h3>
                     <ul className="mega-menu-list">
                       <li><a href="#">Váy liền</a></li>
                       <li><a href="#">Váy dự tiệc</a></li>
@@ -124,6 +132,22 @@ const Header = () => {
                       <li><a href="#">Quần short</a></li>
                       <li><a href="#">Quần tây</a></li>
                       <li><a href="#">Quần legging</a></li>
+                    </ul>
+                  </div>
+                  <div className="mega-menu-col">
+                    <h3 className="mega-menu-title">ĐỒ THỂ THAO</h3>
+                    <ul className="mega-menu-list">
+                      <li><a href="#">Áo thể thao</a></li>
+                      <li><a href="#">Quần thể thao</a></li>
+                      <li><a href="#">Set thể thao</a></li>
+                    </ul>
+                  </div>
+                  <div className="mega-menu-col">
+                    <h3 className="mega-menu-title">ĐỒ MẶC NHÀ</h3>
+                    <ul className="mega-menu-list">
+                      <li><a href="#">Áo mặc nhà</a></li>
+                      <li><a href="#">Quần mặc nhà</a></li>
+                      <li><a href="#">Bộ mặc nhà</a></li>
                     </ul>
                   </div>
                   <div className="mega-menu-col">

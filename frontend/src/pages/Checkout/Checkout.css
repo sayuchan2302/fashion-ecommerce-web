@@ -160,6 +160,40 @@
   margin-top: 4px;
 }
 
+/* ---- Select Wrapper & Custom Selects ---- */
+.select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.checkout-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 40px !important;
+  cursor: pointer;
+  background-color: var(--co-white);
+}
+
+.select-arrow {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #999;
+  pointer-events: none;
+  transition: color 0.2s;
+}
+
+.select-wrapper:focus-within .select-arrow {
+  color: var(--co-blue);
+}
+
+.checkout-select:disabled {
+  background-color: #f9fafb;
+  cursor: not-allowed;
+  color: #999;
+}
+
 /* ---- Input With Prefix ---- */
 .input-with-prefix {
   display: flex;

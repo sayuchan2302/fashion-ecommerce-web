@@ -13,7 +13,7 @@ const womensCategories = [
   { id: 'w1', name: "ÁO NỮ", img: "https://images.unsplash.com/photo-1551163943-3f6a855d1153?q=80&w=400&auto=format&fit=crop" },
   { id: 'w2', name: "VÁY / ĐẦM", img: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?q=80&w=400&auto=format&fit=crop" },
   { id: 'w3', name: "QUẦN NỮ", img: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=400&auto=format&fit=crop" },
-  { id: 'w4', name: "SET ĐỒ NỮ", img: "https://images.unsplash.com/photo-1583496920310-91890e2b96e5?q=80&w=400&auto=format&fit=crop" },
+  { id: 'w4', name: "ĐỒ MẶC NHÀ", img: "https://images.unsplash.com/photo-1583496920310-91890e2b96e5?q=80&w=400&auto=format&fit=crop" },
   { id: 'w5', name: "ĐỒ THỂ THAO NỮ", img: "https://images.unsplash.com/photo-1580436427382-706f9d45cc4e?q=80&w=400&auto=format&fit=crop" },
   { id: 'w6', name: "PHỤ KIỆN NỮ", img: "https://images.unsplash.com/photo-1509319117193-57bab727e09d?q=80&w=400&auto=format&fit=crop" },
 ];

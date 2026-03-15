@@ -52,13 +52,13 @@
 }
 
 .current-price {
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--co-blue);
 }
 
 .original-price {
-  font-size: 16px;
+  font-size: 14px;
   color: var(--co-gray-500);
   text-decoration: line-through;
 }
