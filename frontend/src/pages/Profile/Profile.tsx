@@ -152,7 +152,7 @@ const Profile = () => {
               <div className="order-card">
                 <div className="order-card-header">
                   <div className="order-card-meta">
-                    <span className="order-id">Mã đơn: #CM20260301</span>
+                    <Link to="/profile/orders/CM20260301" className="order-id">Mã đơn: #CM20260301</Link>
                     <span className="order-date">01/03/2026</span>
                   </div>
                   <span className="order-status-badge status-delivered">Đã giao</span>
@@ -186,20 +186,22 @@ const Profile = () => {
                     <span>Tổng cộng:</span>
                     <span className="order-total-price">1.057.000đ</span>
                   </div>
-                  <div className="order-actions">
-                    <button className="order-action-btn order-btn-outline">Mua lại</button>
-                    <button className="order-action-btn order-btn-primary">Đánh giá</button>
-                  </div>
+                    <div className="order-actions">
+                      <Link to="/profile/orders/CM20260301" className="order-action-btn order-btn-outline">Xem chi tiết</Link>
+                      <button className="order-action-btn order-btn-primary">Đánh giá</button>
+                    </div>
                 </div>
               </div>
 
               {/* Order 2 - Shipping */}
               <div className="order-card">
                 <div className="order-card-header">
-                  <div className="order-card-meta">
-                    <span className="order-id">Mã đơn: #CM20260312</span>
-                    <span className="order-date">12/03/2026</span>
-                  </div>
+                  <Link to="/profile/orders/CM20260312" className="order-card-header-link">
+                    <div className="order-card-meta">
+                      <span className="order-id">Mã đơn: #CM20260312</span>
+                      <span className="order-date">12/03/2026</span>
+                    </div>
+                  </Link>
                   <span className="order-status-badge status-shipping">Đang giao</span>
                 </div>
                 <div className="order-card-items">
@@ -220,19 +222,22 @@ const Profile = () => {
                     <span>Tổng cộng:</span>
                     <span className="order-total-price">389.000đ</span>
                   </div>
-                  <div className="order-actions">
-                    <button className="order-action-btn order-btn-primary">Theo dõi đơn</button>
-                  </div>
+                    <div className="order-actions">
+                      <Link to="/profile/orders/CM20260312" className="order-action-btn order-btn-outline">Xem chi tiết</Link>
+                      <button className="order-action-btn order-btn-primary">Theo dõi đơn</button>
+                    </div>
                 </div>
               </div>
 
               {/* Order 3 - Cancelled */}
               <div className="order-card">
                 <div className="order-card-header">
-                  <div className="order-card-meta">
-                    <span className="order-id">Mã đơn: #CM20260220</span>
-                    <span className="order-date">20/02/2026</span>
-                  </div>
+                  <Link to="/profile/orders/CM20260220" className="order-card-header-link">
+                    <div className="order-card-meta">
+                      <span className="order-id">Mã đơn: #CM20260220</span>
+                      <span className="order-date">20/02/2026</span>
+                    </div>
+                  </Link>
                   <span className="order-status-badge status-cancelled">Đã hủy</span>
                 </div>
                 <div className="order-card-items">
@@ -253,9 +258,10 @@ const Profile = () => {
                     <span>Tổng cộng:</span>
                     <span className="order-total-price">549.000đ</span>
                   </div>
-                  <div className="order-actions">
-                    <button className="order-action-btn order-btn-outline">Mua lại</button>
-                  </div>
+                    <div className="order-actions">
+                      <Link to="/profile/orders/CM20260220" className="order-action-btn order-btn-outline">Xem chi tiết</Link>
+                      <button className="order-action-btn order-btn-outline">Mua lại</button>
+                    </div>
                 </div>
               </div>
             </div>

@@ -16,6 +16,7 @@ import Wishlist from './pages/Wishlist/Wishlist';
 import Policy from './pages/Policy/Policy';
 import About from './pages/About/About';
 import Contact from './pages/Contact/Contact';
+import OrderDetail from './pages/OrderDetail/OrderDetail';
 import ScrollToTop from './components/ScrollToTop/ScrollToTop';
 import { CartAnimationProvider } from './context/CartAnimationContext';
 import { WishlistProvider } from './contexts/WishlistContext';
@@ -56,6 +57,7 @@ function App() {
                 <Route path="/policy/:type" element={<Policy />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<Contact />} />
+                <Route path="/profile/orders/:id" element={<OrderDetail />} />
                 <Route path="*" element={<NotFound />} />
               </Route>
             </Routes>
