@@ -6,11 +6,11 @@ import SearchDropdown, { HISTORY_KEY } from '../SearchDropdown/SearchDropdown';
 import { useCartAnimation } from '../../context/CartAnimationContext';
 import { useCart } from '../../contexts/CartContext';
 import { useWishlist } from '../../contexts/WishlistContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import './Header.css';
 
 const Header = () => {
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const navigate = useNavigate();
   const { totalItems } = useCart();
   const { totalItems: wishlistCount } = useWishlist();
@@ -19,6 +19,11 @@ const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [expandedMobileMenu, setExpandedMobileMenu] = useState<string | null>(null);
   const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
+  const { isAuthenticated, user, logout } = useAuth();
+  const { addToast } = useToast();
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
 
   const toggleMobileSubMenu = (menuId: string) => {
     setExpandedMobileMenu(prev => prev === menuId ? null : menuId);
@@ -40,11 +45,6 @@ const Header = () => {
     }
     prevItemsRef.current = totalItems;
   }, [totalItems]);
-
-  const openAuthModal = (tab: 'login' | 'register') => {
-    setAuthTab(tab);
-    setIsAuthModalOpen(true);
-  };
 
   const handleSearchSubmit = (query: string) => {
     if (query.trim()) {
@@ -253,9 +253,30 @@ const Header = () => {
             />
           </form>
           <div className="auth-links">
-            <a href="#" className="auth-link" onClick={(e) => { e.preventDefault(); openAuthModal('login'); }}>Đăng nhập</a>
-            <span className="auth-divider">/</span>
-            <a href="#" className="auth-link" onClick={(e) => { e.preventDefault(); openAuthModal('register'); }}>Đăng ký</a>
+            {!isAuthenticated ? (
+              <div className="auth-links">
+                <a href="#" className="auth-link" onClick={(e) => { e.preventDefault(); setAuthTab('login'); setIsAuthModalOpen(true); }}>Đăng nhập</a>
+                <span className="auth-divider">/</span>
+                <a href="#" className="auth-link" onClick={(e) => { e.preventDefault(); setAuthTab('register'); setIsAuthModalOpen(true); }}>Đăng ký</a>
+              </div>
+            ) : (
+              <div className="account-menu" onMouseLeave={() => setIsAccountMenuOpen(false)}>
+                <button
+                  className="account-toggle"
+                  onClick={(e) => { e.preventDefault(); setIsAccountMenuOpen(v => !v); }}
+                >
+                  {user?.name || 'Tài khoản'} <ChevronDown size={14} />
+                </button>
+                {isAccountMenuOpen && (
+                  <div className="account-dropdown">
+                    <button className="account-item" onClick={() => { navigate('/account/orders'); setIsAccountMenuOpen(false); }}>Đơn hàng</button>
+                    <button className="account-item" onClick={() => { navigate('/account/addresses'); setIsAccountMenuOpen(false); }}>Sổ địa chỉ</button>
+                    <button className="account-item" onClick={() => { navigate('/account/security'); setIsAccountMenuOpen(false); }}>Bảo mật</button>
+                    <button className="account-item" onClick={() => { logout(); addToast('Đã đăng xuất', 'info'); setIsAccountMenuOpen(false); navigate('/'); }}>Đăng xuất</button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <button className="icon-btn wishlist-btn" aria-label="Yêu thích" onClick={() => navigate('/wishlist')}>
             <Heart size={22} />
@@ -342,21 +363,32 @@ const Header = () => {
 
         {/* Mobile Auth */}
         <div className="mobile-auth">
-          <button className="mobile-auth-btn" onClick={() => { openAuthModal('login'); closeMobileMenu(); }}>Đăng nhập</button>
-          <button className="mobile-auth-btn mobile-auth-register" onClick={() => { openAuthModal('register'); closeMobileMenu(); }}>Đăng ký</button>
+          {!isAuthenticated ? (
+            <>
+              <button className="mobile-auth-btn" onClick={() => { setAuthTab('login'); setIsAuthModalOpen(true); closeMobileMenu(); }}>Đăng nhập</button>
+              <button className="mobile-auth-btn mobile-auth-register" onClick={() => { setAuthTab('register'); setIsAuthModalOpen(true); closeMobileMenu(); }}>Đăng ký</button>
+            </>
+          ) : (
+            <>
+              <Link to="/account/orders" className="mobile-auth-btn" onClick={closeMobileMenu}>Đơn hàng</Link>
+              <button className="mobile-auth-btn mobile-auth-register" onClick={() => { logout(); addToast('Đã đăng xuất', 'info'); closeMobileMenu(); }}>Đăng xuất</button>
+            </>
+          )}
         </div>
 
         {/* Mobile Quick Links */}
         <div className="mobile-quick-links">
           <Link to="/wishlist" onClick={closeMobileMenu}><Heart size={18} /> Yêu thích {wishlistCount > 0 && `(${wishlistCount})`}</Link>
-          <Link to="/profile" onClick={closeMobileMenu}><Search size={18} /> Tài khoản</Link>
+          <Link to={isAuthenticated ? '/account/orders' : '/login'} onClick={closeMobileMenu}><Search size={18} /> Tài khoản</Link>
+          <Link to="/order-tracking" onClick={closeMobileMenu}><Search size={18} /> Theo dõi đơn</Link>
+          <Link to="/returns" onClick={closeMobileMenu}><Search size={18} /> Đổi / Trả hàng</Link>
         </div>
       </div>
 
-      <AuthModal 
-        isOpen={isAuthModalOpen} 
-        onClose={() => setIsAuthModalOpen(false)} 
-        initialTab={authTab} 
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        initialTab={authTab}
       />
     </header>
   );

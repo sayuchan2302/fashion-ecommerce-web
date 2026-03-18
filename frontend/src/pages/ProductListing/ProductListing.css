@@ -5,7 +5,7 @@
 
 /* Breadcrumbs */
 .breadcrumb-wrapper {
-  background-color: #f8f9fa;
+  background-color: var(--bg-secondary);
   padding: 12px 0;
   margin-bottom: 30px;
 }
@@ -66,14 +66,14 @@
   gap: 8px;
   margin-bottom: 16px;
   padding: 12px 16px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 10px;
   animation: fadeIn 0.2s ease;
 }
 
 .active-filters-label {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-weight: 500;
   flex-shrink: 0;
 }

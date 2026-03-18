@@ -20,7 +20,7 @@
 }
 
 .empty-state-icon {
-  color: #d1d5db;
+  color: var(--co-gray-300);
   margin-bottom: 20px;
   animation: emptyBounce 2s ease infinite;
 }
@@ -39,7 +39,7 @@
 
 .empty-state-desc {
   font-size: 15px;
-  color: #999;
+  color: var(--text-secondary);
   max-width: 360px;
   line-height: 1.6;
   margin: 0 0 24px;

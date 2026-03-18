@@ -104,7 +104,7 @@
 }
 
 .btn-buy-now:hover {
-  background-color: #333;
+  background-color: var(--co-blue-dark);
 }
 
 /* Trust List */
@@ -146,24 +146,24 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  background-color: white;
-  color: #666;
+  background-color: var(--co-white);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
   flex-shrink: 0;
 }
 
 .btn-wishlist-action:hover {
-  border-color: #ef4444;
-  color: #ef4444;
+  border-color: var(--co-error);
+  color: var(--co-error);
   background-color: #fef2f2;
 }
 
 .btn-wishlist-action.wished {
-  color: #ef4444;
-  border-color: #ef4444;
+  color: var(--co-error);
+  border-color: var(--co-error);
   background-color: #fef2f2;
 }
 

@@ -28,14 +28,11 @@
   width: 90%;
   max-width: 480px;
   max-height: 90vh;
-  /* Ensure modal never exceeds viewport height */
   position: relative;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   animation: slideUpModal 0.3s ease;
   overflow: hidden;
-  /* Prevent children from breaking rounded corners */
   overflow-y: auto;
-  /* Enable scrolling if content overflows */
   display: flex;
   flex-direction: column;
 }
@@ -56,17 +53,19 @@
   position: absolute;
   top: 16px;
   right: 16px;
-  background: none;
+  background: var(--bg-secondary);
   border: none;
   cursor: pointer;
-  color: var(--co-gray-500);
+  color: var(--co-gray-600);
   z-index: 10;
-  transition: color 0.2s;
-  padding: 4px;
+  transition: color 0.2s, background 0.2s;
+  padding: 8px;
+  border-radius: 50%;
 }
 
 .auth-modal-close:hover {
   color: var(--co-black);
+  background: var(--co-gray-200);
 }
 
 .auth-tabs {
@@ -163,13 +162,13 @@
 }
 
 .btn-facebook {
-  background-color: #1877F2;
+  background-color: #1877f2;
   color: var(--co-white);
-  border-color: #1877F2;
+  border-color: #1877f2;
 }
 
 .btn-facebook:hover {
-  background-color: #166FE5;
+  background-color: #166fe5;
 }
 
 .facebook-icon {
@@ -225,19 +224,19 @@
 }
 
 .form-input.input-error {
-  border-color: #EF4444;
-  background-color: #FFF5F5;
+  border-color: var(--co-error);
+  background-color: #fff5f5;
 }
 
 .form-input.input-error:focus {
-  border-color: #EF4444;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+  border-color: var(--co-error);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
 }
 
 .field-error {
   display: block;
   font-size: 12px;
-  color: #EF4444;
+  color: var(--co-error);
   margin-top: 5px;
   font-weight: 500;
 }
@@ -257,8 +256,8 @@
   transition: background-color 0.3s;
 }
 
-.strength-bar.weak { background-color: #EF4444; }
-.strength-bar.medium { background-color: #F59E0B; }
+.strength-bar.weak { background-color: var(--co-error); }
+.strength-bar.medium { background-color: var(--co-blue); }
 .strength-bar.strong { background-color: var(--co-blue); }
 
 .strength-label {
@@ -267,8 +266,8 @@
   min-width: 60px;
 }
 
-.strength-bar.weak ~ .strength-label { color: #EF4444; }
-.strength-bar.medium ~ .strength-label { color: #F59E0B; }
+.strength-bar.weak ~ .strength-label { color: var(--co-error); }
+.strength-bar.medium ~ .strength-label { color: var(--co-blue); }
 .strength-bar.strong ~ .strength-label { color: var(--co-blue); }
 
 /* Confirm password match indicator */
@@ -280,7 +279,7 @@
 }
 
 .match-indicator.match { color: var(--co-blue); }
-.match-indicator.no-match { color: #EF4444; }
+.match-indicator.no-match { color: var(--co-error); }
 
 .password-input-wrapper {
   position: relative;

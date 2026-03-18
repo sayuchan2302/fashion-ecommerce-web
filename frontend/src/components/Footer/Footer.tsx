@@ -33,6 +33,8 @@ const Footer = () => {
             <li><Link to="/policy/khuyen-mai">Chính sách khuyến mãi</Link></li>
             <li><Link to="/policy/bao-mat">Chính sách bảo mật</Link></li>
             <li><Link to="/policy/giao-hang">Chính sách giao hàng</Link></li>
+            <li><Link to="/order-tracking">Theo dõi đơn hàng</Link></li>
+            <li><Link to="/returns">Đổi/Trả hàng</Link></li>
           </ul>
         </div>
 

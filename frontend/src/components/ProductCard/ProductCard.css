@@ -89,7 +89,7 @@
 .quick-add-label {
   font-size: 12px;
   font-weight: 600;
-  color: #444;
+  color: var(--text-secondary);
   margin: 0 0 8px 0;
   display: flex;
   align-items: center;
@@ -107,11 +107,11 @@
   height: 34px;
   padding: 0 8px;
   border-radius: 8px;
-  border: 1.5px solid #ddd;
-  background: #fff;
+  border: 1.5px solid var(--border-color);
+  background: var(--co-white);
   font-size: 12px;
   font-weight: 600;
-  color: #222;
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.18s ease;
   display: flex;
@@ -120,9 +120,9 @@
 }
 
 .quick-size-btn:hover:not(.added) {
-  border-color: #000;
-  background: #000;
-  color: #fff;
+  border-color: var(--co-blue);
+  background: var(--co-blue);
+  color: var(--co-white);
 }
 
 .quick-size-btn.added {
@@ -160,11 +160,11 @@
 }
 
 .color-swatch-btn:hover {
-  border-color: rgba(0, 0, 0, 0.3);
+  border-color: rgba(47, 90, 207, 0.5);
 }
 
 .color-swatch-btn.selected {
-  border-color: #222;
+  border-color: var(--co-blue);
 }
 
 .swatch-inner {

@@ -6,8 +6,8 @@
 /* ---- Page ---- */
 .cart-page {
   min-height: 100vh;
-  background-color: #f5f5f7;
-  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-secondary);
+  font-family: var(--font-family);
   padding-bottom: 60px;
 }
 
@@ -23,12 +23,12 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #999;
+  color: var(--text-secondary);
   margin-bottom: 20px;
 }
 
 .cart-breadcrumb .breadcrumb-link {
-  color: #999;
+  color: var(--text-secondary);
   text-decoration: none;
 }
 
@@ -59,14 +59,14 @@
 }
 
 .cart-empty-state p {
-  color: #999;
+  color: var(--text-secondary);
   margin: 20px 0 24px;
   font-size: 16px;
 }
 
 .btn-back-shopping {
   display: inline-block;
-  background: var(--co-black);
+  background: var(--co-blue);
   color: var(--co-white);
   padding: 14px 40px;
   border-radius: 24px;
@@ -77,7 +77,7 @@
 }
 
 .btn-back-shopping:hover {
-  background: #333;
+  background: var(--co-blue-dark);
 }
 
 /* ---- Layout ---- */
@@ -109,7 +109,7 @@
 
 .freeship-text {
   font-size: 14px;
-  color: #555;
+  color: var(--text-secondary);
   margin-bottom: 12px;
   display: flex;
   align-items: center;
@@ -121,7 +121,7 @@
 }
 
 .highlight-red {
-  color: #ef4444;
+  color: var(--co-error);
   font-weight: 700;
 }
 
@@ -139,14 +139,14 @@
 
 .progress-track {
   height: 6px;
-  background: #eee;
+  background: var(--co-gray-200);
   border-radius: 6px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #6b9dfc, var(--co-blue));
+  background: linear-gradient(90deg, var(--co-blue), #60a5fa);
   border-radius: 6px;
   transition: width 0.5s ease;
 }
@@ -289,7 +289,7 @@
 
 .item-variant {
   font-size: 13px;
-  color: #999;
+  color: var(--text-secondary);
   margin-bottom: auto;
 }
 
@@ -313,7 +313,7 @@
 
 .price-original {
   font-size: 13px;
-  color: #bbb;
+  color: var(--co-gray-400);
   text-decoration: line-through;
   margin-top: 2px;
 }
@@ -321,7 +321,7 @@
 .qty-control {
   display: flex;
   align-items: center;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: 20px;
   overflow: hidden;
 }
@@ -341,11 +341,11 @@
 }
 
 .qty-btn:hover:not(:disabled) {
-  background: #f3f4f6;
+  background: var(--bg-secondary);
 }
 
 .qty-btn:disabled {
-  color: #d1d5db;
+  color: var(--co-gray-300);
   cursor: not-allowed;
 }
 
@@ -399,7 +399,7 @@
 
 .btn-apply {
   padding: 0 20px;
-  background: var(--co-black);
+  background: var(--co-blue);
   color: var(--co-white);
   border: none;
   border-radius: 24px;
@@ -411,12 +411,12 @@
 }
 
 .btn-apply:hover:not(:disabled) {
-  background: #333;
+  background: var(--co-blue-dark);
 }
 
 .btn-apply:disabled {
-  background: #ddd;
-  color: #999;
+  background: var(--co-gray-200);
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 
@@ -432,7 +432,7 @@
   display: flex;
   justify-content: space-between;
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .sum-row span:last-child,
@@ -446,15 +446,22 @@
 
 .sum-divider {
   height: 1px;
-  background: #eee;
+  background: var(--border-color);
   margin: 4px 0;
 }
 
 .sum-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   font-size: 16px;
   color: var(--co-black);
-  align-items: flex-end;
   padding-top: 4px;
+}
+
+.sum-total strong,
+.sum-total .total-big {
+  color: var(--co-blue);
 }
 
 .total-block {
@@ -469,7 +476,7 @@
 
 .vat-note {
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary);
   font-weight: 400;
   margin-top: 2px;
   display: block;
@@ -492,12 +499,12 @@
 }
 
 .btn-checkout:hover:not(:disabled) {
-  background: #333;
+  background: var(--co-gray-800);
 }
 
 .btn-checkout:disabled {
-  background: #ddd;
-  color: #999;
+  background: var(--co-gray-200);
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 
@@ -516,10 +523,10 @@
   text-align: center;
   gap: 8px;
   padding: 16px 8px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .badge-box svg {

@@ -6,8 +6,8 @@
 /* ---- Page Container ---- */
 .checkout-page-container {
   min-height: 100vh;
-  background-color: #f5f5f7;
-  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-secondary);
+  font-family: var(--font-family);
   padding-bottom: 100px;
 }
 
@@ -32,7 +32,7 @@
 }
 
 .breadcrumb-link {
-  color: #999;
+  color: var(--text-secondary);
   text-decoration: none;
 }
 
@@ -46,7 +46,7 @@
 }
 
 .breadcrumb-inactive {
-  color: #ccc;
+  color: var(--co-gray-400);
 }
 
 /* ---- Two-Column Layout ---- */
@@ -129,7 +129,7 @@
 .input-label {
   display: block;
   font-size: 13px;
-  color: #666;
+  color: var(--text-secondary);
   margin-bottom: 6px;
   font-weight: 500;
 }
@@ -137,7 +137,7 @@
 .checkout-input {
   width: 100%;
   padding: 11px 16px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 24px;
   font-size: 14px;
   outline: none;
@@ -151,11 +151,11 @@
 }
 
 .input-error {
-  border-color: #ef4444 !important;
+  border-color: var(--co-error) !important;
 }
 
 .field-error {
-  color: #ef4444;
+  color: var(--co-error);
   font-size: 12px;
   margin-top: 4px;
 }
@@ -179,7 +179,7 @@
   right: 16px;
   top: 50%;
   transform: translateY(-50%);
-  color: #999;
+  color: var(--text-secondary);
   pointer-events: none;
   transition: color 0.2s;
 }
@@ -189,15 +189,15 @@
 }
 
 .checkout-select:disabled {
-  background-color: #f9fafb;
+  background-color: var(--bg-secondary);
   cursor: not-allowed;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 /* ---- Input With Prefix ---- */
 .input-with-prefix {
   display: flex;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 24px;
   overflow: hidden;
 }
@@ -212,7 +212,7 @@
   background: transparent;
   padding: 11px 14px;
   font-size: 14px;
-  border-right: 1px solid #eee;
+  border-right: 1px solid var(--border-color);
   outline: none;
   cursor: pointer;
   color: var(--co-black);
@@ -233,7 +233,7 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border-color);
   padding-top: 24px;
 }
 
@@ -253,7 +253,7 @@
 .checkbox-icon {
   width: 20px;
   height: 20px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   position: relative;
   transition: all 0.2s;
@@ -262,8 +262,8 @@
 }
 
 .custom-checkbox-label input:checked+.checkbox-icon {
-  background-color: #2b56e6;
-  border-color: #2b56e6;
+  background-color: var(--co-blue);
+  border-color: var(--co-blue);
 }
 
 .custom-checkbox-label input:checked+.checkbox-icon::after {
@@ -295,7 +295,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 10px 12px;
   cursor: pointer;
@@ -304,12 +304,12 @@
 }
 
 .payment-card:hover {
-  border-color: #bbb;
+  border-color: var(--co-gray-400);
 }
 
 .payment-card.selected {
   border-color: var(--co-blue);
-  background: #f0f4ff;
+  background: var(--co-blue-light);
 }
 
 .payment-card input {
@@ -376,14 +376,14 @@
 .payment-sub-text {
   display: block;
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
 .vnpay-promo-badge {
   display: inline-block;
-  background: #e8f0ff;
-  color: #0066cc;
+  background: var(--co-blue-light);
+  color: var(--co-blue);
   font-size: 12px;
   padding: 2px 8px;
   border-radius: 4px;
@@ -393,7 +393,7 @@
 
 .payment-return-policy {
   font-size: 13px;
-  color: #999;
+  color: var(--text-secondary);
   line-height: 1.6;
   margin-top: 16px;
 }
@@ -417,7 +417,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background-color: #e6ebfa;
+  background-color: var(--co-blue-light);
   color: var(--co-blue);
   padding: 12px 16px;
   border-radius: 8px;
@@ -431,7 +431,7 @@
   justify-content: space-between;
   align-items: center;
   padding-bottom: 14px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color);
   margin-bottom: 16px;
 }
 
@@ -443,7 +443,7 @@
 
 .clear-all-btn {
   font-size: 13px;
-  color: #999;
+  color: var(--text-secondary);
   background: none;
   border: none;
   cursor: pointer;
@@ -451,7 +451,7 @@
 
 .clear-all-btn:hover {
   text-decoration: underline;
-  color: #ef4444;
+  color: var(--co-error);
 }
 
 /* ---- Cart Items ---- */
@@ -460,13 +460,13 @@
   flex-direction: column;
   gap: 20px;
   padding-bottom: 20px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .empty-cart-msg {
   text-align: center;
   padding: 40px 0;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .unified-cart-item {
@@ -513,7 +513,7 @@
 
 .fake-select {
   padding: 3px 10px;
-  background: #f3f4f6;
+  background: var(--bg-secondary);
   border-radius: 14px;
   font-size: 12px;
   display: inline-flex;
@@ -527,7 +527,7 @@
 .unified-item-remove {
   background: none;
   border: none;
-  color: #aaa;
+  color: var(--text-secondary);
   font-size: 13px;
   display: flex;
   align-items: center;
@@ -537,7 +537,7 @@
 }
 
 .unified-item-remove:hover {
-  color: #ef4444;
+  color: var(--co-error);
 }
 
 .unified-qty-price {
@@ -551,13 +551,13 @@
 .unified-item-price {
   font-weight: 700;
   font-size: 15px;
-  color: var(--co-black);
+  color: var(--co-blue);
 }
 
 .unified-qty-control {
   display: flex;
   align-items: center;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: 20px;
   overflow: hidden;
 }
@@ -576,7 +576,7 @@
 }
 
 .unified-qty-control button:disabled {
-  color: #d1d5db;
+  color: var(--co-gray-300);
   cursor: not-allowed;
 }
 
@@ -607,18 +607,18 @@
 }
 
 .coupon-ticket-scroll::-webkit-scrollbar-thumb {
-  background: #ddd;
+  background: var(--co-gray-300);
   border-radius: 3px;
 }
 
 .coupon-ticket {
-  background: #f4f6fb;
+  background: var(--co-blue-light);
   border-radius: 8px;
   padding: 12px 14px;
   min-width: 240px;
   display: flex;
   justify-content: space-between;
-  border-left: 4px dashed #ccc;
+  border-left: 4px dashed var(--border-color);
   flex-shrink: 0;
 }
 
@@ -632,12 +632,12 @@
 
 .ticket-desc {
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .ticket-expiry {
   font-size: 11px;
-  color: #aaa;
+  color: var(--co-gray-400);
   margin-top: 6px;
 }
 
@@ -652,7 +652,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 2px solid #bbb;
+  border: 2px solid var(--co-gray-400);
 }
 
 .ticket-link {
@@ -665,7 +665,7 @@
 .checkout-coupon-box {
   margin-top: 16px;
   padding-bottom: 20px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .btn-wallet-voucher {
@@ -684,7 +684,7 @@
 }
 
 .btn-wallet-voucher:hover {
-  background: #f0f4ff;
+  background: var(--co-blue-light);
 }
 
 .input-group-row {
@@ -732,7 +732,7 @@
 }
 
 .calc-label {
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .calc-refund {
@@ -740,13 +740,13 @@
 }
 
 .coolcash-value {
-  color: #d97706;
+  color: var(--co-blue);
 }
 
 .calc-total {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border-color);
   font-size: 16px;
 }
 
@@ -761,7 +761,7 @@
 
 .vat-note {
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary);
   font-weight: 400;
   margin-top: 2px;
 }
@@ -789,7 +789,7 @@
   flex: 1;
   display: flex;
   align-items: center;
-  background: #f2f6fd;
+  background: var(--co-blue-light);
   padding: 8px 16px;
 }
 
@@ -807,13 +807,13 @@
   gap: 8px;
   flex: 1;
   font-size: 14px;
-  color: #555;
+  color: var(--text-secondary);
   line-height: 1.2;
 }
 
 .payment-method-indicator strong {
   font-weight: 700;
-  color: #333;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
@@ -827,7 +827,7 @@
 .bar-divider {
   width: 1px;
   height: 20px;
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--border-color);
   margin: 0 12px;
   flex-shrink: 0;
 }
@@ -839,7 +839,7 @@
   flex: 1;
   justify-content: center;
   font-size: 14px;
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--text-secondary);
   cursor: pointer;
 }
 
@@ -899,7 +899,7 @@
 
 /* Button — full height, dark, no border-radius */
 .btn-place-order-sticky {
-  background: #1a1a1a;
+  background: var(--co-black);
   color: var(--co-white);
   border: none;
   height: 100%;
@@ -917,11 +917,11 @@
 }
 
 .btn-place-order-sticky:hover {
-  background: #333;
+  background: var(--co-gray-800);
 }
 
 .btn-place-order-sticky:disabled {
-  background: #ccc;
+  background: var(--co-gray-300);
   cursor: not-allowed;
 }
 

@@ -257,6 +257,53 @@
   gap: 8px;
 }
 
+.account-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.account-toggle {
+  border: 1px solid var(--co-gray-200);
+  background: #fff;
+  border-radius: 999px;
+  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.account-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--co-white);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  min-width: 180px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 120;
+}
+
+.account-item {
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.account-item:hover {
+  background: var(--bg-secondary);
+}
+
 .auth-link {
   font-size: 14px;
   font-weight: 600;
@@ -390,13 +437,13 @@
     font-size: 14px;
   }
 
-  .mobile-search svg { color: #999; flex-shrink: 0; }
+  .mobile-search svg { color: var(--text-secondary); flex-shrink: 0; }
 
   /* Mobile Nav */
   .mobile-nav {
     display: flex;
     flex-direction: column;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border-color);
     padding-bottom: 16px;
     margin-bottom: 16px;
   }
@@ -415,14 +462,14 @@
     cursor: pointer;
     width: 100%;
     text-align: left;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--bg-secondary);
   }
 
   .mobile-nav-link svg { transition: transform 0.2s; }
   .mobile-nav-link svg.rotated { transform: rotate(180deg); }
 
   .mobile-new { color: var(--co-blue); }
-  .mobile-sale { color: #ef4444; border-bottom: none; }
+  .mobile-sale { color: var(--co-error); border-bottom: none; }
 
   .mobile-sub-menu {
     display: flex;
@@ -439,9 +486,9 @@
   .mobile-sub-menu a {
     padding: 10px 0;
     font-size: 14px;
-    color: #666;
+    color: var(--text-secondary);
     text-decoration: none;
-    border-bottom: 1px solid #f8f9fa;
+    border-bottom: 1px solid var(--bg-secondary);
   }
 
   .mobile-sub-menu a:hover { color: var(--co-blue); }
@@ -460,16 +507,16 @@
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    border: 1px solid #ddd;
-    background: white;
+    border: 1px solid var(--border-color);
+    background: var(--co-white);
     color: var(--co-black);
     transition: all 0.2s;
   }
 
   .mobile-auth-register {
-    background: var(--co-black);
+    background: var(--co-blue);
     color: white;
-    border-color: var(--co-black);
+    border-color: var(--co-blue);
   }
 
   /* Mobile Quick Links */
@@ -485,7 +532,7 @@
     gap: 10px;
     padding: 12px 0;
     font-size: 14px;
-    color: #666;
+    color: var(--text-secondary);
     text-decoration: none;
   }
 

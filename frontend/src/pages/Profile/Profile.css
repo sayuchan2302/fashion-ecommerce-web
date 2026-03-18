@@ -639,10 +639,14 @@
   font-weight: 600;
 }
 
-.order-list {
+.profile-page .order-list {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.profile-page .order-card {
+  width: 100%;
 }
 
 .order-card {
@@ -711,11 +715,14 @@
 
 .order-card-items {
   padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .order-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
   padding: 8px 0;
 }

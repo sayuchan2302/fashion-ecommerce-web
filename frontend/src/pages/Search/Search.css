@@ -6,7 +6,7 @@
 
 /* Breadcrumbs */
 .breadcrumb-wrapper {
-  background-color: #f8f9fa;
+  background-color: var(--bg-secondary);
   padding: 12px 0;
   margin-bottom: 30px;
 }
@@ -90,25 +90,25 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 16px;
-  background: white;
+   background: var(--co-white);
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .search-history-item:hover {
-  background: #f0f4ff;
+  background: var(--co-blue-light);
 }
 
 .search-history-text {
   font-size: 14px;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 .search-history-del {
   background: none;
   border: none;
-  color: #ccc;
+  color: var(--co-gray-400);
   cursor: pointer;
   padding: 4px;
   display: flex;
@@ -116,7 +116,7 @@
 }
 
 .search-history-del:hover {
-  color: #ef4444;
+  color: var(--co-error);
 }
 
 .search-popular {
@@ -134,8 +134,8 @@
 }
 
 .search-keyword-chip {
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--co-white);
+  border: 1px solid var(--border-color);
   border-radius: 999px;
   padding: 8px 20px;
   font-size: 14px;
@@ -147,7 +147,7 @@
 .search-keyword-chip:hover {
   border-color: var(--co-blue);
   color: var(--co-blue);
-  background: #f0f4ff;
+  background: var(--co-blue-light);
 }
 
 /* PLP Results Layout */

@@ -70,7 +70,7 @@
 }
 
 .newsletter-submit:hover {
-  background-color: #f1f5f9;
+  background-color: var(--co-blue-light);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }

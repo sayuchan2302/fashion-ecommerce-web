@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { X, Facebook, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import './AuthModal.css';
 
 interface AuthModalProps {
@@ -26,6 +29,10 @@ const AuthModal = ({ isOpen, onClose, initialTab = 'login' }: AuthModalProps) =>
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { login, register } = useAuth();
+  const { addToast } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Form states
   const [fullName, setFullName] = useState('');
@@ -94,7 +101,7 @@ const AuthModal = ({ isOpen, onClose, initialTab = 'login' }: AuthModalProps) =>
     return errors;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errors = activeTab === 'login' ? validateLogin() : validateRegister();
     if (activeTab === 'login') {
@@ -104,12 +111,23 @@ const AuthModal = ({ isOpen, onClose, initialTab = 'login' }: AuthModalProps) =>
     }
     if (Object.keys(errors).length > 0) return;
 
-    setIsLoading(true);
-    // Simulate auth API call
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      setIsLoading(true);
+      if (activeTab === 'login') {
+        await login(email.trim(), password.trim());
+        addToast('Đăng nhập thành công', 'success');
+      } else {
+        await register(fullName.trim(), email.trim(), password.trim());
+        addToast('Tạo tài khoản thành công', 'success');
+      }
+      const redirectTo = (location.state as any)?.from || '/';
       onClose();
-    }, 1200);
+      navigate(redirectTo, { replace: true });
+    } catch (err: any) {
+      addToast(err?.message || 'Thao tác thất bại', 'error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Clear error when user types
@@ -246,7 +264,7 @@ const AuthModal = ({ isOpen, onClose, initialTab = 'login' }: AuthModalProps) =>
 
               {activeTab === 'login' && (
                 <div className="auth-forgot-password">
-                  <a href="#">Quên mật khẩu?</a>
+                  <Link to="/forgot" onClick={onClose}>Quên mật khẩu?</Link>
                 </div>
               )}
 

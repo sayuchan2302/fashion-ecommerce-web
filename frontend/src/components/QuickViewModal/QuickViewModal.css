@@ -18,7 +18,7 @@
 
 /* ─── Modal ──────────────────────────────────────────────── */
 .qv-modal {
-  background: white;
+  background: var(--co-white);
   border-radius: 16px;
   max-width: 900px;
   width: 100%;
@@ -38,7 +38,7 @@
   position: absolute;
   top: 16px;
   right: 16px;
-  background: white;
+  background: var(--co-white);
   border: none;
   width: 40px;
   height: 40px;
@@ -47,7 +47,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #333;
+  color: var(--text-primary);
   z-index: 10;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   transition: transform 0.2s;
@@ -86,7 +86,7 @@
   position: absolute;
   top: 16px;
   left: 16px;
-  background: #ef4444;
+  background: var(--co-error);
   color: white;
   font-size: 13px;
   font-weight: 700;
@@ -127,7 +127,7 @@
 
 .qv-original-price {
   font-size: 16px;
-  color: #999;
+  color: var(--text-secondary);
   text-decoration: line-through;
 }
 
@@ -141,7 +141,7 @@
 .qv-label {
   font-size: 14px;
   font-weight: 600;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 /* Color Swatches */
@@ -174,14 +174,14 @@
 
 .qv-size-btn {
   padding: 8px 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: white;
+  background: var(--co-white);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .qv-size-btn:hover {
@@ -200,7 +200,7 @@
   display: flex;
   align-items: center;
   gap: 0;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   width: fit-content;
 }
@@ -214,7 +214,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #555;
+  color: var(--text-secondary);
   transition: color 0.15s;
 }
 
@@ -232,7 +232,7 @@
   text-align: center;
   font-weight: 700;
   font-size: 16px;
-  color: #333;
+  color: var(--text-primary);
 }
 
 /* Actions */
@@ -265,32 +265,32 @@
 }
 
 .qv-add-cart-btn.added {
-  background-color: #10b981;
+  background-color: var(--co-success);
 }
 
 .qv-wishlist-btn {
   width: 50px;
   height: 50px;
   flex-shrink: 0;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: 10px;
-  background: white;
+  background: var(--co-white);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #999;
+  color: var(--text-secondary);
   transition: all 0.2s;
 }
 
 .qv-wishlist-btn:hover {
-  border-color: #ef4444;
-  color: #ef4444;
+  border-color: var(--co-error);
+  color: var(--co-error);
 }
 
 .qv-wishlist-btn.wished {
-  color: #ef4444;
-  border-color: #ef4444;
+  color: var(--co-error);
+  border-color: var(--co-error);
   background-color: #fef2f2;
 }
 

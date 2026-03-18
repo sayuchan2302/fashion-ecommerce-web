@@ -23,6 +23,18 @@ import { CartAnimationProvider } from './context/CartAnimationContext';
 import { WishlistProvider } from './contexts/WishlistContext';
 import { CartProvider } from './contexts/CartContext';
 import { FilterProvider } from './contexts/FilterContext';
+import { AuthProvider } from './contexts/AuthContext';
+import Login from './pages/Auth/Login';
+import Register from './pages/Auth/Register';
+import ForgotPassword from './pages/Auth/ForgotPassword';
+import ResetPassword from './pages/Auth/ResetPassword';
+import OrdersPage from './pages/Account/OrdersPage';
+import AddressesPage from './pages/Account/AddressesPage';
+import SecurityPage from './pages/Account/SecurityPage';
+import OrderDetailPage from './pages/Account/OrderDetailPage';
+import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
+import OrderTracking from './pages/OrderTracking/OrderTracking';
+import Returns from './pages/Returns/Returns';
 
 const MainLayout = () => {
   const location = useLocation();
@@ -41,38 +53,50 @@ const MainLayout = () => {
 function App() {
   return (
     <ToastProvider>
-      <CartProvider>
-        <CartAnimationProvider>
-          <WishlistProvider>
-            <FilterProvider>
-        <Router>
-          <ScrollToTop />
-          <div className="app-container">
-            <Routes>
-              {/* All routes share standard layout (Header, Footer) */}
-              <Route element={<MainLayout />}>
-                <Route path="/" element={<Home />} />
-                <Route path="/category/:id" element={<ProductListing />} />
-                <Route path="/product/:id" element={<ProductDetail />} />
-                <Route path="/cart" element={<Cart />} />
-                <Route path="/checkout" element={<Checkout />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/order-success" element={<OrderSuccess />} />
-                <Route path="/search" element={<Search />} />
-                <Route path="/wishlist" element={<Wishlist />} />
-                <Route path="/policy/:type" element={<Policy />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="/profile/orders/:id" element={<OrderDetail />} />
-                <Route path="*" element={<NotFound />} />
-              </Route>
-            </Routes>
-          </div>
-        </Router>
-            </FilterProvider>
-        </WishlistProvider>
-      </CartAnimationProvider>
-      </CartProvider>
+      <AuthProvider>
+        <CartProvider>
+          <CartAnimationProvider>
+            <WishlistProvider>
+              <FilterProvider>
+                <Router>
+                  <ScrollToTop />
+                  <div className="app-container">
+                    <Routes>
+                      {/* All routes share standard layout (Header, Footer) */}
+                      <Route element={<MainLayout />}>
+                        <Route path="/" element={<Home />} />
+                        <Route path="/category/:id" element={<ProductListing />} />
+                        <Route path="/product/:id" element={<ProductDetail />} />
+                        <Route path="/cart" element={<Cart />} />
+                        <Route path="/checkout" element={<Checkout />} />
+                        <Route path="/profile" element={<Profile />} />
+                        <Route path="/order-success" element={<OrderSuccess />} />
+                        <Route path="/search" element={<Search />} />
+                        <Route path="/wishlist" element={<Wishlist />} />
+                        <Route path="/order-tracking" element={<OrderTracking />} />
+                        <Route path="/returns" element={<Returns />} />
+                        <Route path="/policy/:type" element={<Policy />} />
+                        <Route path="/about" element={<About />} />
+                        <Route path="/contact" element={<Contact />} />
+                        <Route path="/profile/orders/:id" element={<OrderDetail />} />
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/register" element={<Register />} />
+                        <Route path="/forgot" element={<ForgotPassword />} />
+                        <Route path="/reset" element={<ResetPassword />} />
+                        <Route path="/account/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
+                        <Route path="/account/orders/:id" element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
+                        <Route path="/account/addresses" element={<ProtectedRoute><AddressesPage /></ProtectedRoute>} />
+                        <Route path="/account/security" element={<ProtectedRoute><SecurityPage /></ProtectedRoute>} />
+                        <Route path="*" element={<NotFound />} />
+                      </Route>
+                    </Routes>
+                  </div>
+                </Router>
+              </FilterProvider>
+            </WishlistProvider>
+          </CartAnimationProvider>
+        </CartProvider>
+      </AuthProvider>
     </ToastProvider>
   );
 }
