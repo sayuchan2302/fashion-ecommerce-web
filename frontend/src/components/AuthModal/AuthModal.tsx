@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { X, Facebook, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import { authService } from '../../services/authService';
 import './AuthModal.css';
 
 interface AuthModalProps {
@@ -26,6 +27,7 @@ interface RegisterErrors {
 
 const AuthModal = ({ isOpen, onClose, initialTab = 'login' }: AuthModalProps) => {
   const [activeTab, setActiveTab] = useState<'login' | 'register'>(initialTab);
+  const [isForgot, setIsForgot] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -39,13 +41,16 @@ const AuthModal = ({ isOpen, onClose, initialTab = 'login' }: AuthModalProps) =>
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [forgotEmail, setForgotEmail] = useState('');
 
   // Validation error states
   const [loginErrors, setLoginErrors] = useState<LoginErrors>({});
   const [registerErrors, setRegisterErrors] = useState<RegisterErrors>({});
+  const [forgotError, setForgotError] = useState<string | null>(null);
 
   const handleTabChange = (tab: 'login' | 'register') => {
     setActiveTab(tab);
+    setIsForgot(false);
     // Reset form states
     setFullName('');
     setEmail('');
@@ -55,6 +60,8 @@ const AuthModal = ({ isOpen, onClose, initialTab = 'login' }: AuthModalProps) =>
     setShowConfirmPassword(false);
     setLoginErrors({});
     setRegisterErrors({});
+    setForgotEmail('');
+    setForgotError(null);
     setIsLoading(false);
   };
 
@@ -69,6 +76,7 @@ const AuthModal = ({ isOpen, onClose, initialTab = 'login' }: AuthModalProps) =>
     // Reset tab when reopened
     if (isOpen) {
       setActiveTab(initialTab);
+      setIsForgot(false);
     }
 
     return () => {
@@ -138,6 +146,26 @@ const AuthModal = ({ isOpen, onClose, initialTab = 'login' }: AuthModalProps) =>
     if (registerErrors[field]) setRegisterErrors(prev => ({ ...prev, [field]: undefined }));
   };
 
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) {
+      setForgotError('Vui lòng nhập email');
+      return;
+    }
+    setForgotError(null);
+    try {
+      setIsLoading(true);
+      await authService.forgot(forgotEmail.trim());
+      addToast('Đã gửi hướng dẫn đặt lại mật khẩu (mock)', 'success');
+      setIsForgot(false);
+      setForgotEmail('');
+    } catch (err: any) {
+      addToast(err?.message || 'Gửi yêu cầu thất bại', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const content = (
     <div className="auth-modal-overlay" onClick={onClose} style={{ display: isOpen ? 'flex' : 'none' }}>
       <div className="auth-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -145,136 +173,166 @@ const AuthModal = ({ isOpen, onClose, initialTab = 'login' }: AuthModalProps) =>
           <X size={24} />
         </button>
 
-        <div className="auth-tabs">
-          <button 
-            className={`auth-tab-btn ${activeTab === 'login' ? 'active' : ''}`}
-            onClick={() => handleTabChange('login')}
-          >
-            Đăng nhập
-          </button>
-          <button 
-            className={`auth-tab-btn ${activeTab === 'register' ? 'active' : ''}`}
-            onClick={() => handleTabChange('register')}
-          >
-            Đăng ký
-          </button>
-        </div>
+        {!isForgot && (
+          <div className="auth-tabs">
+            <button 
+              className={`auth-tab-btn ${activeTab === 'login' ? 'active' : ''}`}
+              onClick={() => handleTabChange('login')}
+            >
+              Đăng nhập
+            </button>
+            <button 
+              className={`auth-tab-btn ${activeTab === 'register' ? 'active' : ''}`}
+              onClick={() => handleTabChange('register')}
+            >
+              Đăng ký
+            </button>
+          </div>
+        )}
 
         <div className="auth-form-container">
-          <div key={activeTab} className="auth-tab-content">
-            <p className="auth-subtitle">
-              {activeTab === 'login' 
-                ? 'Đăng nhập để không bỏ lỡ quyền lợi tích luỹ và hoàn tiền cho bất kỳ đơn hàng nào.'
-                : 'Trở thành thành viên Coolmate để nhận nhiều ưu đãi độc quyền.'}
-            </p>
+          {!isForgot ? (
+            <div key={activeTab} className="auth-tab-content">
+              <p className="auth-subtitle">
+                {activeTab === 'login' 
+                  ? 'Đăng nhập để không bỏ lỡ quyền lợi tích luỹ và hoàn tiền cho bất kỳ đơn hàng nào.'
+                  : 'Trở thành thành viên Coolmate để nhận nhiều ưu đãi độc quyền.'}
+              </p>
 
-            <form className="auth-form" onSubmit={handleSubmit} noValidate>
-              {activeTab === 'register' && (
-                <div className="form-group">
-                  <input 
-                    type="text" 
-                    placeholder="Họ và tên *" 
-                    className={`form-input ${registerErrors.fullName ? 'input-error' : ''}`}
-                    value={fullName}
-                    onChange={(e) => { setFullName(e.target.value); clearRegisterError('fullName'); }}
-                  />
-                  {registerErrors.fullName && <span className="field-error">{registerErrors.fullName}</span>}
-                </div>
-              )}
-              
-              <div className="form-group">
-                <input 
-                  type="email" 
-                  placeholder="Email / Số điện thoại *" 
-                  className={`form-input ${(activeTab === 'login' ? loginErrors.email : registerErrors.email) ? 'input-error' : ''}`}
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    activeTab === 'login' ? clearLoginError('email') : clearRegisterError('email');
-                  }}
-                />
-                {activeTab === 'login' && loginErrors.email && <span className="field-error">{loginErrors.email}</span>}
-                {activeTab === 'register' && registerErrors.email && <span className="field-error">{registerErrors.email}</span>}
-              </div>
-              
-              <div className="form-group">
-                <div className="password-input-wrapper">
-                  <input 
-                    type={showPassword ? "text" : "password"} 
-                    placeholder="Mật khẩu *" 
-                    className={`form-input ${(activeTab === 'login' ? loginErrors.password : registerErrors.password) ? 'input-error' : ''}`}
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      activeTab === 'login' ? clearLoginError('password') : clearRegisterError('password');
-                    }}
-                  />
-                  <button 
-                    type="button"
-                    className="password-toggle-btn"
-                    onClick={() => setShowPassword(!showPassword)}
-                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                    tabIndex={-1}
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-                {activeTab === 'login' && loginErrors.password && <span className="field-error">{loginErrors.password}</span>}
-                {activeTab === 'register' && registerErrors.password && <span className="field-error">{registerErrors.password}</span>}
-                {/* Password strength indicator for register */}
-                {activeTab === 'register' && password.length > 0 && (
-                  <div className="password-strength">
-                    <div className={`strength-bar ${password.length < 6 ? 'weak' : password.length < 10 ? 'medium' : 'strong'}`}></div>
-                    <span className="strength-label">
-                      {password.length < 6 ? 'Yếu' : password.length < 10 ? 'Trung bình' : 'Mạnh'}
-                    </span>
+              <form className="auth-form" onSubmit={handleSubmit} noValidate>
+                {activeTab === 'register' && (
+                  <div className="form-group">
+                    <input 
+                      type="text" 
+                      placeholder="Họ và tên *" 
+                      className={`form-input ${registerErrors.fullName ? 'input-error' : ''}`}
+                      value={fullName}
+                      onChange={(e) => { setFullName(e.target.value); clearRegisterError('fullName'); }}
+                    />
+                    {registerErrors.fullName && <span className="field-error">{registerErrors.fullName}</span>}
                   </div>
                 )}
-              </div>
-
-              {activeTab === 'register' && (
+                
+                <div className="form-group">
+                  <input 
+                    type="email" 
+                    placeholder="Email / Số điện thoại *" 
+                    className={`form-input ${(activeTab === 'login' ? loginErrors.email : registerErrors.email) ? 'input-error' : ''}`}
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      activeTab === 'login' ? clearLoginError('email') : clearRegisterError('email');
+                    }}
+                  />
+                  {activeTab === 'login' && loginErrors.email && <span className="field-error">{loginErrors.email}</span>}
+                  {activeTab === 'register' && registerErrors.email && <span className="field-error">{registerErrors.email}</span>}
+                </div>
+                
                 <div className="form-group">
                   <div className="password-input-wrapper">
                     <input 
-                      type={showConfirmPassword ? "text" : "password"} 
-                      placeholder="Nhập lại mật khẩu *" 
-                      className={`form-input ${registerErrors.confirmPassword ? 'input-error' : ''}`}
-                      value={confirmPassword}
-                      onChange={(e) => { setConfirmPassword(e.target.value); clearRegisterError('confirmPassword'); }}
+                      type={showPassword ? "text" : "password"} 
+                      placeholder="Mật khẩu *" 
+                      className={`form-input ${(activeTab === 'login' ? loginErrors.password : registerErrors.password) ? 'input-error' : ''}`}
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        activeTab === 'login' ? clearLoginError('password') : clearRegisterError('password');
+                      }}
                     />
                     <button 
                       type="button"
                       className="password-toggle-btn"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      aria-label={showConfirmPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                       tabIndex={-1}
                     >
-                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
-                  {registerErrors.confirmPassword && <span className="field-error">{registerErrors.confirmPassword}</span>}
-                  {/* Match indicator */}
-                  {confirmPassword.length > 0 && (
-                    <span className={`match-indicator ${confirmPassword === password ? 'match' : 'no-match'}`}>
-                      {confirmPassword === password ? '✓ Mật khẩu khớp' : '✗ Mật khẩu chưa khớp'}
-                    </span>
+                  {activeTab === 'login' && loginErrors.password && <span className="field-error">{loginErrors.password}</span>}
+                  {activeTab === 'register' && registerErrors.password && <span className="field-error">{registerErrors.password}</span>}
+                  {/* Password strength indicator for register */}
+                  {activeTab === 'register' && password.length > 0 && (
+                    <div className="password-strength">
+                      <div className={`strength-bar ${password.length < 6 ? 'weak' : password.length < 10 ? 'medium' : 'strong'}`}></div>
+                      <span className="strength-label">
+                        {password.length < 6 ? 'Yếu' : password.length < 10 ? 'Trung bình' : 'Mạnh'}
+                      </span>
+                    </div>
                   )}
                 </div>
-              )}
 
-              {activeTab === 'login' && (
-                <div className="auth-forgot-password">
-                  <Link to="/forgot" onClick={onClose}>Quên mật khẩu?</Link>
+                {activeTab === 'register' && (
+                  <div className="form-group">
+                    <div className="password-input-wrapper">
+                      <input 
+                        type={showConfirmPassword ? "text" : "password"} 
+                        placeholder="Nhập lại mật khẩu *" 
+                        className={`form-input ${registerErrors.confirmPassword ? 'input-error' : ''}`}
+                        value={confirmPassword}
+                        onChange={(e) => { setConfirmPassword(e.target.value); clearRegisterError('confirmPassword'); }}
+                      />
+                      <button 
+                        type="button"
+                        className="password-toggle-btn"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        aria-label={showConfirmPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                        tabIndex={-1}
+                      >
+                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                    {registerErrors.confirmPassword && <span className="field-error">{registerErrors.confirmPassword}</span>}
+                    {/* Match indicator */}
+                    {confirmPassword.length > 0 && (
+                      <span className={`match-indicator ${confirmPassword === password ? 'match' : 'no-match'}`}>
+                        {confirmPassword === password ? '✓ Mật khẩu khớp' : '✗ Mật khẩu chưa khớp'}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'login' && (
+                  <div className="auth-forgot-password">
+                    <button type="button" className="auth-link-btn" onClick={() => { setIsForgot(true); setForgotEmail(email); setForgotError(null); }}>
+                      Quên mật khẩu?
+                    </button>
+                  </div>
+                )}
+
+                <button type="submit" className="btn-auth-submit" disabled={isLoading}>
+                  {isLoading ? (
+                    <><Loader2 size={18} className="auth-spinner" /> Đang xử lý...</>
+                  ) : (activeTab === 'login' ? 'Đăng nhập' : 'Đăng ký')}
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="auth-tab-content">
+              <p className="auth-subtitle">Nhập email để nhận hướng dẫn đặt lại mật khẩu.</p>
+              <form className="auth-form" onSubmit={handleForgotSubmit}>
+                <div className="form-group">
+                  <input
+                    type="email"
+                    className={`form-input ${forgotError ? 'input-error' : ''}`}
+                    placeholder="you@example.com"
+                    value={forgotEmail}
+                    onChange={(e) => { setForgotEmail(e.target.value); setForgotError(null); }}
+                  />
+                  {forgotError && <span className="field-error">{forgotError}</span>}
                 </div>
-              )}
-
-              <button type="submit" className="btn-auth-submit" disabled={isLoading}>
-                {isLoading ? (
-                  <><Loader2 size={18} className="auth-spinner" /> Đang xử lý...</>
-                ) : (activeTab === 'login' ? 'Đăng nhập' : 'Đăng ký')}
-              </button>
-            </form>
-          </div>
+                <button type="submit" className="btn-auth-submit" disabled={isLoading}>
+                  {isLoading ? <><Loader2 size={18} className="auth-spinner" /> Đang gửi...</> : 'Gửi hướng dẫn'}
+                </button>
+                <div className="auth-link-row" style={{ marginTop: 8 }}>
+                  <button type="button" className="auth-link-btn" onClick={() => { setIsForgot(false); setForgotError(null); }}>
+                    Quay lại đăng nhập
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
 
           <div className="auth-divider">
             <span>hoặc</span>

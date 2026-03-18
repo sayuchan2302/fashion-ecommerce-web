@@ -196,6 +196,14 @@
   padding: 0 16px;
 }
 
+.auth-link-btn {
+  background: none;
+  border: none;
+  color: var(--co-blue);
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .auth-form {
   display: flex;
   flex-direction: column;
