@@ -7,6 +7,7 @@ interface AdminLayoutProps {
   title: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
+  hideTopbarTitle?: boolean;
 }
 
 const navItems = [
@@ -20,7 +21,7 @@ const navItems = [
   { label: 'Cấu hình', to: '/admin/settings' },
 ];
 
-const AdminLayout = ({ title, actions, children }: AdminLayoutProps) => {
+const AdminLayout = ({ title, actions, children, hideTopbarTitle = false }: AdminLayoutProps) => {
   const location = useLocation();
 
   const breadcrumbs = () => {
@@ -29,6 +30,8 @@ const AdminLayout = ({ title, actions, children }: AdminLayoutProps) => {
     if (path.startsWith('/admin/orders')) return ['Đơn hàng', 'Danh sách'];
     if (path.startsWith('/admin/products')) return ['Sản phẩm', 'Danh sách'];
     if (path.startsWith('/admin/categories')) return ['Danh mục', 'Danh sách'];
+    if (path.startsWith('/admin/customers') || path.startsWith('/admin/customer')) return ['Khách hàng', 'Danh sách'];
+    if (path.startsWith('/admin/promotions')) return ['Khuyến mãi', 'Danh sách'];
     return ['Tổng quan'];
   };
 
@@ -96,7 +99,7 @@ const AdminLayout = ({ title, actions, children }: AdminLayoutProps) => {
         </header>
 
         <div className="admin-topbar actions-row">
-          <h1>{title}</h1>
+          {!hideTopbarTitle ? <h1>{title}</h1> : <div className="admin-topbar-title-spacer" />}
           <div className="admin-topbar-actions">{actions}</div>
         </div>
         {children}

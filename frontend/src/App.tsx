@@ -40,6 +40,8 @@ import AdminOrders from './pages/Admin/AdminOrders';
 import AdminProducts from './pages/Admin/AdminProducts';
 import AdminOrderDetail from './pages/Admin/AdminOrderDetail';
 import AdminCategories from './pages/Admin/AdminCategories';
+import AdminCustomers from './pages/Admin/AdminCustomers';
+import AdminPromotions from './pages/Admin/AdminPromotions';
 
 const MainLayout = () => {
   const location = useLocation();
@@ -90,6 +92,9 @@ function App() {
                         <Route path="/admin/orders/:id" element={<AdminOrderDetail />} />
                         <Route path="/admin/products" element={<AdminProducts />} />
                         <Route path="/admin/categories" element={<AdminCategories />} />
+                        <Route path="/admin/customers" element={<AdminCustomers />} />
+                        <Route path="/admin/customer" element={<AdminCustomers />} />
+                        <Route path="/admin/promotions" element={<AdminPromotions />} />
                         <Route path="/policy/:type" element={<Policy />} />
                         <Route path="/about" element={<About />} />
                         <Route path="/contact" element={<Contact />} />
