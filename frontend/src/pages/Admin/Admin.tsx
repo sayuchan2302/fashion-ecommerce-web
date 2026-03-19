@@ -1,6 +1,7 @@
 import './Admin.css';
 import { Link } from 'react-router-dom';
-import { LayoutGrid, Package, DollarSign, AlertTriangle, Users, Tag, Shield, ArrowUpRight, ArrowDownRight, Search, Plus } from 'lucide-react';
+import { Package, DollarSign, AlertTriangle, Users, Tag, Shield, ArrowUpRight, ArrowDownRight, Search, Plus } from 'lucide-react';
+import AdminLayout from './AdminLayout';
 
 const stats = [
   { label: 'Đơn hôm nay', value: '248', change: '+12%', tone: 'up', icon: <Package size={18} /> },
@@ -22,112 +23,97 @@ const recentOrders = [
   { code: 'DH-10231', customer: 'Phạm Hương', total: '560.000 đ', status: 'Hoàn tất', channel: 'Kênh CSKH' },
 ];
 
+const statusTone = (status: string) => {
+  const s = status.toLowerCase();
+  if (s.includes('đang') || s.includes('chờ')) return 'pending';
+  if (s.includes('hoàn') || s.includes('đã thanh toán')) return 'success';
+  return 'neutral';
+};
+
 const Admin = () => {
   return (
-    <div className="admin-page">
-      <aside className="admin-sidebar">
-        <div className="admin-logo">
-          <LayoutGrid size={22} />
-          <span>Admin</span>
-        </div>
-        <nav className="admin-nav">
-          <Link to="/admin" className="admin-nav-link active">Tổng quan</Link>
-          <Link to="/admin/orders" className="admin-nav-link">Đơn hàng</Link>
-          <Link to="/admin/products" className="admin-nav-link">Sản phẩm</Link>
-          <Link to="/admin/customers" className="admin-nav-link">Khách hàng</Link>
-          <Link to="/admin/promotions" className="admin-nav-link">Khuyến mãi</Link>
-          <Link to="/admin/content" className="admin-nav-link">Nội dung</Link>
-          <Link to="/admin/settings" className="admin-nav-link">Cấu hình</Link>
-        </nav>
-        <div className="admin-sidebar-card">
-          <p>Thiết lập gateway thanh toán, phí ship, email thông báo.</p>
-          <Link to="/admin/settings" className="admin-sidebar-btn">Cấu hình ngay</Link>
-        </div>
-      </aside>
-
-      <main className="admin-main">
-        <header className="admin-topbar">
-          <h1>Tổng quan</h1>
-          <div className="admin-topbar-actions">
-            <div className="admin-search">
-              <Search size={16} />
-              <input placeholder="Tìm đơn hàng, khách hàng..." />
-            </div>
-            <Link to="/admin/orders" className="admin-ghost-btn">Xem đơn</Link>
-            <Link to="/admin/products" className="admin-primary-btn">Thêm sản phẩm</Link>
+    <AdminLayout
+      title="Tổng quan"
+      actions={(
+        <>
+          <div className="admin-search">
+            <Search size={16} />
+            <input placeholder="Tìm đơn hàng, khách hàng..." />
           </div>
-        </header>
-
-        <section className="admin-stats">
-          {stats.map((item) => (
-            <div className="admin-stat-card" key={item.label}>
-              <div className="admin-stat-icon">{item.icon}</div>
-              <div className="admin-stat-body">
-                <p className="admin-stat-label">{item.label}</p>
-                <div className="admin-stat-value">{item.value}</div>
-                <div className={`admin-stat-change ${item.tone}`}>
-                  {item.tone === 'up' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                  <span>{item.change}</span>
-                </div>
+          <Link to="/admin/orders" className="admin-ghost-btn">Xem đơn</Link>
+          <Link to="/admin/products" className="admin-primary-btn">Thêm sản phẩm</Link>
+        </>
+      )}
+    >
+      <section className="admin-stats">
+        {stats.map((item) => (
+          <div className="admin-stat-card" key={item.label}>
+            <div className="admin-stat-icon">{item.icon}</div>
+            <div className="admin-stat-body">
+              <p className="admin-stat-label">{item.label}</p>
+              <div className="admin-stat-value">{item.value}</div>
+              <div className={`admin-stat-change ${item.tone}`}>
+                {item.tone === 'up' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                <span>{item.change}</span>
               </div>
             </div>
-          ))}
-        </section>
+          </div>
+        ))}
+      </section>
 
-        <section className="admin-panels">
-          <div className="admin-panel">
-            <div className="admin-panel-head">
-              <h2>Đơn hàng gần đây</h2>
-              <Link to="/admin/orders">Xem tất cả</Link>
+      <section className="admin-panels">
+        <div className="admin-panel">
+          <div className="admin-panel-head">
+            <h2>Đơn hàng gần đây</h2>
+            <Link to="/admin/orders">Xem tất cả</Link>
+          </div>
+          <div className="admin-table" role="table" aria-label="Đơn hàng gần đây">
+            <div className="admin-table-row admin-table-head" role="row">
+              <div role="columnheader">Mã đơn</div>
+              <div role="columnheader">Khách</div>
+              <div role="columnheader">Tổng</div>
+              <div role="columnheader">Trạng thái</div>
+              <div role="columnheader">Kênh</div>
             </div>
-            <div className="admin-table" role="table" aria-label="Đơn hàng gần đây">
-              <div className="admin-table-row admin-table-head" role="row">
-                <div role="columnheader">Mã đơn</div>
-                <div role="columnheader">Khách</div>
-                <div role="columnheader">Tổng</div>
-                <div role="columnheader">Trạng thái</div>
-                <div role="columnheader">Kênh</div>
+            {recentOrders.map(order => (
+              <div className="admin-table-row" role="row" key={order.code}>
+                <div role="cell" className="admin-bold">{order.code}</div>
+                <div role="cell">{order.customer}</div>
+                <div role="cell">{order.total}</div>
+                <div role="cell"><span className={`admin-pill ${statusTone(order.status)}`}>{order.status}</span></div>
+                <div role="cell" className="admin-muted">{order.channel}</div>
               </div>
-              {recentOrders.map(order => (
-                <div className="admin-table-row" role="row" key={order.code}>
-                  <div role="cell" className="admin-bold">{order.code}</div>
-                  <div role="cell">{order.customer}</div>
-                  <div role="cell">{order.total}</div>
-                  <div role="cell"><span className="admin-pill">{order.status}</span></div>
-                  <div role="cell" className="admin-muted">{order.channel}</div>
+            ))}
+          </div>
+        </div>
+
+        <div className="admin-panel admin-panel-side">
+          <div className="admin-panel-head">
+            <h2>Hành động nhanh</h2>
+          </div>
+          <div className="admin-quick-links">
+            {quickLinks.map(link => (
+              <Link key={link.label} to={link.to} className="admin-quick-card">
+                <div className="admin-quick-icon">{link.icon}</div>
+                <div>
+                  <p className="admin-quick-label">{link.label}</p>
+                  <p className="admin-quick-desc">Đi tới trang quản trị tương ứng</p>
                 </div>
-              ))}
-            </div>
+              </Link>
+            ))}
           </div>
 
-          <div className="admin-panel admin-panel-side">
-            <div className="admin-panel-head">
-              <h2>Hành động nhanh</h2>
-            </div>
-            <div className="admin-quick-links">
-              {quickLinks.map(link => (
-                <Link key={link.label} to={link.to} className="admin-quick-card">
-                  <div className="admin-quick-icon">{link.icon}</div>
-                  <div>
-                    <p className="admin-quick-label">{link.label}</p>
-                    <p className="admin-quick-desc">Đi tới trang quản trị tương ứng</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-
-            <div className="admin-panel-head">
-              <h2>Nhắc việc</h2>
-            </div>
-            <ul className="admin-task-list">
-              <li>• 12 đơn chờ xác nhận thanh toán</li>
-              <li>• 6 đơn đã quá SLA giao hàng</li>
-              <li>• 4 sản phẩm tồn kho &lt; 10</li>
-            </ul>
+          <div className="admin-panel-head">
+            <h2>Nhắc việc</h2>
           </div>
-        </section>
-      </main>
-    </div>
+          <ul className="admin-task-list">
+            <li>• 12 đơn chờ xác nhận thanh toán</li>
+            <li>• 6 đơn đã quá SLA giao hàng</li>
+            <li>• 4 sản phẩm tồn kho &lt; 10</li>
+          </ul>
+        </div>
+      </section>
+    </AdminLayout>
   );
 };
 
