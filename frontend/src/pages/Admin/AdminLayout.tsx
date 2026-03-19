@@ -1,10 +1,10 @@
 import './Admin.css';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutGrid } from 'lucide-react';
+import { LayoutGrid, Search, Bell, Settings, ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 interface AdminLayoutProps {
-  title: string;
+  title: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
 }
@@ -21,6 +21,16 @@ const navItems = [
 
 const AdminLayout = ({ title, actions, children }: AdminLayoutProps) => {
   const location = useLocation();
+
+  const breadcrumbs = () => {
+    const path = location.pathname;
+    if (path.startsWith('/admin/orders/')) return ['Đơn hàng', 'Chi tiết'];
+    if (path.startsWith('/admin/orders')) return ['Đơn hàng', 'Danh sách'];
+    if (path.startsWith('/admin/products')) return ['Sản phẩm', 'Danh sách'];
+    return ['Tổng quan'];
+  };
+
+  const crumbs = breadcrumbs();
 
   return (
     <div className="admin-page">
@@ -53,10 +63,40 @@ const AdminLayout = ({ title, actions, children }: AdminLayoutProps) => {
       </aside>
 
       <main className="admin-main">
-        <header className="admin-topbar">
+        <header className="admin-header">
+          <div className="admin-breadcrumbs" aria-label="Breadcrumb">
+            {crumbs.map((crumb, idx) => (
+              <span key={crumb} className="breadcrumb-item">
+                {crumb}
+                {idx < crumbs.length - 1 && <ChevronRight size={14} />}
+              </span>
+            ))}
+          </div>
+
+          <div className="admin-header-search">
+            <Search size={16} />
+            <input placeholder="Tìm nhanh đơn hàng, sản phẩm..." />
+          </div>
+
+          <div className="admin-header-actions">
+            <button className="admin-icon-btn subtle has-dot" aria-label="Thông báo">
+              <Bell size={16} />
+              <span className="notif-dot" />
+            </button>
+            <button className="admin-icon-btn subtle" aria-label="Cài đặt">
+              <Settings size={16} />
+            </button>
+            <div className="admin-avatar">
+              <span className="avatar-circle">A</span>
+              <span className="avatar-name">Admin</span>
+            </div>
+          </div>
+        </header>
+
+        <div className="admin-topbar actions-row">
           <h1>{title}</h1>
           <div className="admin-topbar-actions">{actions}</div>
-        </header>
+        </div>
         {children}
       </main>
     </div>

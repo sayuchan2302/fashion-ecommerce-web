@@ -38,6 +38,7 @@ import Stores from './pages/Stores/Stores';
 import Admin from './pages/Admin/Admin';
 import AdminOrders from './pages/Admin/AdminOrders';
 import AdminProducts from './pages/Admin/AdminProducts';
+import AdminOrderDetail from './pages/Admin/AdminOrderDetail';
 
 const MainLayout = () => {
   const location = useLocation();
@@ -46,8 +47,8 @@ const MainLayout = () => {
 
   return (
     <>
-      <TopBar />
-      <Header />
+      {!isAdmin && <TopBar />}
+      {!isAdmin && <Header />}
       <Outlet />
       {!isCheckout && !isAdmin && <Footer />}
     </>
@@ -85,6 +86,7 @@ function App() {
                         <Route path="/stores" element={<Stores />} />
                         <Route path="/admin" element={<Admin />} />
                         <Route path="/admin/orders" element={<AdminOrders />} />
+                        <Route path="/admin/orders/:id" element={<AdminOrderDetail />} />
                         <Route path="/admin/products" element={<AdminProducts />} />
                         <Route path="/policy/:type" element={<Policy />} />
                         <Route path="/about" element={<About />} />
