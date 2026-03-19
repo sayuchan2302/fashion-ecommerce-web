@@ -30,15 +30,21 @@ const AdminLayout = ({ title, actions, children }: AdminLayoutProps) => {
           <span>Admin</span>
         </div>
         <nav className="admin-nav">
-          {navItems.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={`admin-nav-link ${location.pathname.startsWith(item.to) ? 'active' : ''}`}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {navItems.map((item) => {
+            const isActive = item.to === '/admin' 
+              ? location.pathname === '/admin' 
+              : location.pathname.startsWith(item.to);
+              
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`admin-nav-link ${isActive ? 'active' : ''}`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
         <div className="admin-sidebar-card">
           <p>Thiết lập gateway thanh toán, phí ship, email thông báo.</p>
