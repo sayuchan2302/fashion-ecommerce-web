@@ -1,6 +1,8 @@
 .agent/skills/
 backend/.env
 frontend/.env
+.node_modules
+node_modules
 .agent/
 .agents/
 .vscode/settings.json
