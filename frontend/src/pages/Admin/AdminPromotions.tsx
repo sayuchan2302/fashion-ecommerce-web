@@ -39,7 +39,7 @@ interface Promotion {
 
 interface PromotionDeleteConfirmState {
   ids: string[];
-  selectedItems: string[];
+  selectedItems?: string[];
   title: string;
   description: string;
   confirmLabel: string;
@@ -418,7 +418,6 @@ const AdminPromotions = () => {
   const requestDeleteOne = (promotion: Promotion) => {
     setDeleteConfirm({
       ids: [promotion.id],
-      selectedItems: [`${promotion.name} (${promotion.code})`],
       title: 'Xóa chiến dịch',
       description: 'Bạn có chắc chắn muốn xóa chiến dịch này? Hành động này không thể hoàn tác.',
       confirmLabel: 'Xóa chiến dịch',

@@ -28,7 +28,7 @@ interface PendingLockAction {
 
 interface CustomerDeleteConfirmState {
   ids: string[];
-  selectedItems: string[];
+  selectedItems?: string[];
 }
 
 interface CustomerOrder {
@@ -499,7 +499,6 @@ const AdminCustomers = () => {
   const requestDeleteCustomer = (customer: Customer) => {
     setDeleteConfirm({
       ids: [customer.id],
-      selectedItems: [`${customer.name} (${customer.email})`],
     });
   };
 
@@ -652,10 +651,10 @@ const AdminCustomers = () => {
                 </div>
                 <div role="cell" className="customer-phone">{customer.phone}</div>
                 <div role="cell"><span className={`admin-pill ${tierToClass[customer.tier]}`}>{customer.tier}</span></div>
-                <div role="cell" className="admin-bold">{customer.totalOrders}</div>
+                <div role="cell" className="admin-bold customer-orders-count">{customer.totalOrders}</div>
                 <div role="cell" className="admin-bold customer-spent">{formatCurrencyVnd(customer.totalSpent)}</div>
-                <div role="cell"><span className={`admin-pill ${customer.status === 'active' ? 'success' : 'error'}`}>{customer.status === 'active' ? 'Đang hoạt động' : 'Bị khóa'}</span></div>
-                <div role="cell" className="admin-muted">{formatDate(customer.lastOrder)}</div>
+                <div role="cell" className="customer-status-cell"><span className={`admin-pill ${customer.status === 'active' ? 'success' : 'error'}`}>{customer.status === 'active' ? 'Đang hoạt động' : 'Bị khóa'}</span></div>
+                <div role="cell" className="admin-muted customer-last-order">{formatDate(customer.lastOrder)}</div>
                 <div role="cell" className="admin-actions">
                   <button className="admin-icon-btn subtle" title={ADMIN_ACTION_TITLES.viewDetail} aria-label={ADMIN_ACTION_TITLES.viewDetail} onClick={() => openDrawer(customer, 'activity')}><Eye size={16} /></button>
                   <button className="admin-icon-btn subtle" title={ADMIN_ACTION_TITLES.editNote} aria-label={ADMIN_ACTION_TITLES.editNote} onClick={() => openDrawer(customer, 'notes')}><Pencil size={16} /></button>

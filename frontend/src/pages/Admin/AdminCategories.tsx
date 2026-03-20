@@ -28,7 +28,7 @@ interface Category {
 
 interface DeleteConfirmState {
   ids: string[];
-  selectedItems: string[];
+  selectedItems?: string[];
   selectedNoun: string;
   title: string;
   description: string;
@@ -519,7 +519,6 @@ const AdminCategories = () => {
                       }
                       setDeleteConfirm({
                         ids: [cat.id],
-                        selectedItems: [cat.name],
                         selectedNoun: t.selectedNoun,
                         title: 'Xóa danh mục',
                         description: 'Bạn có chắc chắn muốn xóa danh mục này? Hành động này không thể hoàn tác.',
