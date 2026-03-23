@@ -34,6 +34,137 @@
   font-weight: 500;
 }
 
+/* Loyalty Panel */
+.loyalty-panel {
+  background: linear-gradient(135deg, var(--co-black) 0%, #1a1a2e 100%);
+  border-radius: 16px;
+  padding: 24px 32px;
+  margin-bottom: 24px;
+  color: white;
+  width: 100%;
+}
+
+/* Layout: Loyalty Panel on top, sidebar + content side by side */
+.profile-layout {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+.loyalty-welcome {
+  margin-bottom: 20px;
+}
+
+.loyalty-welcome .welcome-text {
+  font-size: 16px;
+  opacity: 0.8;
+}
+
+.loyalty-welcome .welcome-name {
+  font-size: 24px;
+  font-weight: 700;
+  margin-left: 8px;
+}
+
+.loyalty-stats {
+  display: flex;
+  gap: 48px;
+  margin-bottom: 20px;
+}
+
+.loyalty-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.loyalty-stat .stat-label {
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.loyalty-stat .stat-value {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.loyalty-stat .tier-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 700;
+  border: 1px solid;
+  width: fit-content;
+}
+
+.loyalty-stat .points {
+  color: #fbbf24;
+}
+
+.loyalty-progress {
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.loyalty-progress .progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.loyalty-progress .progress-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.loyalty-progress .progress-percent {
+  font-size: 14px;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.loyalty-progress .progress-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.loyalty-progress .progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.loyalty-progress .progress-detail {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+@media (max-width: 768px) {
+  .loyalty-panel {
+    padding: 20px;
+  }
+
+  .loyalty-welcome .welcome-name {
+    font-size: 20px;
+  }
+
+  .loyalty-stats {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .loyalty-stat .stat-value {
+    font-size: 18px;
+  }
+}
+
 .profile-layout {
   display: flex;
   gap: 32px;
@@ -79,9 +210,57 @@
 
 .profile-name {
   font-weight: 700;
-  font-size: 16px;
+  font-size: 20px;
   color: var(--co-black);
-  margin-bottom: 4px;
+}
+
+.profile-tier-info {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile-tier-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid;
+  width: fit-content;
+}
+
+.profile-points {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--co-gray-600);
+}
+
+.profile-tier-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-tier-progress .progress-bar {
+  height: 6px;
+  background: var(--co-gray-200);
+  border-radius: 3px;
+  overflow: hidden;
+  width: 200px;
+}
+
+.profile-tier-progress .progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.profile-tier-progress .progress-text {
+  font-size: 11px;
+  color: var(--co-gray-500);
 }
 
 .profile-tier {

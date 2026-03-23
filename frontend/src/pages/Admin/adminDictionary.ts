@@ -322,6 +322,12 @@ export const ADMIN_DICTIONARY = {
         active: 'Đang hoạt động',
         banned: 'Bị khóa',
       },
+      preferences: {
+        height: 'Chiều cao',
+        weight: 'Cân nặng',
+        heightUnit: 'cm',
+        weightUnit: 'kg',
+      },
     },
     filters: {
       tierAll: 'Tất cả hạng',

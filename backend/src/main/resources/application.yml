@@ -1,3 +1,42 @@
 spring:
   application:
     name: fashionstore
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/fashionstore
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  jackson:
+    time-zone: Asia/Ho_Chi_Minh
+    date-format: yyyy-MM-dd HH:mm:ss
+
+server:
+  port: 8080
+
+jwt:
+  secret: fashionstore-jwt-secret-key-must-be-at-least-256-bits-long-for-hmac-sha256
+  expiration: 86400000    # 24 hours in milliseconds
+  refresh-expiration: 604800000  # 7 days in milliseconds
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    root: INFO
+    vn.edu.hcmuaf.fit.fashionstore: DEBUG
+    org.hibernate.SQL: DEBUG

@@ -36,6 +36,8 @@ import { notificationService } from '../../services/notificationService';
 import { addressService } from '../../services/addressService';
 import { orderService } from '../../services/orderService';
 import { couponService } from '../../services/couponService';
+import { calculateTier, TIER_CONFIG, getProgressToNextTier, getSpendRequiredForNextTier, getNextTier } from '../../utils/tierUtils';
+import { formatPrice } from '../../utils/formatters';
 import type { Address } from '../../types';
 import type { Order } from '../../types';
 import type { Coupon } from '../../services/couponService';
@@ -102,6 +104,7 @@ const Profile = () => {
       }
     }
   }, [searchParams, activeTab]);
+
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [height, setHeight] = useState('163');
@@ -159,8 +162,16 @@ const Profile = () => {
     height: "163 cm",
     weight: "57 kg",
     email: "thinh23022004@gmail.com",
-    avatar: "N"
+    avatar: "N",
+    totalSpent: 3500000, // 3.5M VND
+    points: 3500,
   };
+
+  const currentTier = calculateTier(user.totalSpent);
+  const nextTier = getNextTier(currentTier);
+  const progress = getProgressToNextTier(user.totalSpent, currentTier);
+  const requiredForNext = getSpendRequiredForNextTier(currentTier, user.totalSpent);
+  const tierConfig = TIER_CONFIG[currentTier];
 
   const tabs = [
     { id: 'account', label: t.tabs.account, icon: User },
@@ -515,78 +526,78 @@ const Profile = () => {
           </div>
         );
       case 'notifications':
-      return (
-        <div className="tab-pane">
-          <div className="profile-content-header">
-            <h2 className="profile-content-title">Thông báo</h2>
-            {unreadCount > 0 && (
-              <button 
-                className="mark-all-read-btn"
-                onClick={() => {
-                  markAllAsRead();
-                  addToast(CLIENT_TOAST_MESSAGES.notifications.markedAllRead, 'success');
-                }}
-              >
-                <CheckCheck size={16} />
-                Đánh dấu tất cả đã đọc
-              </button>
+        return (
+          <div className="tab-pane">
+            <div className="profile-content-header">
+              <h2 className="profile-content-title">Thông báo</h2>
+              {unreadCount > 0 && (
+                <button 
+                  className="mark-all-read-btn"
+                  onClick={() => {
+                    markAllAsRead();
+                    addToast(CLIENT_TOAST_MESSAGES.notifications.markedAllRead, 'success');
+                  }}
+                >
+                  <CheckCheck size={16} />
+                  Đánh dấu tất cả đã đọc
+                </button>
+              )}
+            </div>
+
+            {notifications.length === 0 ? (
+              <div className="notifications-empty">
+                <Bell size={64} strokeWidth={1} />
+                <p>Không có thông báo nào</p>
+              </div>
+            ) : (
+              <div className="notifications-list">
+                {notifications.map((notif) => (
+                  <button 
+                    key={notif.id} 
+                    className={`notification-card ${!notif.read ? 'unread' : ''}`}
+                    onClick={() => {
+                      if (!notif.read) {
+                        markAsRead(notif.id);
+                      }
+                      if (notif.link) {
+                        navigate(notif.link);
+                      }
+                    }}
+                    type="button"
+                  >
+                    <div className={`notification-icon notification-icon-${notif.type}`}>
+                      {notif.type === 'order' && <Package size={20} />}
+                      {notif.type === 'promotion' && <Tag size={20} />}
+                      {notif.type === 'review' && <Star size={20} />}
+                      {notif.type === 'system' && <Info size={20} />}
+                    </div>
+                    <div className="notification-content">
+                      <p className="notification-title">{notif.title}</p>
+                      <p className="notification-message">{notif.message}</p>
+                      <span className="notification-time">
+                        {notificationService.formatTimeAgo(notif.createdAt)}
+                      </span>
+                    </div>
+                    <button 
+                      className="notification-delete"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteNotification(notif.id);
+                        addToast(CLIENT_TOAST_MESSAGES.notifications.deleted, 'info');
+                      }}
+                      aria-label="Xóa thông báo"
+                    >
+                      <Trash size={16} aria-hidden="true" />
+                    </button>
+                    {!notif.read && <span className="notification-dot" />}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
-
-          {notifications.length === 0 ? (
-            <div className="notifications-empty">
-              <Bell size={64} strokeWidth={1} />
-              <p>Không có thông báo nào</p>
-            </div>
-          ) : (
-            <div className="notifications-list">
-              {notifications.map((notif) => (
-                <button 
-                  key={notif.id} 
-                  className={`notification-card ${!notif.read ? 'unread' : ''}`}
-                  onClick={() => {
-                    if (!notif.read) {
-                      markAsRead(notif.id);
-                    }
-                    if (notif.link) {
-                      navigate(notif.link);
-                    }
-                  }}
-                  type="button"
-                >
-                  <div className={`notification-icon notification-icon-${notif.type}`}>
-                    {notif.type === 'order' && <Package size={20} />}
-                    {notif.type === 'promotion' && <Tag size={20} />}
-                    {notif.type === 'review' && <Star size={20} />}
-                    {notif.type === 'system' && <Info size={20} />}
-                  </div>
-                  <div className="notification-content">
-                    <p className="notification-title">{notif.title}</p>
-                    <p className="notification-message">{notif.message}</p>
-                    <span className="notification-time">
-                      {notificationService.formatTimeAgo(notif.createdAt)}
-                    </span>
-                  </div>
-                  <button 
-                    className="notification-delete"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteNotification(notif.id);
-                      addToast(CLIENT_TOAST_MESSAGES.notifications.deleted, 'info');
-                    }}
-                    aria-label="Xóa thông báo"
-                  >
-                    <Trash size={16} aria-hidden="true" />
-                  </button>
-                  {!notif.read && <span className="notification-dot" />}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      );
-    default:
-      return null;
+        );
+      default:
+        return null;
     }
   };
 
@@ -600,19 +611,44 @@ const Profile = () => {
           <span className="current">{t.title}</span>
         </nav>
 
+        {/* Loyalty Panel - Full Width at top */}
+        <div className="loyalty-panel">
+          <div className="loyalty-welcome">
+            <span className="welcome-text">Xin chào</span>
+            <span className="welcome-name">{user.name}!</span>
+          </div>
+          <div className="loyalty-stats">
+            <div className="loyalty-stat">
+              <span className="stat-label">Hạng thành viên</span>
+              <span 
+                className="stat-value tier-badge" 
+                style={{ backgroundColor: tierConfig.bg, color: tierConfig.color, borderColor: tierConfig.color }}
+              >
+                {tierConfig.label}
+              </span>
+            </div>
+            <div className="loyalty-stat">
+              <span className="stat-label">Điểm tích lũy</span>
+              <span className="stat-value points">{user.points.toLocaleString('vi-VN')} điểm</span>
+            </div>
+          </div>
+          {nextTier && (
+            <div className="loyalty-progress">
+              <div className="progress-header">
+                <span className="progress-label">Tiến đến {nextTier}</span>
+                <span className="progress-percent">{Math.round(progress)}%</span>
+              </div>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${progress}%`, backgroundColor: tierConfig.color }} />
+              </div>
+              <span className="progress-detail">Còn {formatPrice(requiredForNext)} đ để thăng hạng</span>
+            </div>
+          )}
+        </div>
+
         <div className="profile-layout">
           {/* Sidebar */}
           <aside className="profile-sidebar">
-            <div className="profile-user-info">
-              <div className="profile-avatar">
-                {/* Default to Initial if no image */}
-                {user.avatar}
-              </div>
-              <div>
-                <div className="profile-name">{user.name}</div>
-              </div>
-            </div>
-
             <ul className="profile-nav-list">
               {tabs.map(tab => {
                 const Icon = tab.icon;

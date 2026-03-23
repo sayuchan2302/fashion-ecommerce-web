@@ -12,8 +12,8 @@ import { useAdminViewState } from './useAdminViewState';
 import { useAdminToast } from './useAdminToast';
 import { customerOrderStatusLabel, customerOrderStatusTone } from './adminStatusMaps';
 import { ADMIN_DICTIONARY } from './adminDictionary';
+import { calculateTier, type LoyaltyTier } from '../../utils/tierUtils';
 
-type LoyaltyTier = 'Bronze' | 'Silver' | 'Gold' | 'Diamond';
 type AccountStatus = 'active' | 'banned';
 type DrawerTab = 'activity' | 'preferences' | 'notes';
 
@@ -55,6 +55,8 @@ interface Customer {
   createdAt: string;
   address: string;
   dob: string;
+  height?: number;
+  weight?: number;
   note: string;
   orderHistory: CustomerOrder[];
   favoriteCategories: FavoriteCategory[];
@@ -75,6 +77,8 @@ const initialCustomers: Customer[] = [
     createdAt: '2024-08-11T09:00:00',
     address: '102 Nguyễn Huệ, Quận 1, TP.HCM',
     dob: '1996-04-12',
+    height: 168,
+    weight: 58,
     note: 'Khách VIP, ưu tiên giao nhanh và hotline riêng.',
     orderHistory: [
       { code: 'ORD-30451', date: '2026-03-16T14:20:00', total: 1850000, status: 'done' },
@@ -213,6 +217,10 @@ const tierToClass: Record<LoyaltyTier, string> = {
   Silver: 'tier-silver',
   Gold: 'tier-gold',
   Diamond: 'tier-diamond',
+};
+
+const getCustomerTier = (customer: Customer): LoyaltyTier => {
+  return calculateTier(customer.totalSpent);
 };
 
 const moneyFormatter = new Intl.NumberFormat('vi-VN');
@@ -758,7 +766,7 @@ const AdminCustomers = () => {
                   </div>
                 </div>
                 <div role="cell" className="customer-phone">{customer.phone}</div>
-                <div role="cell"><span className={`admin-pill ${tierToClass[customer.tier]}`}>{customer.tier}</span></div>
+                <div role="cell"><span className={`admin-pill ${tierToClass[getCustomerTier(customer)]}`}>{getCustomerTier(customer)}</span></div>
                 <div role="cell" className="admin-bold customer-orders-count">{customer.totalOrders}</div>
                 <div role="cell" className="admin-bold customer-spent">{formatCurrencyVnd(customer.totalSpent)}</div>
                 <div role="cell" className="customer-status-cell"><span className={`admin-pill ${customer.status === 'active' ? 'success' : 'error'}`}>{customer.status === 'active' ? t.drawer.status.active : t.drawer.status.banned}</span></div>
@@ -826,13 +834,16 @@ const AdminCustomers = () => {
                       <p className="admin-bold">{activeCustomer.name}</p>
                       <p className="admin-muted small">{activeCustomer.email}</p>
                     </div>
-                    <span className={`admin-pill ${tierToClass[activeCustomer.tier]}`}>{activeCustomer.tier}</span>
+                    <span className={`admin-pill ${tierToClass[getCustomerTier(activeCustomer)]}`}>{getCustomerTier(activeCustomer)}</span>
                   </div>
                   <div className="customer-profile-grid">
                     <div><p className="admin-muted small">Email</p><p className="admin-bold">{activeCustomer.email}</p></div>
                     <div><p className="admin-muted small">Số điện thoại</p><p className="admin-bold">{activeCustomer.phone}</p></div>
                     <div><p className="admin-muted small">Ngày sinh</p><p className="admin-bold">{formatDate(activeCustomer.dob)}</p></div>
                     <div><p className="admin-muted small">Địa chỉ</p><p className="admin-bold">{activeCustomer.address}</p></div>
+                    <div><p className="admin-muted small">Tổng chi tiêu</p><p className="admin-bold">{formatCurrencyVnd(activeCustomer.totalSpent)}</p></div>
+                    {activeCustomer.height && <div><p className="admin-muted small">{t.drawer.preferences.height}</p><p className="admin-bold">{activeCustomer.height} {t.drawer.preferences.heightUnit}</p></div>}
+                    {activeCustomer.weight && <div><p className="admin-muted small">{t.drawer.preferences.weight}</p><p className="admin-bold">{activeCustomer.weight} {t.drawer.preferences.weightUnit}</p></div>}
                   </div>
                 </section>
 
@@ -862,6 +873,22 @@ const AdminCustomers = () => {
 
                     {drawerTab === 'preferences' && (
                       <motion.div key="preferences" className="customer-tab-content" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }}>
+                        {(activeCustomer.height || activeCustomer.weight) && (
+                          <div className="customer-body-stats">
+                            {activeCustomer.height && (
+                              <div className="body-stat">
+                                <span className="body-stat-label">{t.drawer.preferences.height}</span>
+                                <span className="body-stat-value">{activeCustomer.height}{t.drawer.preferences.heightUnit}</span>
+                              </div>
+                            )}
+                            {activeCustomer.weight && (
+                              <div className="body-stat">
+                                <span className="body-stat-label">{t.drawer.preferences.weight}</span>
+                                <span className="body-stat-value">{activeCustomer.weight}{t.drawer.preferences.weightUnit}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                         <ul className="customer-pref-list">
                           {activeCustomer.favoriteCategories.map((item) => (
                             <li key={item.name}>
