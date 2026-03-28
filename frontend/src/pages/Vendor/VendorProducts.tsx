@@ -23,6 +23,7 @@ import {
 import { useToast } from '../../contexts/ToastContext';
 import { getUiErrorMessage } from '../../utils/errorMessage';
 import Drawer from '../../components/Drawer/Drawer';
+import { copyTextToClipboard, normalizePositiveInteger } from './vendorHelpers';
 
 type ProductTab = 'all' | 'active' | 'outOfStock' | 'draft';
 
@@ -70,11 +71,6 @@ const normalizeTab = (value: string | null): ProductTab => {
     return value;
   }
   return 'all';
-};
-
-const normalizePositiveInteger = (value: string | null, fallback = 1) => {
-  const parsed = Number(value || fallback);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
 };
 
 const getStatusLabel = (status: VendorProductStatus) => {
@@ -284,12 +280,12 @@ const VendorProducts = () => {
   };
 
   const shareCurrentView = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
+    const copied = await copyTextToClipboard(window.location.href);
+    if (copied) {
       pushToast('Đã sao chép bộ lọc hiện tại của trang sản phẩm');
-    } catch {
-      addToast('Không thể sao chép bộ lọc', 'error');
+      return;
     }
+    addToast('Không thể sao chép bộ lọc', 'error');
   };
 
   const toggleSelectAll = (checked: boolean) => {

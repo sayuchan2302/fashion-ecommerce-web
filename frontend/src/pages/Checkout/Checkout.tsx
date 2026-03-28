@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, Check, Wallet, Loader2, Trash2, X, ChevronDown, Tag, AlertCircle, MapPin } from 'lucide-react';
 import './Checkout.css';
@@ -88,16 +88,21 @@ const Checkout = () => {
   }, []);
 
   const storeGroups = groupedByStore();
-  const checkoutStoreIds = Array.from(new Set(
-    storeGroups
-      .map((group) => group.storeId)
-      .filter((storeId) => UUID_PATTERN.test(storeId)),
-  )).sort();
-  const couponStoreKey = checkoutStoreIds.join(',');
-  const storeSubtotals = storeGroups.reduce<Record<string, number>>((acc, group) => {
-    acc[group.storeId] = group.subtotal;
-    return acc;
-  }, {});
+  const checkoutStoreIds = useMemo(
+    () => Array.from(new Set(
+      storeGroups
+        .map((group) => group.storeId)
+        .filter((storeId) => UUID_PATTERN.test(storeId)),
+    )).sort(),
+    [storeGroups],
+  );
+  const storeSubtotals = useMemo(
+    () => storeGroups.reduce<Record<string, number>>((acc, group) => {
+      acc[group.storeId] = group.subtotal;
+      return acc;
+    }, {}),
+    [storeGroups],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -123,7 +128,7 @@ const Checkout = () => {
     return () => {
       cancelled = true;
     };
-  }, [couponStoreKey]);
+  }, [checkoutStoreIds]);
 
   useEffect(() => {
     if (!appliedCoupon) {

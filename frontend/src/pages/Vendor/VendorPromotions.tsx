@@ -28,6 +28,7 @@ import {
   type VendorVoucherUpsertInput,
 } from '../../services/vendorVoucherService';
 import Drawer from '../../components/Drawer/Drawer';
+import { copyTextToClipboard, normalizePositiveInteger } from './vendorHelpers';
 
 type VoucherTab = VendorVoucherStatusFilter;
 
@@ -74,10 +75,7 @@ const normalizeTab = (value: string | null): VoucherTab => {
   return 'all';
 };
 
-const normalizePage = (value: string | null): number => {
-  const parsed = Number(value || '1');
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
-};
+const normalizePage = (value: string | null): number => normalizePositiveInteger(value, 1);
 
 const formatCurrency = (value: number) => `${value.toLocaleString('vi-VN')} ₫`;
 
@@ -342,7 +340,7 @@ const VendorPromotions = () => {
       ids,
       selectedItems: selectedRows.map((item) => item.name),
       title: ids.length > 1 ? 'Xóa các voucher đã chọn' : 'Xóa voucher shop',
-      description: 'Voucher sẽ bị gỡ khỏi seller panel và không còn áp dụng cho shop.',
+      description: 'Voucher sẽ bị gỡ khỏi kênh người bán và không còn áp dụng cho shop.',
       confirmLabel: 'Xóa voucher',
     });
   };
@@ -403,12 +401,11 @@ const VendorPromotions = () => {
   };
 
   const shareCurrentView = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      addToast('Đã sao chép bộ lọc hiện tại của voucher shop', 'success');
-    } catch {
-      addToast('Không thể sao chép bộ lọc', 'error');
-    }
+    const copied = await copyTextToClipboard(window.location.href);
+    addToast(
+      copied ? 'Đã sao chép bộ lọc hiện tại của voucher shop' : 'Không thể sao chép bộ lọc',
+      copied ? 'success' : 'error',
+    );
   };
 
   const startRow = result.totalElements === 0 ? 0 : (currentPage - 1) * result.pageSize + 1;

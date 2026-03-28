@@ -56,28 +56,6 @@ const AdminCategories = () => {
   const { pushToast, toast } = useAdminToast();
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  
-  const loadCategories = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const data = await adminCategoryService.getAll();
-      setCategories(data);
-      // Auto-expand root categories
-      setExpandedIds(new Set(data.filter((item) => !item.parentId).map((item) => item.id)));
-      if (data.length > 0 && !selectedId && draftMode === 'view') {
-        setSelectedId(data[0].id);
-      }
-    } catch {
-      pushToast('Lỗi tải danh sách danh mục');
-    } finally {
-        setIsLoading(false);
-    }
-  }, [pushToast]); // omitting selectedId, draftMode to prevent loop
-
-  useEffect(() => {
-    loadCategories();
-  }, [loadCategories]);
-
   const [activeFilter, setActiveFilter] = useState<CategoryFilter>('all');
   const [search, setSearch] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -85,6 +63,26 @@ const AdminCategories = () => {
   const [draftMode, setDraftMode] = useState<DraftMode>('view');
   const [draft, setDraft] = useState<CategoryDraft>(emptyDraft);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const loadCategories = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await adminCategoryService.getAll();
+      setCategories(data);
+      setExpandedIds(new Set(data.filter((item) => !item.parentId).map((item) => item.id)));
+      if (data.length > 0 && !selectedId && draftMode === 'view') {
+        setSelectedId(data[0].id);
+      }
+    } catch {
+      pushToast('Lỗi tải danh sách danh mục');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [draftMode, pushToast, selectedId]);
+
+  useEffect(() => {
+    void loadCategories();
+  }, [loadCategories]);
 
   const byId = useMemo(() => new Map(categories.map((item) => [item.id, item])), [categories]);
   const childMap = useMemo(() => {

@@ -10,6 +10,7 @@ import { vendorPortalService, type VendorOrderDetailData } from '../../services/
 import { useToast } from '../../contexts/ToastContext';
 import { getUiErrorMessage } from '../../utils/errorMessage';
 import { AdminStateBlock } from '../Admin/AdminStateBlocks';
+import { copyTextToClipboard } from './vendorHelpers';
 
 const emptyOrder: VendorOrderDetailData = {
   id: '',
@@ -93,18 +94,18 @@ const VendorOrderDetail = () => {
   };
 
   const handleCopyOrderId = async () => {
-    await navigator.clipboard.writeText(order.id);
-    addToast('Đã sao chép mã đơn hàng', 'success');
+    const copied = await copyTextToClipboard(order.id);
+    addToast(copied ? 'Đã sao chép mã đơn hàng' : 'Không thể sao chép mã đơn hàng', copied ? 'success' : 'error');
   };
 
   const handleCopyTracking = async () => {
-    await navigator.clipboard.writeText(order.trackingNumber);
-    addToast('Đã sao chép mã vận đơn', 'success');
+    const copied = await copyTextToClipboard(order.trackingNumber);
+    addToast(copied ? 'Đã sao chép mã vận đơn' : 'Không thể sao chép mã vận đơn', copied ? 'success' : 'error');
   };
 
   const shareCurrentView = async () => {
-    await navigator.clipboard.writeText(window.location.href);
-    addToast('Đã sao chép liên kết đơn hàng', 'success');
+    const copied = await copyTextToClipboard(window.location.href);
+    addToast(copied ? 'Đã sao chép liên kết đơn hàng' : 'Không thể sao chép liên kết', copied ? 'success' : 'error');
   };
 
   const shipOrder = async () => {

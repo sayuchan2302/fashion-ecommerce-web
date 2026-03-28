@@ -16,6 +16,7 @@ import { AdminStateBlock } from '../Admin/AdminStateBlocks';
 import AdminConfirmDialog from '../Admin/AdminConfirmDialog';
 import Drawer from '../../components/Drawer/Drawer';
 import { getUiErrorMessage } from '../../utils/errorMessage';
+import { copyTextToClipboard } from './vendorHelpers';
 
 const TABS = [
   { key: 'all', label: 'Tất cả' },
@@ -110,8 +111,11 @@ const VendorReviews = () => {
   };
 
   const shareCurrentView = async () => {
-    await navigator.clipboard.writeText(window.location.href);
-    addToast('Đã sao chép bộ lọc hiện tại của đánh giá shop', 'success');
+    const copied = await copyTextToClipboard(window.location.href);
+    addToast(
+      copied ? 'Đã sao chép bộ lọc hiện tại của đánh giá shop' : 'Không thể sao chép bộ lọc',
+      copied ? 'success' : 'error',
+    );
   };
 
   const submitReplies = async (ids: string[]) => {
@@ -280,7 +284,7 @@ const VendorReviews = () => {
               description={
                 query.trim()
                   ? 'Thử đổi từ khóa hoặc tab để xem lại hàng đợi phản hồi của shop.'
-                  : 'Khi khách để lại đánh giá, seller panel sẽ hiển thị tại đây.'
+                  : 'Khi khách để lại đánh giá, kênh người bán sẽ hiển thị tại đây.'
               }
               actionLabel={query.trim() ? 'Đặt lại bộ lọc' : undefined}
               onAction={query.trim() ? resetCurrentView : undefined}

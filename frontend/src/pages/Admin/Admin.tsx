@@ -74,8 +74,11 @@ const Admin = () => {
       setLoadError(null);
       const data = await adminDashboardService.get();
       setDashboard(data);
-    } catch (error: any) {
-      setLoadError(error?.message || 'Không thể tải dữ liệu dashboard.');
+    } catch (error: unknown) {
+      const message = error instanceof Error && error.message.trim()
+        ? error.message
+        : 'Không thể tải dữ liệu dashboard.';
+      setLoadError(message);
     } finally {
       setIsLoading(false);
     }

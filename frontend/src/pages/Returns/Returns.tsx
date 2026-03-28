@@ -43,8 +43,8 @@ const Returns = () => {
           setSelectedOrderId(data[0].id);
           setItems((data[0].items || []).map(i => ({ ...i, selected: false })));
         }
-      } catch (error) {
-        addToast('Khong tai duoc don hang de tao yeu cau doi tra', 'error');
+      } catch {
+        addToast('Không tải được đơn hàng để tạo yêu cầu đổi trả', 'error');
       }
     };
     void loadOrders();
@@ -84,8 +84,8 @@ const Returns = () => {
       addToast(t.submitted, 'success');
       setNote('');
       setItems(items.map(i => ({ ...i, selected: false })));
-    } catch (error) {
-      addToast('Tao yeu cau doi tra that bai', 'error');
+    } catch {
+      addToast('Tạo yêu cầu đổi trả thất bại', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -108,7 +108,7 @@ const Returns = () => {
             <h3>{t.product.title}</h3>
 
             <label className="returns-field">
-              <span>Chon don hang</span>
+              <span>Chọn đơn hàng</span>
               <select
                 value={selectedOrderId}
                 onChange={(e) => setSelectedOrderId(e.target.value)}
@@ -136,7 +136,7 @@ const Returns = () => {
                   </div>
                 </label>
               ))}
-              {items.length === 0 && <p className="returns-empty">Khong tim thay san pham trong don hang.</p>}
+              {items.length === 0 && <p className="returns-empty">Không tìm thấy sản phẩm trong đơn hàng.</p>}
             </div>
           </div>
 
@@ -197,7 +197,7 @@ const Returns = () => {
               <button type="submit" className="returns-submit" disabled={submitting}>
                 {submitting ? t.summary.submitting : t.summary.submit}
               </button>
-              {submittedId && <p className="returns-success">Da gui yeu cau #{submittedId}</p>}
+              {submittedId && <p className="returns-success">Đã gửi yêu cầu #{submittedId}</p>}
             </div>
           </div>
         </form>

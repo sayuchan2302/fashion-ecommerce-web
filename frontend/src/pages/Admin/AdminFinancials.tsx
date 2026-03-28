@@ -1,5 +1,5 @@
 import './AdminFinancials.css';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowUpRight, CheckCircle2, Eye, Link2, Search, WalletCards, X } from 'lucide-react';
 import AdminLayout from './AdminLayout';
@@ -36,22 +36,21 @@ const AdminFinancials = () => {
   const [page, setPage] = useState(1);
   const [activeTab, setActiveTab] = useState('all');
 
-  const fetchWallets = async () => {
+  const fetchWallets = useCallback(async () => {
     try {
       setIsLoading(true);
       const data = await apiRequest<{ content?: WalletResponse[] }>('/api/wallets', {}, { auth: true });
       setWallets(data.content || []);
-    } catch (e) {
-      console.error(e);
+    } catch {
       addToast('Lỗi khi tải dữ liệu đối soát.', 'error');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [addToast]);
 
   useEffect(() => {
-    fetchWallets();
-  }, []);
+    void fetchWallets();
+  }, [fetchWallets]);
 
   const records = useMemo(() => wallets, [wallets]);
 
@@ -117,9 +116,8 @@ const AdminFinancials = () => {
       setSelected(new Set());
       setConfirmState(null);
       addToast('Đã xác nhận giải ngân thành công.', 'success');
-      fetchWallets();
-    } catch (e) {
-      console.error(e);
+      await fetchWallets();
+    } catch {
       addToast('Lỗi trong quá trình giải ngân.', 'error');
     }
   };

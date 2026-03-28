@@ -36,6 +36,9 @@ type ProductListener = () => void;
 const listeners = new Set<ProductListener>();
 let cachedAdminProducts: AdminProductRecord[] = [];
 
+const toErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error && error.message.trim() ? error.message : fallback;
+
 const notifyListeners = () => {
   listeners.forEach((listener) => listener());
 };
@@ -89,8 +92,8 @@ export const updateProductPrice = async (sku: string, adjust: number): Promise<{
     }, { auth: true });
     notifyListeners();
     return { ok: true };
-  } catch (error: any) {
-    return { ok: false, error: error.message || 'Cannot update product price right now.' };
+  } catch (error: unknown) {
+    return { ok: false, error: toErrorMessage(error, 'Cannot update product price right now.') };
   }
 };
 
@@ -124,7 +127,7 @@ export const adjustProductStock = async (params: {
 
     notifyListeners();
     return { ok: true };
-  } catch (error: any) {
-    return { ok: false, error: error.message || 'Cannot update product stock right now.' };
+  } catch (error: unknown) {
+    return { ok: false, error: toErrorMessage(error, 'Cannot update product stock right now.') };
   }
 };

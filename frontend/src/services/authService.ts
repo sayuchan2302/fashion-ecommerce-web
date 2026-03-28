@@ -6,7 +6,6 @@ const SESSION_REASON_KEY = 'coolmate_auth_reason_v1';
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
 if (!API_BASE) {
-  // eslint-disable-next-line no-console
   console.warn('[auth] VITE_API_URL is empty. Authentication requests will fail until backend URL is configured.');
 }
 

@@ -128,7 +128,7 @@ export const apiRequest = async <T>(
         }
         await refreshPromise;
         return apiRequest<T>(path, init, options, true);
-      } catch (error) {
+      } catch {
         redirectToLogin('session-expired');
         const { message, payload } = await parseErrorMessage(response);
         throw new ApiError(message, response.status, payload);

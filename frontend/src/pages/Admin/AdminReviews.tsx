@@ -63,7 +63,7 @@ const AdminReviews = () => {
         if (active) {
           setAllReviews(res.content);
         }
-      } catch (err) {
+      } catch {
         if (active) pushToast('Không tải được đánh giá');
       } finally {
         if (active) setIsLoading(false);
@@ -132,7 +132,7 @@ const AdminReviews = () => {
     hidden: allReviews.filter((r) => r.status === 'hidden').length,
   }), [allReviews]);
 
-  const applyStatusUpdate = async (id: string, status: ReviewStatus) => {
+  const applyStatusUpdate = useCallback(async (id: string, status: ReviewStatus) => {
     try {
       const updated = await adminReviewService.updateStatus(id, status);
       setAllReviews((prev) => prev.map((r) => (r.id === id ? updated : r)));
@@ -141,15 +141,15 @@ const AdminReviews = () => {
       pushToast('Lỗi cập nhật trạng thái');
       return null;
     }
-  };
+  }, [pushToast]);
 
   const handleApprove = useCallback(async (id: string) => {
     if (await applyStatusUpdate(id, 'approved')) pushToast('Đã duyệt đánh giá.');
-  }, [pushToast]);
+  }, [applyStatusUpdate, pushToast]);
 
   const handleHide = useCallback(async (id: string) => {
     if (await applyStatusUpdate(id, 'hidden')) pushToast('Đã ẩn đánh giá.');
-  }, [pushToast]);
+  }, [applyStatusUpdate, pushToast]);
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;

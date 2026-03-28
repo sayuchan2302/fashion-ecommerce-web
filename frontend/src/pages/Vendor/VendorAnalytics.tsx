@@ -7,6 +7,7 @@ import { vendorPortalService } from '../../services/vendorPortalService';
 import { useToast } from '../../contexts/ToastContext';
 import { getUiErrorMessage } from '../../utils/errorMessage';
 import { AdminStateBlock } from '../Admin/AdminStateBlocks';
+import { copyTextToClipboard } from './vendorHelpers';
 
 type Period = 'today' | 'week' | 'month';
 
@@ -125,8 +126,11 @@ const VendorAnalytics = () => {
   const topRevenue = Math.max(...analytics.topProducts.map((item) => item.revenue), 1);
 
   const shareCurrentView = async () => {
-    await navigator.clipboard.writeText(window.location.href);
-    addToast('Đã sao chép bộ lọc hiện tại của thống kê người bán', 'success');
+    const copied = await copyTextToClipboard(window.location.href);
+    addToast(
+      copied ? 'Đã sao chép bộ lọc hiện tại của thống kê người bán' : 'Không thể sao chép bộ lọc',
+      copied ? 'success' : 'error',
+    );
   };
 
   const trendRows = useMemo(

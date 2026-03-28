@@ -20,6 +20,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { getUiErrorMessage } from '../../utils/errorMessage';
 import { AdminStateBlock, AdminTableSkeleton } from '../Admin/AdminStateBlocks';
 import AdminConfirmDialog from '../Admin/AdminConfirmDialog';
+import { copyTextToClipboard, normalizePositiveInteger } from './vendorHelpers';
 
 type VendorOrderTab =
   | 'all'
@@ -84,11 +85,6 @@ const normalizeTab = (value: string | null): VendorOrderTab => {
   }
 
   return 'all';
-};
-
-const normalizePositiveInteger = (value: string | null, fallback = 1) => {
-  const parsed = Number(value || fallback);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
 };
 
 const buildActionMeta = (status: OrderUpdateStatus): {
@@ -293,12 +289,11 @@ const VendorOrders = () => {
   };
 
   const shareCurrentView = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      addToast('Đã sao chép bộ lọc hiện tại của đơn hàng shop', 'success');
-    } catch {
-      addToast('Không thể sao chép bộ lọc', 'error');
-    }
+    const copied = await copyTextToClipboard(window.location.href);
+    addToast(
+      copied ? 'Đã sao chép bộ lọc hiện tại của đơn hàng shop' : 'Không thể sao chép bộ lọc',
+      copied ? 'success' : 'error',
+    );
   };
 
   const toggleSelectAll = (checked: boolean) => {

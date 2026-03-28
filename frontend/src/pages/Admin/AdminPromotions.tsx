@@ -94,6 +94,8 @@ const validateForm = (
 };
 
 const discountTypeLabel = (type: AdminPromotionDiscountType) => (type === 'percent' ? 'Giảm %' : 'Giảm tiền');
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error && error.message.trim() ? error.message : fallback;
 
 const AdminPromotions = () => {
   const view = useAdminViewState({
@@ -128,8 +130,8 @@ const AdminPromotions = () => {
       ]);
       setRows(promotionSnapshot.items);
       setStores(storeSnapshot);
-    } catch (error: any) {
-      setLoadError(error?.message || 'Không thể tải dữ liệu khuyến mãi.');
+    } catch (error: unknown) {
+      setLoadError(getErrorMessage(error, 'Không thể tải dữ liệu khuyến mãi.'));
     } finally {
       setIsInitializing(false);
     }
@@ -229,8 +231,8 @@ const AdminPromotions = () => {
       }
       setIsDrawerOpen(false);
       await loadData();
-    } catch (err: any) {
-      pushToast(err?.message || 'Không thể lưu chiến dịch.');
+    } catch (error: unknown) {
+      pushToast(getErrorMessage(error, 'Không thể lưu chiến dịch.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -242,8 +244,8 @@ const AdminPromotions = () => {
       await adminPromotionService.updateStatus(promotion.id, nextStatus);
       pushToast(nextStatus === 'paused' ? 'Đã tạm dừng chiến dịch.' : 'Đã kích hoạt lại chiến dịch.');
       await loadData();
-    } catch (error: any) {
-      pushToast(error?.message || 'Không thể cập nhật trạng thái chiến dịch.');
+    } catch (error: unknown) {
+      pushToast(getErrorMessage(error, 'Không thể cập nhật trạng thái chiến dịch.'));
     }
   };
 
@@ -260,8 +262,8 @@ const AdminPromotions = () => {
       setSelected(new Set());
       pushToast(`Đã tạm dừng ${eligible.length} chiến dịch.`);
       await loadData();
-    } catch (error: any) {
-      pushToast(error?.message || 'Không thể cập nhật hàng loạt.');
+    } catch (error: unknown) {
+      pushToast(getErrorMessage(error, 'Không thể cập nhật hàng loạt.'));
     }
   };
 
@@ -273,8 +275,8 @@ const AdminPromotions = () => {
       setDeleteIds(null);
       pushToast('Đã xóa chiến dịch khỏi hệ thống.');
       await loadData();
-    } catch (error: any) {
-      pushToast(error?.message || 'Không thể xóa chiến dịch.');
+    } catch (error: unknown) {
+      pushToast(getErrorMessage(error, 'Không thể xóa chiến dịch.'));
     }
   };
 

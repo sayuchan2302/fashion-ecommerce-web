@@ -1,11 +1,13 @@
 import './Admin.css';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Search, Plus, Edit2, Trash2, X, Save, FileText, Shield } from 'lucide-react';
 import AdminLayout from './AdminLayout';
 import { useAdminToast } from './useAdminToast';
 import { ADMIN_DICTIONARY } from './adminDictionary';
 import { contentService, type ContentPage, type ContentType } from '../../services/contentService';
+
+const mapTabToType = (tab: 'faq' | 'policy'): ContentType => (tab === 'faq' ? 'FAQ' : 'POLICY');
 
 const AdminContent = () => {
   const t = ADMIN_DICTIONARY.content;
@@ -18,23 +20,21 @@ const AdminContent = () => {
   const [formData, setFormData] = useState({ title: '', content: '' });
   const [loading, setLoading] = useState(false);
 
-  const mapTabToType = (tab: 'faq' | 'policy'): ContentType => (tab === 'faq' ? 'FAQ' : 'POLICY');
-
-  const fetchData = async (tab: 'faq' | 'policy') => {
+  const fetchData = useCallback(async (tab: 'faq' | 'policy') => {
     try {
       setLoading(true);
       const list = await contentService.list(mapTabToType(tab));
       setItems(list);
-    } catch (error) {
-      pushToast('Kh?ng t?i ???c noi dung');
+    } catch {
+      pushToast('Không tải được nội dung');
     } finally {
       setLoading(false);
     }
-  };
+  }, [pushToast]);
 
   useEffect(() => {
     void fetchData(activeTab);
-  }, [activeTab]);
+  }, [activeTab, fetchData]);
 
   const filteredItems = useMemo(() => items
     .filter(item =>
@@ -44,7 +44,7 @@ const AdminContent = () => {
 
   const handleSave = async () => {
     if (!formData.title.trim() || !formData.content.trim()) {
-      pushToast('Vui long nhap day du tieu de va noi dung.');
+      pushToast('Vui lòng nhập đầy đủ tiêu đề và nội dung.');
       return;
     }
 
@@ -103,7 +103,7 @@ const AdminContent = () => {
           <div className="admin-search">
             <Search size={16} />
             <input
-              placeholder="T?m noi dung..."
+              placeholder="Tìm nội dung..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -128,12 +128,12 @@ const AdminContent = () => {
       </div>
 
       <div className="admin-content-list">
-        {loading && <p className="admin-muted">?ang t?i noi dung...</p>}
+        {loading && <p className="admin-muted">Đang tải nội dung...</p>}
         {!loading && filteredItems.length === 0 ? (
           <div className="admin-empty-state">
-            <p>Ch?a co noi dung nao</p>
+            <p>Chưa có nội dung nào</p>
             <button className="admin-primary-btn" onClick={() => setIsCreating(true)}>
-              <Plus size={16} /> Them noi dung dau tien
+              <Plus size={16} /> Thêm nội dung đầu tiên
             </button>
           </div>
         ) : (

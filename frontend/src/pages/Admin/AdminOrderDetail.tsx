@@ -1,5 +1,5 @@
 import './Admin.css';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AdminLayout from './AdminLayout';
@@ -59,7 +59,7 @@ const AdminOrderDetailContent = ({ orderCode, routeId }: { orderCode: string; ro
     return paymentStatus;
   }, [pendingTransition, paymentStatus]);
 
-  const fetchOrder = async () => {
+  const fetchOrder = useCallback(async () => {
     try {
       setLoadError(null);
       if (orderCode) {
@@ -67,19 +67,18 @@ const AdminOrderDetailContent = ({ orderCode, routeId }: { orderCode: string; ro
         setOrder(data);
       }
     } catch (error: unknown) {
-      console.error(error);
       setOrder(null);
       setLoadError(getUiErrorMessage(error, 'Không thể tải chi tiết đơn hàng từ backend.'));
     } finally {
       setIsInitializing(false);
     }
-  };
+  }, [orderCode]);
 
   useEffect(() => {
-    fetchOrder();
+    void fetchOrder();
     const unsubscribe = subscribeAdminOrders(fetchOrder);
     return unsubscribe;
-  }, [orderCode]);
+  }, [fetchOrder]);
 
   if (isInitializing) {
     return (
@@ -144,7 +143,7 @@ const AdminOrderDetailContent = ({ orderCode, routeId }: { orderCode: string; ro
     setPendingTransition(null);
     setShowTransitionModal(false);
     pushToast(result.message || t.messages.transitionSuccess(fulfillmentLabel(next)));
-    fetchOrder();
+    void fetchOrder();
   };
 
   const exportAuditLog = () => {

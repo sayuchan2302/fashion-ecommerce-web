@@ -97,6 +97,9 @@ interface BulkTransitionResult {
   skippedCodes: string[];
 }
 
+const toErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error && error.message.trim() ? error.message : fallback;
+
 const mapBackendToAdmin = (order: BackendAdminOrder): AdminOrderRecord => {
   const fulfillmentMap: Record<string, FulfillmentStatus> = {
     PENDING: 'pending',
@@ -213,9 +216,9 @@ export const updateAdminOrderTracking = async (
       order: mapBackendToAdmin(data),
       message: 'Đã cập nhật mã vận đơn.',
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to update tracking number', error);
-    return { ok: false, error: error.message || 'Không thể cập nhật mã vận đơn.' };
+    return { ok: false, error: toErrorMessage(error, 'Không thể cập nhật mã vận đơn.') };
   }
 };
 
@@ -253,9 +256,9 @@ export const transitionAdminOrder = async (input: TransitionInput): Promise<Tran
       order: mapBackendToAdmin(data),
       message: `Đã chuyển sang ${fulfillmentLabel(input.nextFulfillment)}.`,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to transition order', error);
-    return { ok: false, error: error.message || 'Không thể cập nhật trạng thái đơn hàng.' };
+    return { ok: false, error: toErrorMessage(error, 'Không thể cập nhật trạng thái đơn hàng.') };
   }
 };
 
