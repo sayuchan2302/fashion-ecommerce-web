@@ -101,6 +101,7 @@ public class SecurityConfig {
                         
                         // ─── Stores: public read, registration requires auth, admin approval ─
                         .requestMatchers(HttpMethod.GET, "/api/stores").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/stores/my-store").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/stores/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/stores/register").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/stores/*/approve").hasRole("SUPER_ADMIN")

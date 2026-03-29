@@ -18,6 +18,7 @@ interface BackendOrderItem {
 
 interface BackendOrder {
   id: string;
+  code?: string;
   items?: BackendOrderItem[];
 }
 
@@ -115,7 +116,7 @@ const Returns = () => {
                 className="returns-select"
               >
                 {orders.map(order => (
-                  <option key={order.id} value={order.id}>{order.id}</option>
+                  <option key={order.id} value={order.id}>{order.code || order.id}</option>
                 ))}
               </select>
             </label>

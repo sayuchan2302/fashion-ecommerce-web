@@ -13,7 +13,9 @@ import java.util.UUID;
 @Builder
 public class ReturnRequestResponse {
     private UUID id;
+    private String code;
     private UUID orderId;
+    private String orderCode;
     private UUID userId;
     private String customerName;
     private String customerEmail;

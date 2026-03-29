@@ -32,8 +32,6 @@ const VendorLayout = ({ title, actions, children, hideTopbarTitle = false, bread
       searchPlaceholder={t.searchPlaceholder}
       notificationsLabel={t.notifications}
       settingsLabel={t.settings}
-      fallbackUserName="Người bán"
-      fallbackUserEmail="seller@store.com"
     >
       {children}
     </AdminLayout>

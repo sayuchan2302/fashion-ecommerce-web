@@ -91,7 +91,7 @@
   flex-shrink: 0;
 }
 
-.store-info-id {
+.store-info-slug {
   font-size: 12px;
   color: var(--co-admin-text-muted);
   font-weight: 500;

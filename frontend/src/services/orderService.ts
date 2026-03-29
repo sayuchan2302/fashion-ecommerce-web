@@ -45,6 +45,7 @@ interface BackendOrderItemResponse {
 
 interface BackendOrderResponse {
   id: string;
+  code?: string;
   createdAt?: string;
   status?: string;
   paymentMethod?: string;
@@ -72,6 +73,7 @@ interface BackendOrderResponse {
 
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ORDER_CODE_PATTERN = /^DH-\d{6}-\d{6}$/i;
 
 const backendStatusToClientStatus = (status?: string): ClientOrderStatus => {
   switch ((status || '').toUpperCase()) {
@@ -107,6 +109,7 @@ const mapBackendOrderToShared = (order: BackendOrderResponse): SharedOrder => {
   const clientStatus = backendStatusToClientStatus(order.status);
   return {
     id: order.id,
+    code: order.code || order.id,
     createdAt: order.createdAt || new Date().toISOString(),
     parentOrderId: order.subOrderId || undefined,
     storeId: order.storeId || undefined,
@@ -152,6 +155,7 @@ const syncBackendOrderToSharedStore = (order: BackendOrderResponse) => {
 
 const toClientOrder = (o: SharedOrder): Order => ({
   id: o.id,
+  code: o.code || o.id,
   createdAt: o.createdAt,
   status: fulfillmentToClientStatus(o.fulfillment, o.paymentStatus) as OrderStatus,
   total: o.total,
@@ -211,12 +215,19 @@ export const orderService = {
   },
 
   async getByIdFromBackend(id: string): Promise<Order | null> {
-    if (!UUID_PATTERN.test(id)) {
-      return null;
-    }
-
     try {
-      const order = await apiRequest<BackendOrderResponse>(`/api/orders/${id}`, {}, { auth: true });
+      const normalizedId = String(id || '').trim();
+      if (!normalizedId) {
+        return null;
+      }
+      if (!UUID_PATTERN.test(normalizedId) && !ORDER_CODE_PATTERN.test(normalizedId)) {
+        return null;
+      }
+
+      const path = UUID_PATTERN.test(normalizedId)
+        ? `/api/orders/${normalizedId}`
+        : `/api/orders/code/${encodeURIComponent(normalizedId)}`;
+      const order = await apiRequest<BackendOrderResponse>(path, {}, { auth: true });
       syncBackendOrderToSharedStore(order);
       return toClientOrder(mapBackendOrderToShared(order));
     } catch (error: unknown) {

@@ -7,6 +7,7 @@ import { useAdminToast } from './useAdminToast';
 import { returnService, type ReturnRequest, type ReturnStatus } from '../../services/returnService';
 import { PanelTabs } from '../../components/Panel/PanelPrimitives';
 import Drawer from '../../components/Drawer/Drawer';
+import { toDisplayCode } from '../../utils/displayCode';
 
 const statusConfig: Record<ReturnStatus, { label: string; pillClass: string }> = {
   PENDING:   { label: 'Chờ duyệt',  pillClass: 'admin-pill pending' },
@@ -26,6 +27,8 @@ const TABS = [
 type TabKey = typeof TABS[number]['key'];
 
 const PAGE_SIZE = 20;
+const RETURN_CODE_FALLBACK = 'TH-DANG-DONG-BO';
+const ORDER_CODE_FALLBACK = 'DH-DANG-DONG-BO';
 
 const AdminReturns = () => {
   const [activeTab, setActiveTab] = useState<TabKey>('all');
@@ -92,7 +95,8 @@ const AdminReturns = () => {
     if (!searchText) return allReturns;
     return allReturns.filter((item) =>
       item.id.toLowerCase().includes(searchText) ||
-      item.orderId.toLowerCase().includes(searchText) ||
+      (item.code || '').toLowerCase().includes(searchText) ||
+      (item.orderCode || '').toLowerCase().includes(searchText) ||
       (item.customerName || '').toLowerCase().includes(searchText)
     );
   }, [allReturns, searchQuery]);
@@ -188,7 +192,7 @@ const AdminReturns = () => {
                       <input type="checkbox" checked={selected.has(item.id)} onChange={(e) => toggleOne(item.id, e.target.checked)} />
                     </div>
                     <div role="cell">
-                      <span className="admin-bold">{item.id.split('-')[0].toUpperCase()}</span>
+                      <span className="admin-bold">{toDisplayCode(item.code, RETURN_CODE_FALLBACK)}</span>
                     </div>
                     <div role="cell">
                       <div className="admin-line-clamp" style={{ WebkitLineClamp: 2, display: '-webkit-box', WebkitBoxOrient: 'vertical', overflow: 'hidden' }} title={item.items.map(i => i.productName).join(', ')}>
@@ -197,7 +201,7 @@ const AdminReturns = () => {
                     </div>
                     <div role="cell">
                       <div className="admin-bold">{item.customerName}</div>
-                      <div className="admin-muted small">Shop: {item.storeName || 'Official Store'}</div>
+                      <div className="admin-muted small">Shop: {item.storeName || 'Chưa xác định'}</div>
                     </div>
                     <div role="cell"><span className="admin-muted">{item.reason}</span></div>
                     <div role="cell"><span className={statusConfig[item.status].pillClass}>{statusConfig[item.status].label}</span></div>
@@ -231,7 +235,7 @@ const AdminReturns = () => {
             <div className="drawer-header">
               <div>
                 <p className="drawer-eyebrow">Yêu cầu hoàn trả</p>
-                <h3>{drawerItem.id}</h3>
+                <h3>{toDisplayCode(drawerItem.code, RETURN_CODE_FALLBACK)}</h3>
               </div>
               <button className="admin-icon-btn" onClick={() => { setDrawerItem(null); setDrawerNote(''); }}><X size={16} /></button>
             </div>
@@ -239,7 +243,7 @@ const AdminReturns = () => {
               <section className="drawer-section">
                 <h4>Thông tin yêu cầu</h4>
                 <div className="admin-card-list">
-                  <div className="admin-card-row"><span className="admin-bold">Đơn hàng</span><span className="admin-muted">{drawerItem.orderId}</span></div>
+                  <div className="admin-card-row"><span className="admin-bold">Đơn hàng</span><span className="admin-muted">{toDisplayCode(drawerItem.orderCode, ORDER_CODE_FALLBACK)}</span></div>
                   <div className="admin-card-row"><span className="admin-bold">Khách hàng</span><span className="admin-muted">{drawerItem.customerName}</span></div>
                   <div className="admin-card-row"><span className="admin-bold">Trạng thái</span><span className={statusConfig[drawerItem.status].pillClass}>{statusConfig[drawerItem.status].label}</span></div>
                   <div className="admin-card-row"><span className="admin-bold">Lý do</span><span className="admin-muted">{drawerItem.reason}</span></div>

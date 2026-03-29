@@ -138,7 +138,7 @@ const OrderDetail = () => {
           <ChevronRight size={14} />
           <Link to="/profile">Tài khoản</Link>
           <ChevronRight size={14} />
-          <span>Đơn hàng #{order.id}</span>
+          <span>Đơn hàng #{order.code || order.id}</span>
         </div>
 
         <div className="od-header">
@@ -146,7 +146,7 @@ const OrderDetail = () => {
             <ArrowLeft size={18} /> Quay lại
           </Link>
           <div className="od-header-info">
-            <h1>Đơn hàng <span className="od-order-id">#{order.id}</span></h1>
+            <h1>Đơn hàng <span className="od-order-id">#{order.code || order.id}</span></h1>
             <span className="od-date">Ngày đặt: {new Date(order.createdAt).toLocaleString('vi-VN')}</span>
           </div>
           <span className={`od-status-badge ${statusColorMap[order.status]}`}>{t.status[order.status]}</span>
@@ -280,7 +280,7 @@ const OrderDetail = () => {
             </div>
             <h3 className="od-modal-title">Xác nhận hủy đơn hàng</h3>
             <p className="od-modal-desc">
-              Bạn có chắc chắn muốn hủy đơn hàng <strong>#{order.id}</strong>? 
+              Bạn có chắc chắn muốn hủy đơn hàng <strong>#{order.code || order.id}</strong>? 
               Hành động này không thể hoàn tác.
             </p>
             

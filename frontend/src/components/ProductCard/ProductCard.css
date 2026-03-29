@@ -242,6 +242,11 @@
   color: var(--co-blue-600);
 }
 
+.store-link.is-disabled {
+  pointer-events: none;
+  color: var(--co-gray-400);
+}
+
 .product-prices {
   display: flex;
   align-items: baseline;

@@ -12,6 +12,9 @@ import { adminReviewService, type Review, type ReviewStatus } from './adminRevie
 import { ADMIN_VIEW_KEYS } from './adminListView';
 import AdminConfirmDialog from './AdminConfirmDialog';
 import Drawer from '../../components/Drawer/Drawer';
+import { toDisplayCode } from '../../utils/displayCode';
+
+const ORDER_CODE_FALLBACK = 'DH-DANG-DONG-BO';
 
 const normalizeStatus = (status?: string | null): ReviewStatus => {
   const normalized = status?.toLowerCase();
@@ -103,7 +106,7 @@ const AdminReviews = () => {
     onSearchChange: view.setSearch,
     pageValue: view.page,
     onPageChange: view.setPage,
-    getSearchText: (r) => `${r.productName} ${r.customerName} ${r.content}`,
+    getSearchText: (r) => `${r.productName} ${r.customerName} ${r.content} ${r.orderCode || ''}`,
     filterPredicate: () => true,
     loadingDeps: [view.status],
   });
@@ -324,7 +327,7 @@ const AdminReviews = () => {
                         <img src={review.productImage} alt={review.productName} />
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                           <span className="admin-bold">{review.productName}</span>
-                          <span className="admin-muted small">Order #{review.orderId || review.id}</span>
+                          <span className="admin-muted small">Order #{toDisplayCode(review.orderCode, ORDER_CODE_FALLBACK)}</span>
                         </div>
                       </div>
                     </div>
@@ -397,8 +400,7 @@ const AdminReviews = () => {
                   <img src={drawerReview.productImage} alt={drawerReview.productName} style={{ width: 64, height: 64, borderRadius: 12, objectFit: 'cover', border: '1px solid #e2e8f0' }} />
                   <div>
                     <p className="admin-bold" style={{ margin: 0 }}>{drawerReview.productName}</p>
-                    <p className="admin-muted small" style={{ margin: 0 }}>Mã sản phẩm: {drawerReview.productId}</p>
-                    {drawerReview.orderId && <p className="admin-muted small" style={{ margin: 0 }}>Mã đơn hàng: #{drawerReview.orderId}</p>}
+                    <p className="admin-muted small" style={{ margin: 0 }}>Mã đơn hàng: #{toDisplayCode(drawerReview.orderCode, ORDER_CODE_FALLBACK)}</p>
                   </div>
                 </div>
               </section>

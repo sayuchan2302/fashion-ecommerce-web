@@ -21,6 +21,7 @@ import { getUiErrorMessage } from '../../utils/errorMessage';
 import { AdminStateBlock, AdminTableSkeleton } from '../Admin/AdminStateBlocks';
 import AdminConfirmDialog from '../Admin/AdminConfirmDialog';
 import { copyTextToClipboard, normalizePositiveInteger } from './vendorHelpers';
+import { resolveDetailRouteKey, toDisplayCode } from '../../utils/displayCode';
 
 type VendorOrderTab =
   | 'all'
@@ -45,6 +46,7 @@ type PendingAction = {
 };
 
 const PAGE_SIZE = 8;
+const ORDER_CODE_FALLBACK = 'DH-DANG-DONG-BO';
 
 const TABS: Array<{ key: VendorOrderTab; label: string }> = [
   { key: 'all', label: 'Tất cả' },
@@ -328,7 +330,7 @@ const VendorOrders = () => {
       confirmLabel: meta.confirmLabel,
       requireTracking: meta.requireTracking,
       requireReason: meta.requireReason,
-      selectedItems: selectedOrders.map((order) => order.id),
+      selectedItems: selectedOrders.map((order) => toDisplayCode(order.code, ORDER_CODE_FALLBACK)),
     });
   };
 
@@ -556,7 +558,7 @@ const VendorOrders = () => {
                           onChange={(event) => toggleOne(order.id, event.target.checked)}
                         />
                       </div>
-                      <div className="admin-bold">{order.id}</div>
+                      <div className="admin-bold">{toDisplayCode(order.code, ORDER_CODE_FALLBACK)}</div>
                       <div>
                         <div className="admin-bold">{order.customer}</div>
                         <div className="admin-muted small">{order.email}</div>
@@ -621,7 +623,7 @@ const VendorOrders = () => {
                             <XCircle size={16} />
                           </button>
                         )}
-                        <Link to={`/vendor/orders/${order.id}`} className="admin-icon-btn subtle" title="Chi tiết đơn hàng">
+                        <Link to={`/vendor/orders/${resolveDetailRouteKey(order.code, order.id)}`} className="admin-icon-btn subtle" title="Chi tiết đơn hàng">
                           <Eye size={16} />
                         </Link>
                       </div>

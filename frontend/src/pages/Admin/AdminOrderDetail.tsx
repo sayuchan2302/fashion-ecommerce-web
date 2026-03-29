@@ -27,8 +27,10 @@ import { ADMIN_DICTIONARY } from './adminDictionary';
 import { calculateCommission, formatCurrency } from '../../services/commissionService';
 import { MARKETPLACE_DICTIONARY } from '../../utils/clientDictionary';
 import { getUiErrorMessage } from '../../utils/errorMessage';
+import { toDisplayCode } from '../../utils/displayCode';
 
 const formatVND = (n: number) => n.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+const ORDER_CODE_FALLBACK = 'DH-DANG-DONG-BO';
 
 const AdminOrderDetailContent = ({ orderCode, routeId }: { orderCode: string; routeId?: string }) => {
   const t = ADMIN_DICTIONARY.orderDetail;
@@ -196,7 +198,7 @@ const AdminOrderDetailContent = ({ orderCode, routeId }: { orderCode: string; ro
       title={
         <div className="od-title-row">
           <button className="admin-ghost-btn" onClick={() => window.history.back()} aria-label={t.back}>←</button>
-          <span>{t.orderPrefix} #{routeId || order.code}</span>
+          <span>{t.orderPrefix} #{toDisplayCode(order.code || routeId, ORDER_CODE_FALLBACK)}</span>
         </div>
       }
       actions={(
@@ -243,9 +245,10 @@ const AdminOrderDetailContent = ({ orderCode, routeId }: { orderCode: string; ro
 
             {/* Commission Breakdown - Multi-vendor */}
             {(() => {
-              const commissionRate = order.commissionRate || 5;
+              const commissionRate = order.commissionRate ?? 0;
+              const hasCommissionRate = order.commissionRate !== null && order.commissionRate !== undefined;
               const commissionData = calculateCommission(total, commissionRate);
-              const storeName = order.storeName || 'Fashion Hub';
+              const storeName = order.storeName || 'Chưa xác định';
               
               return (
                 <div className="od-commission-card" style={{
@@ -272,7 +275,7 @@ const AdminOrderDetailContent = ({ orderCode, routeId }: { orderCode: string; ro
                         <Percent size={12} />
                         {MARKETPLACE_DICTIONARY.commission.rate}
                       </span>
-                      <strong style={{ color: '#334155' }}>{commissionRate}%</strong>
+                      <strong style={{ color: '#334155' }}>{hasCommissionRate ? `${commissionRate}%` : 'Chưa cấu hình'}</strong>
                     </div>
                     <div style={{ height: 1, background: '#99f6e4', margin: '4px 0' }} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>

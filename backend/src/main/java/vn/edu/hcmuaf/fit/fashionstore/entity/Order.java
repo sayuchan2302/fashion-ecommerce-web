@@ -20,8 +20,13 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "orders")
+@Table(name = "orders", indexes = {
+        @Index(name = "idx_orders_order_code", columnList = "order_code", unique = true)
+})
 public class Order extends BaseEntity {
+
+    @Column(name = "order_code", length = 32, unique = true)
+    private String orderCode;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)

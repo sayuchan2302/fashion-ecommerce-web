@@ -31,8 +31,6 @@ interface AdminLayoutProps {
   searchPlaceholder?: string;
   notificationsLabel?: string;
   settingsLabel?: string;
-  fallbackUserName?: string;
-  fallbackUserEmail?: string;
 }
 
 const defaultNavItems: PanelNavItem[] = adminPanelNav;
@@ -53,8 +51,6 @@ const AdminLayout = ({
   searchPlaceholder,
   notificationsLabel,
   settingsLabel,
-  fallbackUserName,
-  fallbackUserEmail,
 }: AdminLayoutProps) => {
   const isNested = useContext(AdminLayoutLevelContext);
   const setShellState = useContext(AdminShellContext);
@@ -65,6 +61,9 @@ const AdminLayout = ({
   const t = ADMIN_DICTIONARY.layout;
 
   const sessionUser = authService.getSession()?.user || authService.getAdminSession()?.user;
+  const displayName = sessionUser?.name?.trim() || t.adminName;
+  const displayEmail = sessionUser?.email?.trim() || 'Chưa có email';
+  const displayAvatar = sessionUser?.avatar || displayName.charAt(0).toUpperCase() || '?';
 
   const handleLogout = () => {
     authService.logout();
@@ -167,15 +166,15 @@ const AdminLayout = ({
               onMouseLeave={() => setIsDropdownOpen(false)}
             >
               <button className="admin-avatar-btn">
-                <span className="avatar-circle">{sessionUser?.avatar || sessionUser?.name?.charAt(0).toUpperCase() || 'A'}</span>
-                <span className="avatar-name">{sessionUser?.name || fallbackUserName || t.adminName}</span>
+                <span className="avatar-circle">{displayAvatar}</span>
+                <span className="avatar-name">{displayName}</span>
               </button>
               <div className={`admin-avatar-dropdown ${isDropdownOpen ? 'show' : ''}`}>
                 <div className="admin-dropdown-header">
-                  <span className="admin-dropdown-avatar">{sessionUser?.avatar || sessionUser?.name?.charAt(0).toUpperCase() || 'A'}</span>
+                  <span className="admin-dropdown-avatar">{displayAvatar}</span>
                   <div className="admin-dropdown-info">
-                    <span className="admin-dropdown-name">{sessionUser?.name || fallbackUserName || 'Admin'}</span>
-                    <span className="admin-dropdown-email">{sessionUser?.email || fallbackUserEmail || 'admin@gmail.com'}</span>
+                    <span className="admin-dropdown-name">{displayName}</span>
+                    <span className="admin-dropdown-email">{displayEmail}</span>
                   </div>
                 </div>
                 <div className="admin-dropdown-divider"></div>

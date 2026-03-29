@@ -19,8 +19,13 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "return_requests")
+@Table(name = "return_requests", indexes = {
+        @Index(name = "idx_return_requests_return_code", columnList = "return_code", unique = true)
+})
 public class ReturnRequest extends BaseEntity {
+
+    @Column(name = "return_code", length = 32, unique = true)
+    private String returnCode;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)

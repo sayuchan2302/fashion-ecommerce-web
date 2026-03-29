@@ -46,6 +46,14 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     Optional<Order> findByUserIdAndId(UUID userId, UUID id);
 
+    Optional<Order> findByOrderCode(String orderCode);
+
+    Optional<Order> findByOrderCodeAndStoreId(String orderCode, UUID storeId);
+
+    Optional<Order> findTopByOrderCodeStartingWithOrderByOrderCodeDesc(String orderCodePrefix);
+
+    List<Order> findByOrderCodeIsNullOrderByCreatedAtAscIdAsc();
+
     // ─── Multi-vendor: Store-scoped queries ────────────────────────────────────
 
     /**
@@ -67,6 +75,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
               AND (
                     COALESCE(:keyword, '') = ''
                     OR LOWER(STR(o.id)) LIKE LOWER(CONCAT('%', COALESCE(:keyword, ''), '%'))
+                    OR LOWER(COALESCE(o.orderCode, '')) LIKE LOWER(CONCAT('%', COALESCE(:keyword, ''), '%'))
                     OR LOWER(COALESCE(u.name, '')) LIKE LOWER(CONCAT('%', COALESCE(:keyword, ''), '%'))
                     OR LOWER(COALESCE(u.email, '')) LIKE LOWER(CONCAT('%', COALESCE(:keyword, ''), '%'))
                     OR LOWER(COALESCE(a.fullName, '')) LIKE LOWER(CONCAT('%', COALESCE(:keyword, ''), '%'))

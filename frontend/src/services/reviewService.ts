@@ -10,6 +10,7 @@ export interface Review {
   productName: string;
   productImage: string;
   orderId: string;
+  orderCode?: string;
   rating: number;
   title?: string;
   content: string;
@@ -61,6 +62,7 @@ interface BackendReviewResponse {
   reply?: string | null;
   replyAt?: string | null;
   orderId?: string;
+  orderCode?: string;
   version?: number;
 }
 
@@ -77,6 +79,8 @@ interface BackendEligibleReviewItem {
 interface BackendPage<T> {
   content?: T[];
 }
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const sortByNewest = (rows: Review[]) =>
   [...rows].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
@@ -97,6 +101,7 @@ const mapBackendReview = (row: BackendReviewResponse): Review => {
     productName: row.productName || 'Sản phẩm',
     productImage: row.productImage || '',
     orderId: row.orderId || '',
+    orderCode: row.orderCode || undefined,
     rating: Number(row.rating || 0),
     title: undefined,
     content: row.content || '',
@@ -189,9 +194,10 @@ export const reviewService = {
   },
 
   async getReviewsByProduct(productId: string): Promise<Review[]> {
-    if (!productId) return [];
+    const normalizedProductId = String(productId || '').trim();
+    if (!UUID_PATTERN.test(normalizedProductId)) return [];
     const rows = await apiRequest<BackendReviewResponse[]>(
-      `/api/reviews/product/${encodeURIComponent(productId)}`,
+      `/api/reviews/product/${encodeURIComponent(normalizedProductId)}`,
     );
     return sortByNewest((rows || []).map(mapBackendReview));
   },
@@ -204,6 +210,11 @@ export const reviewService = {
   },
 
   async submitReview(submission: ReviewSubmission): Promise<Review> {
+    const normalizedProductId = String(submission.productId || '').trim();
+    if (!UUID_PATTERN.test(normalizedProductId)) {
+      throw new Error('Sản phẩm chưa đồng bộ với backend, vui lòng tải lại trang.');
+    }
+
     const payload: {
       productId: string;
       orderId?: string;
@@ -212,7 +223,7 @@ export const reviewService = {
       content: string;
       images?: string[];
     } = {
-      productId: submission.productId,
+      productId: normalizedProductId,
       rating: submission.rating,
       title: submission.title,
       content: submission.content,
@@ -220,7 +231,11 @@ export const reviewService = {
     };
 
     if (submission.orderId && submission.orderId.trim()) {
-      payload.orderId = submission.orderId.trim();
+      const normalizedOrderId = submission.orderId.trim();
+      if (!UUID_PATTERN.test(normalizedOrderId)) {
+        throw new Error('Đơn hàng chưa đồng bộ với backend, vui lòng tải lại trang.');
+      }
+      payload.orderId = normalizedOrderId;
     }
 
     const response = await apiRequest<BackendReviewResponse>(

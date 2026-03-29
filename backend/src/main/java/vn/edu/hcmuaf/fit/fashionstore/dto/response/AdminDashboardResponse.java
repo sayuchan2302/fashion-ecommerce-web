@@ -61,6 +61,7 @@ public class AdminDashboardResponse {
     @AllArgsConstructor
     public static class ParentOrderQueueItem {
         private UUID id;
+        private String code;
         private String customerName;
         private BigDecimal total;
         private String issue;

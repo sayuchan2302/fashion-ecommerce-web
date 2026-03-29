@@ -17,12 +17,15 @@ import AdminConfirmDialog from '../Admin/AdminConfirmDialog';
 import Drawer from '../../components/Drawer/Drawer';
 import { getUiErrorMessage } from '../../utils/errorMessage';
 import { copyTextToClipboard } from './vendorHelpers';
+import { toDisplayCode } from '../../utils/displayCode';
 
 const TABS = [
   { key: 'all', label: 'Tất cả' },
   { key: 'need_reply', label: 'Cần phản hồi' },
   { key: 'negative', label: 'Đánh giá tiêu cực' },
 ] as const;
+
+const ORDER_CODE_FALLBACK = 'DH-DANG-DONG-BO';
 
 const RatingStars = ({ rating }: { rating: number }) => (
   <div className="vendor-rating-stars">
@@ -82,7 +85,7 @@ const VendorReviews = () => {
     return allReviews.filter((review) => {
       const keyword = query.trim().toLowerCase();
       const matchesSearch =
-        !keyword || `${review.productName} ${review.content} ${review.orderId}`.toLowerCase().includes(keyword);
+        !keyword || `${review.productName} ${review.content} ${review.orderCode || ''}`.toLowerCase().includes(keyword);
       const matchesTab =
         activeTab === 'all'
           ? true
@@ -187,6 +190,13 @@ const VendorReviews = () => {
     const current = reviews.find((review) => review.id === id);
     return current && !current.shopReply && (replyDrafts[id] || '').trim();
   });
+  const selectedReplyLabels = selectedNeedReply
+    .map((id) => {
+      const review = reviews.find((item) => item.id === id);
+      if (!review) return null;
+      return `${review.productName} - #${toDisplayCode(review.orderCode, ORDER_CODE_FALLBACK)}`;
+    })
+    .filter((label): label is string => Boolean(label));
 
   const statItems = [
     {
@@ -335,7 +345,7 @@ const VendorReviews = () => {
                     <img src={review.productImage} alt={review.productName} className="vendor-admin-thumb" />
                     <div className="vendor-admin-product-copy">
                       <div className="admin-bold">{review.productName}</div>
-                      <div className="admin-muted small">Đơn #{review.orderId}</div>
+                      <div className="admin-muted small">Đơn #{toDisplayCode(review.orderCode, ORDER_CODE_FALLBACK)}</div>
                     </div>
                   </div>
                   <div role="cell">
@@ -397,7 +407,7 @@ const VendorReviews = () => {
         open={Boolean(confirmReplyIds?.length)}
         title="Gửi phản hồi cho các đánh giá đã chọn"
         description="Các đánh giá này sẽ nhận phản hồi từ shop ngay sau khi xác nhận."
-        selectedItems={confirmReplyIds || []}
+        selectedItems={selectedReplyLabels}
         selectedNoun="đánh giá"
         confirmLabel="Gửi phản hồi"
         onCancel={() => setConfirmReplyIds(null)}
@@ -418,7 +428,7 @@ const VendorReviews = () => {
                 <div className="admin-card-list">
                   <div className="admin-card-row">
                     <span className="admin-bold">Đơn hàng</span>
-                    <span className="admin-muted">#{activeReview.orderId}</span>
+                    <span className="admin-muted">#{toDisplayCode(activeReview.orderCode, ORDER_CODE_FALLBACK)}</span>
                   </div>
                   <div className="admin-card-row">
                     <span className="admin-bold">Số sao</span>

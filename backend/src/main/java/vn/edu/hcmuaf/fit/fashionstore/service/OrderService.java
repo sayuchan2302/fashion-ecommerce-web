@@ -44,12 +44,13 @@ public class OrderService {
     private final StoreRepository storeRepository;
     private final CouponRepository couponRepository;
     private final VoucherRepository voucherRepository;
+    private final PublicCodeService publicCodeService;
 
     public OrderService(OrderRepository orderRepository, UserRepository userRepository,
                         AddressRepository addressRepository, ProductRepository productRepository,
                         ProductVariantRepository productVariantRepository, WalletService walletService,
                         StoreRepository storeRepository, CouponRepository couponRepository,
-                        VoucherRepository voucherRepository) {
+                        VoucherRepository voucherRepository, PublicCodeService publicCodeService) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.addressRepository = addressRepository;
@@ -59,6 +60,7 @@ public class OrderService {
         this.storeRepository = storeRepository;
         this.couponRepository = couponRepository;
         this.voucherRepository = voucherRepository;
+        this.publicCodeService = publicCodeService;
     }
 
     // Default commission rate (5%)
@@ -122,11 +124,24 @@ public class OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
     }
 
+    public Order findByCode(String code) {
+        return orderRepository.findByOrderCode(normalizeRequiredText(code, "Order code is required"))
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+    }
+
     /**
      * Find order by ID with user ownership validation
      */
     public Order findByIdForUser(UUID orderId, UUID userId) {
         Order order = findById(orderId);
+        if (!order.getUser().getId().equals(userId)) {
+            throw new ForbiddenException("You don't have access to this order");
+        }
+        return order;
+    }
+
+    public Order findByCodeForUser(String orderCode, UUID userId) {
+        Order order = findByCode(orderCode);
         if (!order.getUser().getId().equals(userId)) {
             throw new ForbiddenException("You don't have access to this order");
         }
@@ -139,8 +154,18 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
+    public AdminOrderResponse getAdminOrderByCode(String code) {
+        return toAdminOrderResponse(findByCode(code));
+    }
+
+    @Transactional(readOnly = true)
     public AdminOrderResponse getCustomerOrderById(UUID orderId, UUID userId) {
         return toAdminOrderResponse(findByIdForUser(orderId, userId));
+    }
+
+    @Transactional(readOnly = true)
+    public AdminOrderResponse getCustomerOrderByCode(String orderCode, UUID userId) {
+        return toAdminOrderResponse(findByCodeForUser(orderCode, userId));
     }
 
     // ─── Vendor Methods (Multi-tenant) ─────────────────────────────────────────
@@ -186,6 +211,11 @@ public class OrderService {
                 .orElseThrow(() -> new ForbiddenException("Order not found or you don't have access to it"));
     }
 
+    public Order findByCodeForStore(String orderCode, UUID storeId) {
+        return orderRepository.findByOrderCodeAndStoreId(normalizeRequiredText(orderCode, "Order code is required"), storeId)
+                .orElseThrow(() -> new ForbiddenException("Order not found or you don't have access to it"));
+    }
+
     @Transactional(readOnly = true)
     public VendorOrderPageResponse getVendorOrderPage(
             UUID storeId,
@@ -209,6 +239,11 @@ public class OrderService {
     @Transactional(readOnly = true)
     public VendorOrderDetailResponse getVendorOrderDetail(UUID orderId, UUID storeId) {
         return toVendorOrderDetailResponse(findByIdForStore(orderId, storeId));
+    }
+
+    @Transactional(readOnly = true)
+    public VendorOrderDetailResponse getVendorOrderDetailByCode(String orderCode, UUID storeId) {
+        return toVendorOrderDetailResponse(findByCodeForStore(orderCode, storeId));
     }
 
     /**
@@ -296,6 +331,7 @@ public class OrderService {
 
         return AdminOrderResponse.builder()
                 .id(order.getId())
+                .code(order.getOrderCode())
                 .storeName(storeName)
                 .status(order.getStatus())
                 .paymentMethod(order.getPaymentMethod())
@@ -672,6 +708,7 @@ public class OrderService {
     private VendorOrderSummaryResponse toVendorOrderSummaryResponse(Order order) {
         return VendorOrderSummaryResponse.builder()
                 .id(order.getId())
+                .code(order.getOrderCode())
                 .status(safeEnumName(order.getStatus()))
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
@@ -692,6 +729,7 @@ public class OrderService {
     private VendorOrderDetailResponse toVendorOrderDetailResponse(Order order) {
         return VendorOrderDetailResponse.builder()
                 .id(order.getId())
+                .code(order.getOrderCode())
                 .status(safeEnumName(order.getStatus()))
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
@@ -1008,6 +1046,7 @@ public class OrderService {
         BigDecimal vendorPayout = subtotal.add(shippingFee).subtract(commissionFee).subtract(discount);
 
         Order parentOrder = Order.builder()
+                .orderCode(publicCodeService.nextOrderCode())
                 .user(user)
                 .shippingAddress(address)
                 .status(Order.OrderStatus.PENDING)
@@ -1063,6 +1102,7 @@ public class OrderService {
         BigDecimal vendorPayout = group.subtotal().add(shippingFee).subtract(commissionFee).subtract(discount);
 
         Order order = Order.builder()
+                .orderCode(publicCodeService.nextOrderCode())
                 .user(user)
                 .shippingAddress(address)
                 .status(Order.OrderStatus.PENDING)
@@ -1218,5 +1258,16 @@ public class OrderService {
 
     private String safeEnumName(Enum<?> value) {
         return value == null ? null : value.name();
+    }
+
+    public UUID resolveOrderId(String idOrCode) {
+        if (idOrCode == null || idOrCode.isBlank()) {
+            throw new ResourceNotFoundException("Order not found");
+        }
+        try {
+            return UUID.fromString(idOrCode.trim());
+        } catch (IllegalArgumentException ex) {
+            return findByCode(idOrCode).getId();
+        }
     }
 }

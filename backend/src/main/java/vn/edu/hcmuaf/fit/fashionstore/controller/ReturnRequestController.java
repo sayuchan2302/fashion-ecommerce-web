@@ -53,6 +53,12 @@ public class ReturnRequestController {
         return ResponseEntity.ok(returnRequestService.get(id));
     }
 
+    @GetMapping("/code/{code}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<ReturnRequestResponse> getByCode(@PathVariable String code) {
+        return ResponseEntity.ok(returnRequestService.getByCode(code));
+    }
+
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ReturnRequestResponse> updateStatus(@PathVariable UUID id,

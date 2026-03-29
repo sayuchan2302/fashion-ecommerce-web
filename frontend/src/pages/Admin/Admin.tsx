@@ -23,8 +23,10 @@ import {
   type AdminDashboardParentOrder,
   type AdminDashboardTopCategory,
 } from '../../services/adminDashboardService';
+import { resolveDetailRouteKey, toDisplayCode } from '../../utils/displayCode';
 
 const formatCurrency = (value: number) => `${(value || 0).toLocaleString('vi-VN')} ₫`;
+const ORDER_CODE_FALLBACK = 'DH-DANG-DONG-BO';
 
 const formatShortDate = (isoDate: string) => {
   const date = new Date(isoDate);
@@ -385,7 +387,7 @@ const Admin = () => {
                     alt={order.customerName}
                   />
                   <div>
-                    <p className="admin-bold">{order.id.slice(0, 8).toUpperCase()}</p>
+                    <p className="admin-bold">{toDisplayCode(order.code, ORDER_CODE_FALLBACK)}</p>
                     <span>{order.customerName}</span>
                   </div>
                 </div>
@@ -394,7 +396,7 @@ const Admin = () => {
                 <div role="cell">{formatCurrency(order.total)}</div>
                 <div role="cell" className="admin-actions compact">
                   <button className={`admin-ghost-btn small ${order.priority === 'high' ? 'primary-cta' : ''}`}>{order.issue}</button>
-                  <Link to={`/admin/orders/${order.id}`} className="admin-icon-btn" aria-label="Xem chi tiết">
+                  <Link to={`/admin/orders/${resolveDetailRouteKey(order.code, order.id)}`} className="admin-icon-btn" aria-label="Xem chi tiết">
                     <ChevronRight size={15} />
                   </Link>
                 </div>

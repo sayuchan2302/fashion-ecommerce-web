@@ -1,5 +1,7 @@
 import { apiRequest } from './apiClient';
+import { storeService } from './storeService';
 import type { Product, ProductVariant, ProductStatusType } from '../types';
+import { normalizeStoreSlug } from '../utils/storeIdentity';
 import {
   listAdminProducts,
   listAdminProductsSnapshot,
@@ -58,6 +60,17 @@ interface BackendProduct {
   images?: BackendProductImage[];
   variants?: BackendProductVariant[];
   storeId?: string;
+  storeName?: string;
+  storeSlug?: string;
+  storeLogo?: string;
+  isOfficialStore?: boolean;
+}
+
+interface StoreMeta {
+  name?: string;
+  slug?: string;
+  logo?: string;
+  isOfficial?: boolean;
 }
 
 const STORE_ASSIGNMENTS = [
@@ -84,6 +97,12 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
   { id: 'new', name: 'San Pham Moi', slug: 'new' },
   { id: 'accessories', name: 'Phu Kien', slug: 'accessories' },
 ];
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const LEGACY_NUMERIC_ID_PATTERN = /^\d+$/;
+const LIKELY_SKU_PATTERN = /^[A-Z0-9]+(?:-[A-Z0-9]+)+$/;
+const LIKELY_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const storeMetaCache = new Map<string, StoreMeta | null>();
 
 const mapStatusType = (statusType: string): ProductStatusType => {
   if (statusType === 'low') return 'low';
@@ -148,10 +167,10 @@ const mapBackendProduct = (product: BackendProduct): Product => {
   const storeInfo = product.storeId
     ? {
         storeId: product.storeId,
-        storeName: 'Marketplace Store',
-        storeSlug: product.storeId,
-        storeLogo: sortedImages[0]?.url,
-        isOfficialStore: false,
+        storeName: product.storeName || 'Marketplace Store',
+        storeSlug: normalizeStoreSlug(product.storeSlug),
+        storeLogo: product.storeLogo,
+        isOfficialStore: Boolean(product.isOfficialStore),
       }
     : undefined;
 
@@ -176,6 +195,68 @@ const mapBackendProduct = (product: BackendProduct): Product => {
 };
 
 const productCache = new Map<string, Product>();
+
+const loadStoreMeta = async (storeId: string): Promise<StoreMeta | null> => {
+  if (storeMetaCache.has(storeId)) {
+    return storeMetaCache.get(storeId) || null;
+  }
+
+  try {
+    const store = await storeService.getStoreById(storeId);
+    const meta: StoreMeta | null = store
+      ? {
+          name: store.name,
+          slug: store.slug,
+          logo: store.logo,
+          isOfficial: store.isOfficial,
+        }
+      : null;
+    storeMetaCache.set(storeId, meta);
+    return meta;
+  } catch {
+    storeMetaCache.set(storeId, null);
+    return null;
+  }
+};
+
+const enrichProductsWithStoreMeta = async (products: Product[]): Promise<Product[]> => {
+  const needsEnrich = Array.from(new Set(
+    products
+      .filter((product) =>
+        Boolean(
+          product.storeId
+          && (!normalizeStoreSlug(product.storeSlug) || !product.storeName || product.storeName === 'Marketplace Store'),
+        ))
+      .map((product) => product.storeId as string),
+  ));
+
+  if (needsEnrich.length > 0) {
+    await Promise.all(needsEnrich.map((storeId) => loadStoreMeta(storeId)));
+  }
+
+  return products.map((product) => {
+    if (!product.storeId) {
+      return product;
+    }
+    const meta = storeMetaCache.get(product.storeId) || null;
+    if (!meta) {
+      return {
+        ...product,
+        storeSlug: normalizeStoreSlug(product.storeSlug),
+      };
+    }
+
+    return {
+      ...product,
+      storeName: product.storeName && product.storeName !== 'Marketplace Store'
+        ? product.storeName
+        : (meta.name || product.storeName),
+      storeSlug: normalizeStoreSlug(product.storeSlug) || normalizeStoreSlug(meta.slug),
+      storeLogo: product.storeLogo || meta.logo,
+      isOfficialStore: product.isOfficialStore ?? meta.isOfficial,
+    };
+  });
+};
 
 const cacheProducts = (products: Product[]) => {
   for (const product of products) {
@@ -254,10 +335,10 @@ const filterProductsLocally = (source: Product[], filter: ProductFilter): Produc
   return results;
 };
 
-const fetchProductByIdentifier = async (identifier: string): Promise<Product | null> => {
+const fetchProductBySlug = async (slug: string): Promise<Product | null> => {
   try {
-    const backendProduct = await apiRequest<BackendProduct>(`/api/products/slug/${identifier}`);
-    const mapped = mapBackendProduct(backendProduct);
+    const backendProduct = await apiRequest<BackendProduct>(`/api/products/slug/${encodeURIComponent(slug)}`);
+    const [mapped] = await enrichProductsWithStoreMeta([mapBackendProduct(backendProduct)]);
     cacheProducts([mapped]);
     return mapped;
   } catch {
@@ -265,10 +346,65 @@ const fetchProductByIdentifier = async (identifier: string): Promise<Product | n
   }
 };
 
+const fetchProductBySku = async (sku: string): Promise<Product | null> => {
+  try {
+    const backendProduct = await apiRequest<BackendProduct>(`/api/products/sku/${encodeURIComponent(sku)}`);
+    const [mapped] = await enrichProductsWithStoreMeta([mapBackendProduct(backendProduct)]);
+    cacheProducts([mapped]);
+    return mapped;
+  } catch {
+    return null;
+  }
+};
+
+const fetchProductByBackendId = async (id: string): Promise<Product | null> => {
+  try {
+    const backendProduct = await apiRequest<BackendProduct>(`/api/products/${id}`);
+    const [mapped] = await enrichProductsWithStoreMeta([mapBackendProduct(backendProduct)]);
+    cacheProducts([mapped]);
+    return mapped;
+  } catch {
+    return null;
+  }
+};
+
+const fetchProductByIdentifier = async (identifier: string): Promise<Product | null> => {
+  const normalized = identifier.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  if (UUID_PATTERN.test(normalized)) {
+    return fetchProductByBackendId(normalized);
+  }
+
+  if (LEGACY_NUMERIC_ID_PATTERN.test(normalized)) {
+    return null;
+  }
+
+  const looksLikeSku = LIKELY_SKU_PATTERN.test(normalized);
+  const looksLikeSlug = LIKELY_SLUG_PATTERN.test(normalized);
+
+  if (looksLikeSku && !looksLikeSlug) {
+    const bySku = await fetchProductBySku(normalized);
+    if (bySku) {
+      return bySku;
+    }
+    return fetchProductBySlug(normalized);
+  }
+
+  const bySlug = await fetchProductBySlug(normalized);
+  if (bySlug) {
+    return bySlug;
+  }
+
+  return fetchProductBySku(normalized);
+};
+
 const fetchPublicCatalog = async (): Promise<Product[]> => {
   try {
     const backendProducts = await apiRequest<BackendProduct[]>('/api/products');
-    const mapped = backendProducts.map(mapBackendProduct);
+    const mapped = await enrichProductsWithStoreMeta(backendProducts.map(mapBackendProduct));
     cacheProducts(mapped);
     return mapped;
   } catch {

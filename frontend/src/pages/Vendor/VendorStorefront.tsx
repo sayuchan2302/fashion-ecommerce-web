@@ -17,8 +17,8 @@ const defaultSettings: VendorSettingsData = {
 const VendorStorefront = () => {
   const { addToast } = useToast();
   const [settings, setSettings] = useState<VendorSettingsData>(defaultSettings);
-  const [bannerUrl, setBannerUrl] = useState('https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1400&h=520&fit=crop');
-  const [tagline, setTagline] = useState('Tinh chỉnh từ chất liệu, uy tín từ trải nghiệm mua sắm.');
+  const [bannerUrl, setBannerUrl] = useState('');
+  const [tagline, setTagline] = useState('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -81,10 +81,17 @@ const VendorStorefront = () => {
       breadcrumbs={['Kênh Người Bán', 'Gian hàng']}
       actions={(
         <>
-          <a className="admin-ghost-btn" href={`/store/${settings.storeInfo.slug || 'my-store'}`}>
-            <ExternalLink size={16} />
-            Xem trang công khai
-          </a>
+          {settings.storeInfo.slug ? (
+            <a className="admin-ghost-btn" href={`/store/${settings.storeInfo.slug}`}>
+              <ExternalLink size={16} />
+              Xem trang công khai
+            </a>
+          ) : (
+            <button type="button" className="admin-ghost-btn" disabled title="Chưa có slug storefront">
+              <ExternalLink size={16} />
+              Chưa có đường dẫn công khai
+            </button>
+          )}
           <button className="admin-primary-btn vendor-admin-primary" onClick={handleSave} disabled={saving}>
             <Save size={16} />
             {saving ? 'Đang lưu...' : 'Lưu gian hàng'}
@@ -221,19 +228,19 @@ const VendorStorefront = () => {
                       </div>
                       <div className="vendor-store-preview-copy">
                         <div className="vendor-store-preview-title">
-                          <h3>{settings.storeInfo.name || 'Tên gian hàng'}</h3>
+                          <h3>{settings.storeInfo.name || 'Chưa cập nhật tên gian hàng'}</h3>
                           <span className="admin-pill teal"><ShieldCheck size={13} /> Chính hãng</span>
                         </div>
-                        <p>{tagline}</p>
+                        <p>{tagline || 'Chưa cập nhật khẩu hiệu gian hàng.'}</p>
                       </div>
                     </div>
                     <p className="vendor-store-preview-description">
-                      {settings.storeInfo.description || 'Mô tả gian hàng sẽ xuất hiện tại đây để giới thiệu shop với khách mua.'}
+                      {settings.storeInfo.description || 'Chưa cập nhật mô tả gian hàng.'}
                     </p>
                     <div className="vendor-store-preview-meta">
-                      <span>{settings.storeInfo.contactEmail || 'contact@shop.vn'}</span>
-                      <span>{settings.storeInfo.phone || '0900000000'}</span>
-                      <span>{settings.storeInfo.address || 'Địa chỉ gian hàng'}</span>
+                      <span>{settings.storeInfo.contactEmail || 'Chưa cập nhật email liên hệ'}</span>
+                      <span>{settings.storeInfo.phone || 'Chưa cập nhật số điện thoại'}</span>
+                      <span>{settings.storeInfo.address || 'Chưa cập nhật địa chỉ gian hàng'}</span>
                     </div>
                   </div>
                 </div>

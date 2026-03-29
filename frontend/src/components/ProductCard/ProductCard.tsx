@@ -7,6 +7,7 @@ import { useCartAnimation } from '../../context/CartAnimationContext';
 import { useWishlist } from '../../contexts/WishlistContext';
 import { productService } from '../../services/productService';
 import QuickViewModal from '../QuickViewModal/QuickViewModal';
+import { isCanonicalStoreSlug } from '../../utils/storeIdentity';
 import './ProductCard.css';
 
 interface ProductCardProps {
@@ -39,10 +40,12 @@ const ProductCard = ({ id, sku, name, price, originalPrice, image, badge, colors
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const imageRef = useRef<HTMLImageElement>(null);
 
-  const isWished = isInWishlist(String(sku || id));
+  const productRouteKey = String(id);
+  const isWished = isInWishlist(productRouteKey);
 
   const availableSizes = sizes ?? DEFAULT_SIZES;
-const selectedColorValue = colors?.[selectedColorIdx] ?? '';
+  const selectedColorValue = colors?.[selectedColorIdx] ?? '';
+  const hasStoreSlug = isCanonicalStoreSlug(storeSlug);
 
   const handleSizeClick = async (e: React.MouseEvent, size: string) => {
     e.preventDefault();
@@ -50,10 +53,10 @@ const selectedColorValue = colors?.[selectedColorIdx] ?? '';
 
     const purchaseReference = backendId
       ? { backendProductId: backendId, backendVariantId: undefined }
-      : await productService.resolvePurchaseReference(String(sku || id), selectedColorValue || 'Mac dinh', size);
+      : await productService.resolvePurchaseReference(productRouteKey, selectedColorValue || 'Mac dinh', size);
 
     addToCart({
-      id: sku || id,
+      id: productRouteKey,
       backendProductId: purchaseReference.backendProductId,
       backendVariantId: purchaseReference.backendVariantId,
       name,
@@ -87,7 +90,7 @@ const selectedColorValue = colors?.[selectedColorIdx] ?? '';
     e.preventDefault();
     e.stopPropagation();
     if (isWished) {
-      removeFromWishlist(String(sku || id));
+      removeFromWishlist(productRouteKey);
     } else {
       triggerAnimation({
         imgSrc: image,
@@ -96,7 +99,7 @@ const selectedColorValue = colors?.[selectedColorIdx] ?? '';
         target: 'wishlist',
       });
       addToWishlist({
-        id: String(sku || id),
+        id: productRouteKey,
         name,
         price,
         originalPrice,
@@ -124,7 +127,7 @@ const selectedColorValue = colors?.[selectedColorIdx] ?? '';
           <Heart size={20} fill={isWished ? "currentColor" : "none"} strokeWidth={isWished ? 1 : 1.5} />
         </button>
 
-        <Link to={`/product/${sku || id}`}>
+        <Link to={`/product/${productRouteKey}`}>
           <img
             ref={imageRef}
             src={image}
@@ -188,7 +191,7 @@ const selectedColorValue = colors?.[selectedColorIdx] ?? '';
             ))}
           </div>
         )}
-         <Link to={`/product/${sku || id}`} className="product-name-link">
+         <Link to={`/product/${productRouteKey}`} className="product-name-link">
            <h3 className="product-name">{name}</h3>
          </Link>
          
@@ -204,15 +207,20 @@ const selectedColorValue = colors?.[selectedColorIdx] ?? '';
                  <BadgeCheck size={12} strokeWidth={2.5} />
                  <span>{storeName || 'Chính hãng'}</span>
                </motion.div>
-             ) : (
-               <Link 
-                 to={`/store/${storeSlug || storeId}`} 
+             ) : hasStoreSlug ? (
+               <Link
+                 to={`/store/${storeSlug}`}
                  className="store-link"
                  onClick={(e) => e.stopPropagation()}
                >
                  <Store size={12} />
                  <span>{storeName || 'Người bán'}</span>
                </Link>
+             ) : (
+               <span className="store-link is-disabled">
+                 <Store size={12} />
+                 <span>{storeName || 'Người bán'}</span>
+               </span>
              )}
            </div>
          )}
@@ -225,7 +233,7 @@ const selectedColorValue = colors?.[selectedColorIdx] ?? '';
 
       {/* Quick View Modal */}
       <QuickViewModal
-        product={{ id: sku || id, backendId, sku, name, price, originalPrice, image, colors, sizes }}
+        product={{ id: productRouteKey, backendId, sku, name, price, originalPrice, image, colors, sizes }}
         isOpen={isQuickViewOpen}
         onClose={() => setIsQuickViewOpen(false)}
 />

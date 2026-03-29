@@ -62,6 +62,23 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
             """)
     Optional<Product> findPublicBySlug(@Param("slug") String slug);
 
+    @Query("""
+            SELECT DISTINCT p FROM Product p
+            LEFT JOIN p.variants v
+            WHERE (
+                LOWER(COALESCE(p.sku, '')) = LOWER(:sku)
+                OR LOWER(COALESCE(v.sku, '')) = LOWER(:sku)
+            )
+              AND p.status = 'ACTIVE'
+              AND p.storeId IS NOT NULL
+              AND p.storeId IN (
+                  SELECT s.id FROM Store s
+                  WHERE s.approvalStatus = 'APPROVED'
+                    AND s.status = 'ACTIVE'
+              )
+            """)
+    Optional<Product> findPublicBySku(@Param("sku") String sku);
+
     Page<Product> findByCategoryId(UUID categoryId, Pageable pageable);
 
     Page<Product> findByStatus(Product.ProductStatus status, Pageable pageable);

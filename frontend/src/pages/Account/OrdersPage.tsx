@@ -76,11 +76,11 @@ const OrdersPage = () => {
                   <div className="order-status">
                     <span className="status-pill">{statusText[order.status]}</span>
                   </div>
-                  <div><strong>Mã đơn:</strong> {order.id}</div>
+                  <div><strong>Mã đơn:</strong> {order.code || order.id}</div>
                   <div><strong>Ngày đặt:</strong> {new Date(order.createdAt).toLocaleString('vi-VN')}</div>
                   <div><strong>Tổng tiền:</strong> {order.total.toLocaleString('vi-VN')}đ</div>
                   <div className="order-items-small">{order.items.length} sản phẩm</div>
-                  <Link to={`/account/orders/${order.id}`} className="btn-secondary" style={{ textAlign: 'center' }}>Xem chi tiết</Link>
+                  <Link to={`/account/orders/${order.code || order.id}`} className="btn-secondary" style={{ textAlign: 'center' }}>Xem chi tiết</Link>
                 </div>
               ))
             )

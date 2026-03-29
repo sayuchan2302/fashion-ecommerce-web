@@ -11,9 +11,11 @@ import { useToast } from '../../contexts/ToastContext';
 import { getUiErrorMessage } from '../../utils/errorMessage';
 import { AdminStateBlock } from '../Admin/AdminStateBlocks';
 import { copyTextToClipboard } from './vendorHelpers';
+import { toDisplayCode } from '../../utils/displayCode';
 
 const emptyOrder: VendorOrderDetailData = {
   id: '',
+  code: '',
   status: 'pending',
   createdAt: new Date().toISOString(),
   customer: { name: '', email: '', phone: '' },
@@ -32,6 +34,8 @@ const emptyOrder: VendorOrderDetailData = {
   vendorPayout: 0,
   timeline: [],
 };
+
+const ORDER_CODE_FALLBACK = 'DH-DANG-DONG-BO';
 
 const VendorOrderDetail = () => {
   const { id = '' } = useParams();
@@ -78,7 +82,7 @@ const VendorOrderDetail = () => {
   ) => {
     setIsProcessing(true);
     try {
-      await vendorPortalService.updateOrderStatus(id, status, payload);
+      await vendorPortalService.updateOrderStatus(order.id || id, status, payload);
       setOrder((current) => ({
         ...current,
         status: nextUiStatus,
@@ -94,7 +98,7 @@ const VendorOrderDetail = () => {
   };
 
   const handleCopyOrderId = async () => {
-    const copied = await copyTextToClipboard(order.id);
+    const copied = await copyTextToClipboard(toDisplayCode(order.code, ORDER_CODE_FALLBACK));
     addToast(copied ? 'Đã sao chép mã đơn hàng' : 'Không thể sao chép mã đơn hàng', copied ? 'success' : 'error');
   };
 
@@ -141,7 +145,7 @@ const VendorOrderDetail = () => {
 
   return (
     <VendorLayout
-      title={`Đơn hàng #${id}`}
+      title={`Đơn hàng #${toDisplayCode(order.code, ORDER_CODE_FALLBACK)}`}
       breadcrumbs={['Kênh Người Bán', 'Đơn hàng', 'Chi tiết']}
       actions={(
         <div className="admin-actions">
@@ -293,7 +297,7 @@ const VendorOrderDetail = () => {
                 <div className="od-card-row">
                   <span className="od-label">Mã đơn hàng</span>
                   <div className="tracking-value">
-                    <strong>{order.id}</strong>
+                    <strong>{toDisplayCode(order.code, ORDER_CODE_FALLBACK)}</strong>
                     <button className="admin-icon-btn subtle" aria-label="Sao chép mã đơn" onClick={() => void handleCopyOrderId()}>
                       <Copy size={14} />
                     </button>

@@ -25,8 +25,10 @@ import {
 import { PanelStatsGrid, PanelTabs } from '../../components/Panel/PanelPrimitives';
 import Portal from '../../components/Portal/Portal';
 import { getUiErrorMessage } from '../../utils/errorMessage';
+import { resolveDetailRouteKey, toDisplayCode } from '../../utils/displayCode';
 
 interface AdminOrderRow {
+  id: string;
   code: string;
   customer: string;
   email: string;
@@ -52,7 +54,8 @@ const mapOrderRecordToRow = (order: AdminOrderRecord): AdminOrderRow => {
     .join(' • ');
 
   return {
-    code: order.code,
+    id: String(order.id || ''),
+    code: order.code || '',
     customer: order.customer,
     email: order.customerInfo.email,
     phone: order.customerInfo.phone,
@@ -67,6 +70,9 @@ const mapOrderRecordToRow = (order: AdminOrderRecord): AdminOrderRow => {
     date: order.date,
   };
 };
+
+const ORDER_CODE_FALLBACK = 'DH-DANG-DONG-BO';
+const displayOrderCode = (code: string) => toDisplayCode(code, ORDER_CODE_FALLBACK);
 
 
 const tone = (status: string) => {
@@ -104,7 +110,7 @@ const AdminOrders = () => {
 
   const getSearchText = useCallback(
     (row: AdminOrderRow) =>
-      `${row.code} ${row.customer} ${row.email} ${row.phone} ${row.productName} ${row.productMeta} ${paymentLabel(row.paymentStatus)} ${shipLabel(row.fulfillment)}`,
+      `${displayOrderCode(row.code)} ${row.customer} ${row.email} ${row.phone} ${row.productName} ${row.productMeta} ${paymentLabel(row.paymentStatus)} ${shipLabel(row.fulfillment)}`,
     [],
   );
 
@@ -188,24 +194,28 @@ const AdminOrders = () => {
 
   const toggleAll = (checked: boolean) => {
     if (checked) {
-      setSelected(new Set(filteredOrders.map((row) => row.code)));
+      setSelected(new Set(filteredOrders.map((row) => row.id)));
       return;
     }
     setSelected(new Set());
   };
 
-  const toggleOne = (code: string, checked: boolean) => {
+  const toggleOne = (id: string, checked: boolean) => {
     const nextSelection = new Set(selected);
     if (checked) {
-      nextSelection.add(code);
+      nextSelection.add(id);
     } else {
-      nextSelection.delete(code);
+      nextSelection.delete(id);
     }
     setSelected(nextSelection);
   };
 
   const handleBulkConfirm = async () => {
-    const { updatedCodes, skippedCodes } = await bulkTransitionToPacking(Array.from(selected), 'Admin');
+    const selectedCodes = rows
+      .filter((row) => selected.has(row.id))
+      .map((row) => row.code)
+      .filter((code) => Boolean(code));
+    const { updatedCodes, skippedCodes } = await bulkTransitionToPacking(selectedCodes, 'Admin');
     if (updatedCodes.length === 0) {
       pushToast('Không có đơn hàng hợp lệ để chuyển sang đóng gói.');
       return;
@@ -228,6 +238,10 @@ const AdminOrders = () => {
   };
 
   const handleApproveOrder = async (code: string) => {
+    if (!code) {
+      pushToast('Don hang nay chua duoc cap ma cong khai.');
+      return;
+    }
     const result = await transitionAdminOrder({
       code,
       nextFulfillment: 'packing',
@@ -246,7 +260,7 @@ const AdminOrders = () => {
 
   const selectedCount = selected.size;
   const eligibleForConfirmCount = rows.filter(
-    (row) => selected.has(row.code) && canTransitionFulfillment(row.fulfillment, 'packing', row.paymentStatus),
+    (row) => selected.has(row.id) && canTransitionFulfillment(row.fulfillment, 'packing', row.paymentStatus),
   ).length;
   const skippedCount = Math.max(0, selectedCount - eligibleForConfirmCount);
 
@@ -259,8 +273,8 @@ const AdminOrders = () => {
           <div className="admin-search">
             <Search size={16} />
             <input
-              placeholder="Tìm ORDER ID, khách hàng hoặc sản phẩm"
-              aria-label="Tìm ORDER ID, khách hàng hoặc sản phẩm"
+              placeholder="Tìm ORDER CODE, khách hàng hoặc sản phẩm"
+              aria-label="Tìm ORDER CODE, khách hàng hoặc sản phẩm"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -367,7 +381,7 @@ const AdminOrders = () => {
                     onChange={(event) => toggleAll(event.target.checked)}
                   />
                 </div>
-                <div role="columnheader">ORDER ID</div>
+                <div role="columnheader">ORDER CODE</div>
                 <div role="columnheader">Khách hàng</div>
                 <div role="columnheader">Sản phẩm</div>
                 <div role="columnheader" className="text-center">GMV</div>
@@ -379,24 +393,26 @@ const AdminOrders = () => {
 
               {pagedOrders.map((order) => (
                 <motion.div
-                  key={order.code}
+                  key={order.id}
                   className="admin-table-row orders"
                   role="row"
                   whileHover={{ y: -1 }}
                   onClick={() => {
-                    window.location.href = `/admin/orders/${order.code}`;
+                    const routeKey = resolveDetailRouteKey(order.code, order.id);
+                    if (!routeKey) return;
+                    window.location.href = `/admin/orders/${routeKey}`;
                   }}
                   style={{ cursor: 'pointer' }}
                 >
                   <div role="cell" onClick={(event) => event.stopPropagation()}>
                     <input
                       type="checkbox"
-                      aria-label={aria.selectItem(order.code)}
-                      checked={selected.has(order.code)}
-                      onChange={(event) => toggleOne(order.code, event.target.checked)}
+                      aria-label={aria.selectItem(displayOrderCode(order.code))}
+                      checked={selected.has(order.id)}
+                      onChange={(event) => toggleOne(order.id, event.target.checked)}
                     />
                   </div>
-                  <div role="cell" className="admin-bold">#{order.code}</div>
+                  <div role="cell" className="admin-bold">#{displayOrderCode(order.code)}</div>
                   <div role="cell" className="customer-info-cell">
                     <img src={order.avatar} alt={order.customer} className="customer-avatar" />
                     <div className="customer-text">
@@ -427,7 +443,7 @@ const AdminOrders = () => {
                   <div role="cell" className="admin-muted order-date">{new Date(order.date).toLocaleDateString('vi-VN')}</div>
                   <div role="cell" className="admin-actions" onClick={(event) => event.stopPropagation()}>
                     <Link
-                      to={`/admin/orders/${order.code}`}
+                      to={`/admin/orders/${resolveDetailRouteKey(order.code, order.id)}`}
                       className="admin-icon-btn subtle"
                       aria-label={actionTitles.viewDetail}
                     >

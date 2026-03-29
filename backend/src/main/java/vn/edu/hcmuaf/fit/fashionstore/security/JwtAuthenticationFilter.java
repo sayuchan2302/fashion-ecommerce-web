@@ -12,18 +12,27 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import vn.edu.hcmuaf.fit.fashionstore.entity.User;
+import vn.edu.hcmuaf.fit.fashionstore.repository.UserRepository;
 
 import java.io.IOException;
+import java.util.Optional;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final UserRepository userRepository;
 
-    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService) {
+    public JwtAuthenticationFilter(
+            JwtService jwtService,
+            UserDetailsService userDetailsService,
+            UserRepository userRepository
+    ) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -47,6 +56,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             userEmail = jwtService.extractUsername(jwt);
 
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                Optional<User> userOptional = userRepository.findByEmail(userEmail);
+                if (userOptional.isEmpty()) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
+                User user = userOptional.get();
+                String tokenUserId = jwtService.extractUserId(jwt);
+                if (tokenUserId == null || !tokenUserId.equals(user.getId().toString())) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
+                String tokenRole = jwtService.extractRole(jwt);
+                if (tokenRole != null && !tokenRole.equals(user.getRole().name())) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
                 if (!userDetails.isEnabled()) {

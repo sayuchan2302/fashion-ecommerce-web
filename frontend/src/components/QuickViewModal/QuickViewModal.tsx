@@ -36,7 +36,8 @@ const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
 
-  const isWished = isInWishlist(String(product.id));
+  const productRouteKey = String(product.id);
+  const isWished = isInWishlist(productRouteKey);
   const discount = product.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
     : 0;
@@ -47,10 +48,10 @@ const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
   const handleAddToCart = async () => {
     const purchaseReference = product.backendId
       ? { backendProductId: product.backendId, backendVariantId: undefined }
-      : await productService.resolvePurchaseReference(String(product.sku || product.id), selectedColorValue, selectedSize);
+      : await productService.resolvePurchaseReference(productRouteKey, selectedColorValue, selectedSize);
 
     addToCart({
-      id: product.id,
+      id: productRouteKey,
       backendProductId: purchaseReference.backendProductId,
       backendVariantId: purchaseReference.backendVariantId,
       name: product.name,
@@ -67,7 +68,7 @@ const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
 
   const handleToggleWishlist = (e: React.MouseEvent) => {
     if (isWished) {
-      removeFromWishlist(String(product.id));
+      removeFromWishlist(productRouteKey);
     } else {
       const imageEl = document.querySelector('.qv-image') as HTMLImageElement | null;
       triggerAnimation({
@@ -77,7 +78,7 @@ const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
         target: 'wishlist',
       });
       addToWishlist({
-        id: String(product.id),
+        id: productRouteKey,
         name: product.name,
         price: product.price,
         originalPrice: product.originalPrice,
@@ -215,7 +216,7 @@ const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
             </div>
 
             {/* View Detail Link */}
-            <Link to={`/product/${product.sku || product.id}`} className="qv-view-detail" onClick={onClose}>
+            <Link to={`/product/${productRouteKey}`} className="qv-view-detail" onClick={onClose}>
               <ExternalLink size={16} /> Xem chi tiết sản phẩm
             </Link>
           </div>

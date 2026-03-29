@@ -13,6 +13,7 @@ import java.util.UUID;
 @Builder
 public class AdminOrderResponse {
     private UUID id;
+    private String code;
     private String storeName;
     private Order.OrderStatus status;
     private Order.PaymentMethod paymentMethod;

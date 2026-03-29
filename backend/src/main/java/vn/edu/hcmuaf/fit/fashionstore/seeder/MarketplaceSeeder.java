@@ -1,4 +1,4 @@
-package vn.edu.hcmuaf.fit.fashionstore.Seeder;
+package vn.edu.hcmuaf.fit.fashionstore.seeder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +36,7 @@ import vn.edu.hcmuaf.fit.fashionstore.repository.ReviewRepository;
 import vn.edu.hcmuaf.fit.fashionstore.repository.StoreRepository;
 import vn.edu.hcmuaf.fit.fashionstore.repository.UserRepository;
 import vn.edu.hcmuaf.fit.fashionstore.repository.VoucherRepository;
+import vn.edu.hcmuaf.fit.fashionstore.service.PublicCodeService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -66,6 +67,7 @@ public class MarketplaceSeeder implements ApplicationRunner {
     private final ReviewRepository reviewRepository;
     private final JdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
+    private final PublicCodeService publicCodeService;
 
     public MarketplaceSeeder(
             UserRepository userRepository,
@@ -81,7 +83,8 @@ public class MarketplaceSeeder implements ApplicationRunner {
             ContentPageRepository contentPageRepository,
             ReviewRepository reviewRepository,
             JdbcTemplate jdbcTemplate,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            PublicCodeService publicCodeService
     ) {
         this.userRepository = userRepository;
         this.storeRepository = storeRepository;
@@ -97,6 +100,7 @@ public class MarketplaceSeeder implements ApplicationRunner {
         this.reviewRepository = reviewRepository;
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
+        this.publicCodeService = publicCodeService;
     }
 
     @Override
@@ -226,7 +230,6 @@ public class MarketplaceSeeder implements ApplicationRunner {
         createReturnRequest(orderDaGiao, customerMinh, itemDaGiao, ReturnRequest.ReturnReason.SIZE, ReturnRequest.ReturnResolution.EXCHANGE, ReturnRequest.ReturnStatus.PENDING, "Khách muốn đổi size M sang L.", "Đã tiếp nhận và chờ cửa hàng xác nhận tồn kho.");
 
         createReview(aoThunPremium, customerMinh, orderDaGiao, storeAn.getId(), 5, "Áo mặc rất thoải mái", "Chất vải mát, form đẹp, giao nhanh.", Review.ReviewStatus.APPROVED, "Cảm ơn bạn đã ủng hộ shop.", List.of("https://images.unsplash.com/photo-1521572163474-6864f9cf17ab"));
-        createReview(quanJeanSlim, customerMinh, orderDaGiao, storeAn.getId(), 4, "Jean ổn trong tầm giá", "Màu đẹp, mặc vừa vặn.", Review.ReviewStatus.APPROVED, null, List.of());
         createReview(damMidi, customerLan, orderDangGiao, storeBinh.getId(), 5, "Đầm lên dáng xinh", "Vải nhẹ, không nhăn nhiều.", Review.ReviewStatus.PENDING, null, List.of());
         createReview(blazerNu, customerHuy, null, storeBinh.getId(), 3, "Áo đẹp nhưng hơi dày", "Nên mặc phòng lạnh sẽ hợp hơn.", Review.ReviewStatus.APPROVED, "Shop ghi nhận góp ý để cải tiến chất liệu.", List.of());
 
@@ -476,6 +479,7 @@ public class MarketplaceSeeder implements ApplicationRunner {
     ) {
         Order order = new Order();
         order.setUser(customer);
+        order.setOrderCode(publicCodeService.nextOrderCode());
         order.setShippingAddress(shippingAddress);
         order.setStoreId(store.getId());
         order.setStatus(status);
@@ -541,6 +545,7 @@ public class MarketplaceSeeder implements ApplicationRunner {
     ) {
         ReturnRequest request = new ReturnRequest();
         request.setOrder(order);
+        request.setReturnCode(publicCodeService.nextReturnCode());
         request.setUser(user);
         request.setReason(reason);
         request.setResolution(resolution);

@@ -79,6 +79,7 @@ public class ReviewService {
                 .reply(review.getShopReply())
                 .replyAt(review.getShopReplyAt())
                 .orderId(review.getOrder() != null ? review.getOrder().getId().toString() : null)
+                .orderCode(review.getOrder() != null ? review.getOrder().getOrderCode() : null)
                 .version(review.getVersion())
                 .build();
     }

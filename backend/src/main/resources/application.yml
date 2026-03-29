@@ -1,6 +1,11 @@
 spring:
   application:
     name: fashionstore
+  devtools:
+    restart:
+      enabled: false
+    livereload:
+      enabled: false
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/fashion-store}
@@ -11,6 +16,7 @@ spring:
       initialization-fail-timeout: -1
 
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:update}
     show-sql: false

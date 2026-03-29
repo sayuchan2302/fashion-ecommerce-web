@@ -64,6 +64,17 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getCustomerOrderById(id, ctx.getUserId()));
     }
 
+    @GetMapping("/code/{code}")
+    public ResponseEntity<AdminOrderResponse> getOrderByCode(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable String code) {
+        UserContext ctx = authContext.fromAuthHeader(authHeader);
+        if (ctx.isAdmin()) {
+            return ResponseEntity.ok(orderService.getAdminOrderByCode(code));
+        }
+        return ResponseEntity.ok(orderService.getCustomerOrderByCode(code, ctx.getUserId()));
+    }
+
     /**
      * Create order for current user
      */
@@ -142,6 +153,15 @@ public class OrderController {
             @PathVariable UUID id) {
         UserContext ctx = authContext.requireVendor(authHeader);
         return ResponseEntity.ok(orderService.getVendorOrderDetail(id, ctx.getStoreId()));
+    }
+
+    @GetMapping("/my-store/code/{code}")
+    @PreAuthorize("hasAnyRole('VENDOR', 'SUPER_ADMIN')")
+    public ResponseEntity<VendorOrderDetailResponse> getMyStoreOrderByCode(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable String code) {
+        UserContext ctx = authContext.requireVendor(authHeader);
+        return ResponseEntity.ok(orderService.getVendorOrderDetailByCode(code, ctx.getStoreId()));
     }
 
     /**
@@ -237,18 +257,15 @@ public class OrderController {
     @PatchMapping("/admin/{id}/status")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<AdminOrderResponse> updateOrderStatus(
-            @PathVariable UUID id,
+            @PathVariable String id,
             @RequestBody StatusUpdateRequest request) {
+        UUID resolvedId = orderService.resolveOrderId(id);
         Order.OrderStatus status = parseOrderStatus(request.getStatus());
         if (status == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status is required");
         }
-        orderService.updateStatus(id, status);
-        // fetch again to return the correctly mapped DTO
-        return ResponseEntity.ok(orderService.findAllAdminOrders().stream()
-                .filter(o -> o.getId().equals(id))
-                .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found")));
+        orderService.updateStatus(resolvedId, status);
+        return ResponseEntity.ok(orderService.getAdminOrderById(resolvedId));
     }
 
     /**
@@ -257,9 +274,10 @@ public class OrderController {
     @PatchMapping("/admin/{id}/tracking")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<AdminOrderResponse> updateOrderTracking(
-            @PathVariable UUID id,
+            @PathVariable String id,
             @RequestBody TrackingUpdateRequest request) {
-        return ResponseEntity.ok(orderService.updateAdminOrderTracking(id, request.getTrackingNumber()));
+        UUID resolvedId = orderService.resolveOrderId(id);
+        return ResponseEntity.ok(orderService.updateAdminOrderTracking(resolvedId, request.getTrackingNumber()));
     }
 
     private Order.OrderStatus parseOrderStatus(String rawStatus) {

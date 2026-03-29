@@ -24,5 +24,6 @@ public class ReviewResponse {
     private String reply;
     private LocalDateTime replyAt;
     private String orderId;
+    private String orderCode;
     private Integer version;
 }

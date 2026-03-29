@@ -24,6 +24,7 @@ export interface AdminDashboardTrendPoint {
 
 export interface AdminDashboardParentOrder {
   id: string;
+  code?: string;
   customerName: string;
   total: number;
   issue: string;

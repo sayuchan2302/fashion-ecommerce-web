@@ -12,6 +12,7 @@ import java.util.UUID;
 @Builder
 public class WalletTransactionResponse {
     private UUID id;
+    private String code;
     private UUID walletId;
     private UUID orderId;
     private BigDecimal amount;

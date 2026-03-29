@@ -137,7 +137,9 @@ const Profile = () => {
   const vouchers = activeTab === 'vouchers' ? voucherWallet : [];
   const selectedOrder = (() => {
     const orderId = searchParams.get('orderId') || selectedOrderId;
-    return orderId ? allOrders.find((order) => order.id === orderId) || null : null;
+    return orderId
+      ? allOrders.find((order) => order.id === orderId || order.code === orderId) || null
+      : null;
   })();
   const [orderFilter, setOrderFilter] = useState('Tất cả');
 
@@ -419,7 +421,7 @@ const Profile = () => {
                           className="order-id-link"
                           onClick={() => openOrderDetail(order)}
                         >
-                          Mã đơn: #{order.id}
+                          Mã đơn: #{order.code || order.id}
                         </button>
                         <span className="order-date">{new Date(order.createdAt).toLocaleDateString('vi-VN')}</span>
                       </div>
@@ -1087,7 +1089,7 @@ const Profile = () => {
             <div className="profile-modal-header">
               <div>
                 <p className="profile-modal-eyebrow">Chi tiết đơn hàng</p>
-                <h2>#{selectedOrder.id}</h2>
+                <h2>#{selectedOrder.code || selectedOrder.id}</h2>
               </div>
               <button className="profile-modal-close" onClick={closeOrderDetail} aria-label="Đóng">
                 <X size={18} />

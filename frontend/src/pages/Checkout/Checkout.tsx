@@ -329,7 +329,7 @@ const Checkout = () => {
       }
 
       clearCart();
-      navigate(`/order-success?id=${backendOrder.id}`);
+      navigate(`/order-success?id=${backendOrder.code || backendOrder.id}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Dat hang that bai. Vui long thu lai.';
       addToast(message, 'error');

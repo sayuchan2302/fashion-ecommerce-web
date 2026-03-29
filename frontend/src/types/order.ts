@@ -22,6 +22,7 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
+  code?: string;
   createdAt: string;
   status: OrderStatus;
   total: number;

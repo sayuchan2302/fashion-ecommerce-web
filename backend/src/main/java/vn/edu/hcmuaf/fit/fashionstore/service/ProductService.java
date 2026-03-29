@@ -92,7 +92,18 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public Product findBySlug(String slug) {
-        Product product = productRepository.findPublicBySlug(slug)
+        String normalized = slug == null ? "" : slug.trim();
+        Product product = productRepository.findPublicBySlug(normalized)
+                .or(() -> productRepository.findPublicBySku(normalized))
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+        initializeForSerialization(product);
+        return product;
+    }
+
+    @Transactional(readOnly = true)
+    public Product findBySku(String sku) {
+        String normalizedSku = sku == null ? "" : sku.trim();
+        Product product = productRepository.findPublicBySku(normalizedSku)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
         initializeForSerialization(product);
         return product;

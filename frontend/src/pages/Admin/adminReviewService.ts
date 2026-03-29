@@ -16,6 +16,7 @@ export interface Review {
   status: ReviewStatus;
   reply: string | null;
   orderId?: string;
+  orderCode?: string;
   version: number;
 }
 

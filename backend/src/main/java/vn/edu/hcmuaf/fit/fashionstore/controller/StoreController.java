@@ -34,7 +34,9 @@ public class StoreController {
     @GetMapping("/my-store")
     public ResponseEntity<StoreResponse> getMyStore(@RequestHeader("Authorization") String authHeader) {
         UUID userId = UUID.fromString(jwtService.extractUserId(authHeader.replace("Bearer ", "")));
-        return ResponseEntity.ok(storeService.getStoreByOwner(userId));
+        return storeService.findStoreByOwner(userId)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/{id}")

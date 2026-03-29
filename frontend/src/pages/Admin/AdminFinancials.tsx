@@ -14,6 +14,7 @@ interface WalletResponse {
   id: string;
   storeId: string;
   storeName: string;
+  storeSlug?: string | null;
   balance: number;
   lastUpdated: string;
 }
@@ -24,6 +25,8 @@ type ConfirmState = {
 };
 
 const formatCurrency = (value: number) => `${value.toLocaleString('vi-VN')} ₫`;
+const STORE_REF_FALLBACK = 'chua-co-slug';
+const toStoreRef = (record: WalletResponse) => `@${record.storeSlug?.trim() || STORE_REF_FALLBACK}`;
 
 const AdminFinancials = () => {
   const { addToast } = useToast();
@@ -60,7 +63,7 @@ const AdminFinancials = () => {
     if (search.trim()) {
       const query = search.trim().toLowerCase();
       next = next.filter((record) =>
-        record.storeName.toLowerCase().includes(query),
+        `${record.storeName} ${record.storeSlug || ''}`.toLowerCase().includes(query),
       );
     }
     return next;
@@ -203,10 +206,10 @@ const AdminFinancials = () => {
                     <input
                       type="checkbox"
                       checked={selected.size === filteredRecords.length && filteredRecords.length > 0}
-                      onChange={(event) => setSelected(event.target.checked ? new Set(filteredRecords.map((item) => item.id)) : new Set())}
+                      onChange={(event) => setSelected(event.target.checked ? new Set(filteredRecords.map((item) => item.storeId)) : new Set())}
                     />
                   </div>
-                  <div role="columnheader">ID Cửa hàng</div>
+                  <div role="columnheader">Slug cửa hàng</div>
                   <div role="columnheader">Tên Cửa hàng</div>
                   <div role="columnheader">Số dư hiện tại</div>
                   <div role="columnheader">Cập nhật lần cuối</div>
@@ -236,7 +239,7 @@ const AdminFinancials = () => {
                       />
                     </div>
                     <div role="cell">
-                      <div className="admin-bold">{record.storeId}</div>
+                      <div className="admin-bold">{toStoreRef(record)}</div>
                     </div>
                     <div role="cell">
                       <div className="admin-bold">{record.storeName}</div>
@@ -310,11 +313,11 @@ const AdminFinancials = () => {
               <section className="drawer-section">
                 <h4>Tổng quan ví điện tử</h4>
                 <div className="financial-drawer-hero">
-                  <div className="financial-avatar">
+                    <div className="financial-avatar">
                     <WalletCards size={22} />
                   </div>
                   <div>
-                    <div className="admin-bold">Store ID: {detailRecord.storeId}</div>
+                    <div className="admin-bold">Store: {toStoreRef(detailRecord)}</div>
                     <div className="admin-muted">{detailRecord.storeName}</div>
                   </div>
                   <span className={`admin-pill ${detailRecord.balance > 0 ? 'success' : 'neutral'}`}>

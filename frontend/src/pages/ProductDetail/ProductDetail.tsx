@@ -15,6 +15,7 @@ import { CLIENT_TEXT } from '../../utils/texts';
 import { CLIENT_DICTIONARY } from '../../utils/clientDictionary';
 import { useToast } from '../../contexts/ToastContext';
 import type { Product } from '../../types';
+import { normalizeStoreSlug } from '../../utils/storeIdentity';
 import './ProductDetail.css';
 
 interface ClientReviewItem {
@@ -96,6 +97,7 @@ const ProductDetail = () => {
   const [reviewContent, setReviewContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const storeSlug = normalizeStoreSlug(product?.storeSlug);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -212,11 +214,11 @@ const ProductDetail = () => {
           <div className="pdp-gallery-col">
             <ProductGallery images={[product.image]} />
 
-            {product.storeId && product.storeName && product.storeSlug && (
+            {storeSlug && (
               <StoreInfoCard
                 storeId={product.storeId}
-                storeName={product.storeName}
-                storeSlug={product.storeSlug}
+                storeName={product.storeName || 'Cửa hàng'}
+                storeSlug={storeSlug}
                 storeLogo={product.storeLogo}
                 isOfficialStore={product.isOfficialStore}
               />

@@ -24,11 +24,18 @@ public class ReturnRequestService {
     private final ReturnRequestRepository returnRequestRepository;
     private final OrderRepository orderRepository;
     private final vn.edu.hcmuaf.fit.fashionstore.repository.StoreRepository storeRepository;
+    private final PublicCodeService publicCodeService;
 
-    public ReturnRequestService(ReturnRequestRepository returnRequestRepository, OrderRepository orderRepository, vn.edu.hcmuaf.fit.fashionstore.repository.StoreRepository storeRepository) {
+    public ReturnRequestService(
+            ReturnRequestRepository returnRequestRepository,
+            OrderRepository orderRepository,
+            vn.edu.hcmuaf.fit.fashionstore.repository.StoreRepository storeRepository,
+            PublicCodeService publicCodeService
+    ) {
         this.returnRequestRepository = returnRequestRepository;
         this.orderRepository = orderRepository;
         this.storeRepository = storeRepository;
+        this.publicCodeService = publicCodeService;
     }
 
     @Transactional
@@ -60,6 +67,7 @@ public class ReturnRequestService {
         }).toList();
 
         ReturnRequest request = ReturnRequest.builder()
+                .returnCode(publicCodeService.nextReturnCode())
                 .order(order)
                 .user(order.getUser())
                 .reason(payload.getReason())
@@ -83,6 +91,13 @@ public class ReturnRequestService {
     @Transactional(readOnly = true)
     public ReturnRequestResponse get(UUID id) {
         ReturnRequest request = returnRequestRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Return request not found"));
+        return toResponse(request);
+    }
+
+    @Transactional(readOnly = true)
+    public ReturnRequestResponse getByCode(String code) {
+        ReturnRequest request = returnRequestRepository.findByReturnCode(code)
                 .orElseThrow(() -> new IllegalArgumentException("Return request not found"));
         return toResponse(request);
     }
@@ -116,7 +131,9 @@ public class ReturnRequestService {
     private ReturnRequestResponse toResponse(ReturnRequest request) {
         return ReturnRequestResponse.builder()
                 .id(request.getId())
+                .code(request.getReturnCode())
                 .orderId(request.getOrder().getId())
+                .orderCode(request.getOrder().getOrderCode())
                 .userId(request.getUser().getId())
                 .customerName(request.getUser().getName())
                 .customerEmail(request.getUser().getEmail())

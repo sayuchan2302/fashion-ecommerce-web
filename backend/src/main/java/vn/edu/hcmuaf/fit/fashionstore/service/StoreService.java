@@ -1,12 +1,15 @@
 package vn.edu.hcmuaf.fit.fashionstore.service;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import vn.edu.hcmuaf.fit.fashionstore.dto.request.StoreRequest;
 import vn.edu.hcmuaf.fit.fashionstore.dto.response.StoreResponse;
 import vn.edu.hcmuaf.fit.fashionstore.entity.Product;
 import vn.edu.hcmuaf.fit.fashionstore.entity.Store;
 import vn.edu.hcmuaf.fit.fashionstore.entity.User;
+import vn.edu.hcmuaf.fit.fashionstore.exception.ResourceNotFoundException;
 import vn.edu.hcmuaf.fit.fashionstore.repository.ProductRepository;
 import vn.edu.hcmuaf.fit.fashionstore.repository.ReviewRepository;
 import vn.edu.hcmuaf.fit.fashionstore.repository.StoreRepository;
@@ -15,6 +18,7 @@ import vn.edu.hcmuaf.fit.fashionstore.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -44,19 +48,19 @@ public class StoreService {
     @Transactional
     public StoreResponse registerStore(UUID userId, StoreRequest request) {
         User owner = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         if (storeRepository.findByOwnerId(userId).isPresent()) {
-            throw new RuntimeException("User already has a store");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "User already has a store");
         }
 
         if (storeRepository.existsByName(request.getName())) {
-            throw new RuntimeException("Store name already exists");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Store name already exists");
         }
 
         String slug = generateSlug(request.getSlug() != null ? request.getSlug() : request.getName());
         if (storeRepository.existsBySlug(slug)) {
-            throw new RuntimeException("Store URL already exists");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Store URL already exists");
         }
 
         Store store = Store.builder()
@@ -99,9 +103,13 @@ public class StoreService {
 
     @Transactional(readOnly = true)
     public StoreResponse getStoreByOwner(UUID userId) {
-        Store store = storeRepository.findByOwnerId(userId)
-                .orElseThrow(() -> new RuntimeException("Store not found"));
-        return toResponse(store);
+        return findStoreByOwner(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Store not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<StoreResponse> findStoreByOwner(UUID userId) {
+        return storeRepository.findByOwnerId(userId).map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
@@ -111,7 +119,7 @@ public class StoreService {
                         Store.ApprovalStatus.APPROVED,
                         Store.StoreStatus.ACTIVE
                 )
-                .orElseThrow(() -> new RuntimeException("Store not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Store not found"));
         return toResponse(store);
     }
 
@@ -122,7 +130,7 @@ public class StoreService {
                         Store.ApprovalStatus.APPROVED,
                         Store.StoreStatus.ACTIVE
                 )
-                .orElseThrow(() -> new RuntimeException("Store not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Store not found"));
         return toResponse(store);
     }
 
@@ -155,10 +163,10 @@ public class StoreService {
     @Transactional
     public StoreResponse approveStore(UUID storeId, String approvedBy) {
         Store store = storeRepository.findById(storeId)
-                .orElseThrow(() -> new RuntimeException("Store not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Store not found"));
 
         if (store.getApprovalStatus() != Store.ApprovalStatus.PENDING) {
-            throw new RuntimeException("Store is not pending approval");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Store is not pending approval");
         }
 
         store.setApprovalStatus(Store.ApprovalStatus.APPROVED);
@@ -177,10 +185,10 @@ public class StoreService {
     @Transactional
     public StoreResponse rejectStore(UUID storeId, String reason) {
         Store store = storeRepository.findById(storeId)
-                .orElseThrow(() -> new RuntimeException("Store not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Store not found"));
 
         if (store.getApprovalStatus() != Store.ApprovalStatus.PENDING) {
-            throw new RuntimeException("Store is not pending approval");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Store is not pending approval");
         }
 
         store.setApprovalStatus(Store.ApprovalStatus.REJECTED);
@@ -197,10 +205,10 @@ public class StoreService {
     @Transactional
     public StoreResponse suspendStore(UUID storeId) {
         Store store = storeRepository.findById(storeId)
-                .orElseThrow(() -> new RuntimeException("Store not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Store not found"));
 
         if (store.getApprovalStatus() != Store.ApprovalStatus.APPROVED) {
-            throw new RuntimeException("Only approved stores can be suspended");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only approved stores can be suspended");
         }
 
         store.setStatus(Store.StoreStatus.SUSPENDED);
@@ -211,10 +219,10 @@ public class StoreService {
     @Transactional
     public StoreResponse reactivateStore(UUID storeId) {
         Store store = storeRepository.findById(storeId)
-                .orElseThrow(() -> new RuntimeException("Store not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Store not found"));
 
         if (store.getApprovalStatus() != Store.ApprovalStatus.APPROVED) {
-            throw new RuntimeException("Only approved stores can be reactivated");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only approved stores can be reactivated");
         }
 
         store.setStatus(Store.StoreStatus.ACTIVE);
@@ -225,11 +233,11 @@ public class StoreService {
     @Transactional
     public StoreResponse updateStore(UUID userId, StoreRequest request) {
         Store store = storeRepository.findByOwnerId(userId)
-                .orElseThrow(() -> new RuntimeException("Store not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Store not found"));
 
         if (request.getName() != null && !request.getName().equals(store.getName())) {
             if (storeRepository.existsByName(request.getName())) {
-                throw new RuntimeException("Store name already exists");
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Store name already exists");
             }
             store.setName(request.getName());
         }
@@ -389,3 +397,4 @@ public class StoreService {
         return value != null ? value : fallback;
     }
 }
+

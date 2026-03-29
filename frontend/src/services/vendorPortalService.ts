@@ -36,6 +36,7 @@ interface BackendVendorCustomer {
 
 interface BackendVendorOrderSummary {
   id: string;
+  code?: string;
   status?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -124,6 +125,7 @@ export interface VendorDashboardData {
 
 export interface VendorOrderSummary {
   id: string;
+  code: string;
   customer: string;
   email: string;
   total: number;
@@ -154,6 +156,7 @@ export interface VendorOrdersPage {
 
 export interface VendorOrderDetailData {
   id: string;
+  code: string;
   status: VendorOrderLifecycleStatus;
   createdAt: string;
   updatedAt?: string;
@@ -292,6 +295,7 @@ const mapOrderSummary = (order: BackendVendorOrderSummary): VendorOrderSummary =
 
   return {
     id: order.id,
+    code: order.code || '',
     customer: order.customer?.name || 'Khách hàng',
     email: order.customer?.email || '',
     total,
@@ -306,6 +310,7 @@ const mapOrderSummary = (order: BackendVendorOrderSummary): VendorOrderSummary =
 
 const mapOrderDetail = (order: BackendVendorOrderDetail): VendorOrderDetailData => ({
   id: order.id,
+  code: order.code || '',
   status: mapBackendStatus(order.status),
   createdAt: order.createdAt || new Date().toISOString(),
   updatedAt: order.updatedAt || order.createdAt || new Date().toISOString(),
@@ -363,6 +368,7 @@ const mapBackendTopProduct = (
 });
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const toStartOfDay = (value: Date) => new Date(value.getFullYear(), value.getMonth(), value.getDate());
 
@@ -579,7 +585,10 @@ export const vendorPortalService = {
   },
 
   async getOrderDetail(id: string): Promise<VendorOrderDetailData> {
-    const order = await apiRequest<BackendVendorOrderDetail>(`/api/orders/my-store/${id}`, {}, { auth: true });
+    const path = UUID_PATTERN.test(id)
+      ? `/api/orders/my-store/${id}`
+      : `/api/orders/my-store/code/${encodeURIComponent(id)}`;
+    const order = await apiRequest<BackendVendorOrderDetail>(path, {}, { auth: true });
     return mapOrderDetail(order);
   },
 

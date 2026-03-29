@@ -15,7 +15,9 @@ export interface ReturnItem {
 
 export interface ReturnRequest {
   id: string;
+  code?: string;
   orderId: string;
+  orderCode?: string;
   userId: string;
   customerName: string;
   customerEmail?: string;
@@ -66,7 +68,9 @@ export const returnService = {
   },
 
   async getAdmin(id: string): Promise<ReturnRequest> {
-    return apiRequest<ReturnRequest>(`/api/returns/${id}`, {}, { auth: true });
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+    const path = isUuid ? `/api/returns/${id}` : `/api/returns/code/${encodeURIComponent(id)}`;
+    return apiRequest<ReturnRequest>(path, {}, { auth: true });
   },
 
   async updateStatus(id: string, status: ReturnStatus, adminNote?: string): Promise<ReturnRequest> {

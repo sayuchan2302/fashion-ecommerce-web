@@ -13,6 +13,7 @@ public class WalletResponse {
     private UUID id;
     private UUID storeId;
     private String storeName;
+    private String storeSlug;
     private BigDecimal balance;
     private LocalDateTime lastUpdated;
 }

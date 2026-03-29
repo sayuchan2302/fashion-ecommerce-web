@@ -5,6 +5,7 @@ import org.springframework.stereotype.Repository;
 import vn.edu.hcmuaf.fit.fashionstore.entity.WalletTransaction;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,4 +14,6 @@ import org.springframework.data.domain.Pageable;
 public interface WalletTransactionRepository extends JpaRepository<WalletTransaction, UUID> {
     List<WalletTransaction> findByWalletIdOrderByCreatedAtDesc(UUID walletId);
     Page<WalletTransaction> findByWalletId(UUID walletId, Pageable pageable);
+    Optional<WalletTransaction> findTopByTransactionCodeStartingWithOrderByTransactionCodeDesc(String transactionCodePrefix);
+    List<WalletTransaction> findByTransactionCodeIsNullOrderByCreatedAtAscIdAsc();
 }

@@ -84,7 +84,7 @@ const OrderDetailPage = () => {
       <div className="account-container">
         <div className="account-header">
           <div>
-            <h1 className="account-title">Đơn hàng {order.id}</h1>
+            <h1 className="account-title">Đơn hàng {order.code || order.id}</h1>
             <p className="account-subtitle">Ngày đặt: {new Date(order.createdAt).toLocaleString('vi-VN')}</p>
           </div>
           <div className="account-actions">

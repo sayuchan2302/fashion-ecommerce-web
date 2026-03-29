@@ -153,6 +153,7 @@ public class AdminDashboardService {
 
                     return AdminDashboardResponse.ParentOrderQueueItem.builder()
                             .id(order.getId())
+                            .code(order.getOrderCode())
                             .customerName(order.getUser() != null ? order.getUser().getName() : "Khách hàng")
                             .total(safeAmount(order.getTotal()))
                             .issue(resolveIssue(order.getStatus()))

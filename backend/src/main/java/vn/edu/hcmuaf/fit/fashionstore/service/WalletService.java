@@ -17,11 +17,14 @@ public class WalletService {
 
     private final VendorWalletRepository vendorWalletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
+    private final PublicCodeService publicCodeService;
 
     public WalletService(VendorWalletRepository vendorWalletRepository,
-                         WalletTransactionRepository walletTransactionRepository) {
+                         WalletTransactionRepository walletTransactionRepository,
+                         PublicCodeService publicCodeService) {
         this.vendorWalletRepository = vendorWalletRepository;
         this.walletTransactionRepository = walletTransactionRepository;
+        this.publicCodeService = publicCodeService;
     }
 
     @Transactional
@@ -43,11 +46,12 @@ public class WalletService {
         vendorWalletRepository.save(wallet);
 
         WalletTransaction transaction = WalletTransaction.builder()
+                .transactionCode(publicCodeService.nextTransactionCode())
                 .wallet(wallet)
                 .orderId(order.getId())
                 .amount(amount)
                 .type(WalletTransaction.TransactionType.CREDIT)
-                .description("Payout for Order " + order.getId())
+                .description("Payout for Order " + (order.getOrderCode() != null ? order.getOrderCode() : order.getId()))
                 .build();
         
         walletTransactionRepository.save(transaction);
@@ -72,11 +76,12 @@ public class WalletService {
         vendorWalletRepository.save(wallet);
 
         WalletTransaction transaction = WalletTransaction.builder()
+                .transactionCode(publicCodeService.nextTransactionCode())
                 .wallet(wallet)
                 .orderId(order.getId())
                 .amount(amount)
                 .type(WalletTransaction.TransactionType.DEBIT)
-                .description("Refund for Order " + order.getId())
+                .description("Refund for Order " + (order.getOrderCode() != null ? order.getOrderCode() : order.getId()))
                 .build();
         
         walletTransactionRepository.save(transaction);
@@ -125,6 +130,7 @@ public class WalletService {
         vendorWalletRepository.save(wallet);
 
         WalletTransaction transaction = WalletTransaction.builder()
+                .transactionCode(publicCodeService.nextTransactionCode())
                 .wallet(wallet)
                 .amount(amount)
                 .type(WalletTransaction.TransactionType.WITHDRAWAL)

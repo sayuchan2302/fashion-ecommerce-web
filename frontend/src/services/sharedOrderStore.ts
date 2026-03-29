@@ -34,7 +34,8 @@ export interface SharedOrderItem {
 
 export interface SharedOrder {
   // Identity
-  id: string;            // e.g. "ORD-10235"
+  id: string;            // backend UUID
+  code?: string;         // public code for display
   createdAt: string;     // ISO string
   
   // Multi-vendor: parent order ID for sub-orders

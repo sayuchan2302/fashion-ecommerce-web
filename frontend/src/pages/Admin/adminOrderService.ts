@@ -25,6 +25,7 @@ interface AuditEntry {
 
 interface BackendAdminOrder {
   id: string;
+  code?: string;
   status?: string;
   paymentMethod?: string;
   paymentStatus?: string;
@@ -97,6 +98,8 @@ interface BulkTransitionResult {
   skippedCodes: string[];
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const toErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message.trim() ? error.message : fallback;
 
@@ -125,7 +128,8 @@ const mapBackendToAdmin = (order: BackendAdminOrder): AdminOrderRecord => {
   };
 
   return {
-    code: order.id,
+    id: order.id,
+    code: order.code || '',
     customer: customerName,
     avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(customerName)}&background=0EA5E9&color=fff`,
     total: (order.total ?? 0).toLocaleString('vi-VN', { style: 'currency', currency: 'VND' }),
@@ -187,7 +191,16 @@ export const listAdminOrders = async (): Promise<AdminOrderRecord[]> => {
 
 export const getAdminOrderByCode = async (code: string): Promise<AdminOrderRecord | null> => {
   try {
-    const data = await apiRequest<BackendAdminOrder>(`/api/orders/${code}`, {}, { auth: true });
+    const normalized = String(code || '').trim();
+    if (!normalized) {
+      return null;
+    }
+
+    const path = UUID_PATTERN.test(normalized)
+      ? `/api/orders/${encodeURIComponent(normalized)}`
+      : `/api/orders/code/${encodeURIComponent(normalized)}`;
+
+    const data = await apiRequest<BackendAdminOrder>(path, {}, { auth: true });
     return mapBackendToAdmin(data);
   } catch (error: unknown) {
     if (error instanceof ApiError && error.status === 404) {

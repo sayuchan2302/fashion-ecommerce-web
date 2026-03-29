@@ -24,6 +24,7 @@ export interface AdminOrderTimelineEntry {
 }
 
 export interface AdminOrderData {
+  id?: string;
   code: string;
   customer: string;
   avatar: string;

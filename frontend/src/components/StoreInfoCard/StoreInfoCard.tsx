@@ -4,7 +4,7 @@ import { BadgeCheck, MessageCircle, Clock, Star, ChevronRight, Store as StoreIco
 import './StoreInfoCard.css';
 
 export interface StoreInfoCardProps {
-  storeId: string;
+  storeId?: string;
   storeName: string;
   storeSlug: string;
   storeLogo?: string;
@@ -16,7 +16,6 @@ export interface StoreInfoCardProps {
 }
 
 const StoreInfoCard = ({
-  storeId,
   storeName,
   storeSlug,
   storeLogo,
@@ -48,7 +47,7 @@ const StoreInfoCard = ({
                 </span>
               )}
             </Link>
-            <span className="store-info-id">ID: {storeId}</span>
+            <span className="store-info-slug">/store/{storeSlug}</span>
           </div>
         </div>
 
