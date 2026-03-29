@@ -15,7 +15,7 @@ import vn.edu.hcmuaf.fit.fashionstore.service.AdminProductService;
 @RestController
 @RequestMapping("/api/admin/products")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+@PreAuthorize("hasRole('SUPER_ADMIN')")
 public class AdminProductController {
 
     private final AdminProductService adminProductService;

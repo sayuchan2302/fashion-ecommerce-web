@@ -113,8 +113,17 @@ const ProductDetail = () => {
           setSelectedColor(defaultVariant?.color || fetched.colors?.[0] || '');
           setSelectedSize(defaultVariant?.size || '');
         }
-        const productReviews = await reviewService.getReviewsByProduct(productId);
-        setReviews(productReviews);
+        const backendProductId = fetched?.backendId || '';
+        if (backendProductId) {
+          try {
+            const productReviews = await reviewService.getReviewsByProduct(backendProductId);
+            setReviews(productReviews);
+          } catch {
+            setReviews([]);
+          }
+        } else {
+          setReviews([]);
+        }
         setIsLoading(false);
       })();
     }, 300);
@@ -136,22 +145,32 @@ const ProductDetail = () => {
       addToast('Nội dung đánh giá phải từ 10 ký tự trở lên.', 'error');
       return;
     }
+    if (!product?.backendId) {
+      addToast('Không thể gửi đánh giá cho sản phẩm này.', 'error');
+      return;
+    }
     setSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    await reviewService.submitReview({
+    try {
+      await reviewService.submitReview({
         storeId: product?.storeId,
-        productId,
+        productId: product.backendId,
         productName: product?.name,
         productImage: product?.image,
-        orderId: 'guest',
         rating: reviewRating,
         content: reviewContent.trim(),
       });
       setSubmitted(true);
-      setSubmitting(false);
       setReviewRating(0);
       setReviewContent('');
       addToast('Đánh giá đã được gửi, chờ phê duyệt.', 'success');
+    } catch (error: unknown) {
+      const message = error instanceof Error && error.message.trim()
+        ? error.message
+        : 'Chỉ có thể đánh giá sản phẩm đã mua và đã giao.';
+      addToast(message, 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // ── Average rating ────────────────────────────────────────────────────────

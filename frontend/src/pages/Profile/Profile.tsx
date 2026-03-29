@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   User,
@@ -35,6 +35,7 @@ import { CLIENT_TOAST_MESSAGES } from '../../utils/clientMessages';
 import { notificationService } from '../../services/notificationService';
 import { addressService } from '../../services/addressService';
 import { orderService } from '../../services/orderService';
+import { reviewService, type EligibleReviewItem, type Review as CustomerReview } from '../../services/reviewService';
 import { couponService, type Coupon } from '../../services/couponService';
 import { calculateTier, TIER_CONFIG, getProgressToNextTier, getSpendRequiredForNextTier, getNextTier } from '../../utils/tierUtils';
 import { formatPrice } from '../../utils/formatters';
@@ -56,22 +57,20 @@ interface PendingProduct {
   variant: string;
 }
 
-const PENDING_REVIEWS: PendingProduct[] = [
-  {
-    productId: '101',
-    productName: 'Áo Polo Nam Excool',
-    productImage: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=80&h=80&fit=crop',
-    orderId: 'CM20260312',
-    variant: 'Màu: Xanh navy | Size: XL',
-  },
-  {
-    productId: '201',
-    productName: 'Áo Thun Nam Cổ Tròn Cotton',
-    productImage: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=80&h=80&fit=crop',
-    orderId: 'CM20260301',
-    variant: 'Màu: Trắng | Size: L',
-  },
-];
+const mapEligibleReview = (item: EligibleReviewItem): PendingProduct => {
+  const details = [
+    item.variantName?.trim() || null,
+    item.quantity > 0 ? `Số lượng: ${item.quantity}` : null,
+  ].filter(Boolean).join(' | ');
+
+  return {
+    productId: item.productId,
+    productName: item.productName,
+    productImage: item.productImage || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=80&h=80&fit=crop',
+    orderId: item.orderId,
+    variant: details || 'Đơn hàng đã giao',
+  };
+};
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -145,6 +144,10 @@ const Profile = () => {
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [reviewProduct, setReviewProduct] = useState<PendingProduct | null>(null);
   const [reviewFilter, setReviewFilter] = useState<'pending' | 'completed'>('pending');
+  const [pendingReviews, setPendingReviews] = useState<PendingProduct[]>([]);
+  const [completedReviews, setCompletedReviews] = useState<CustomerReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
 
   const handleOpenReviewModal = (product: PendingProduct) => {
     setReviewProduct(product);
@@ -154,7 +157,30 @@ const Profile = () => {
   const handleCloseReviewModal = () => {
     setIsReviewModalOpen(false);
     setReviewProduct(null);
+    if (activeTab === 'reviews') {
+      void loadReviews();
+    }
   };
+
+  const loadReviews = useCallback(async () => {
+    try {
+      setReviewsLoading(true);
+      setReviewsError(null);
+      const [eligible, mine] = await Promise.all([
+        reviewService.getEligibleReviews(),
+        reviewService.getReviews(),
+      ]);
+      setPendingReviews(eligible.map(mapEligibleReview));
+      setCompletedReviews(mine);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Không thể tải danh sách đánh giá.';
+      setReviewsError(message);
+      setPendingReviews([]);
+      setCompletedReviews([]);
+    } finally {
+      setReviewsLoading(false);
+    }
+  }, []);
 
   const openOrderDetail = (order: Order) => {
     setSelectedOrderId(order.id);
@@ -245,6 +271,13 @@ const Profile = () => {
       cancelled = true;
     };
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'reviews') {
+      return;
+    }
+    void loadReviews();
+  }, [activeTab, loadReviews]);
 
   useEffect(() => {
     const anyModalOpen = isAccountModalOpen || isPasswordModalOpen || isAddressModalOpen || isReviewModalOpen || !!selectedOrder;
@@ -572,22 +605,34 @@ const Profile = () => {
                 className={`order-filter-btn ${reviewFilter === 'pending' ? 'active' : ''}`}
                 onClick={() => setReviewFilter('pending')}
               >
-                Chờ đánh giá ({PENDING_REVIEWS.length})
+                Chờ đánh giá ({pendingReviews.length})
               </button>
               <button 
                 className={`order-filter-btn ${reviewFilter === 'completed' ? 'active' : ''}`}
                 onClick={() => setReviewFilter('completed')}
               >
-                Đã đánh giá
+                Đã đánh giá ({completedReviews.length})
               </button>
             </div>
+
+            {reviewsLoading ? (
+              <div className="review-empty">
+                <p>Đang tải danh sách đánh giá...</p>
+              </div>
+            ) : null}
+
+            {!reviewsLoading && reviewsError ? (
+              <div className="review-empty">
+                <p>{reviewsError}</p>
+              </div>
+            ) : null}
 
             {reviewFilter === 'pending' && (
               <div className="review-section">
                 <h3 className="review-section-title">Sản phẩm chờ đánh giá</h3>
-                {PENDING_REVIEWS.length > 0 ? (
+                {!reviewsLoading && !reviewsError && pendingReviews.length > 0 ? (
                   <div className="review-pending-list">
-                    {PENDING_REVIEWS.map((product) => (
+                    {pendingReviews.map((product) => (
                       <div key={product.productId} className="review-pending-card">
                         <div className="review-pending-product">
                           <div className="review-product-img">
@@ -608,49 +653,58 @@ const Profile = () => {
                       </div>
                     ))}
                   </div>
-                ) : (
+                ) : !reviewsLoading && !reviewsError ? (
                   <div className="review-empty">
                     <p>Không có sản phẩm nào chờ đánh giá</p>
                   </div>
-                )}
+                ) : null}
               </div>
             )}
 
             {reviewFilter === 'completed' && (
               <div className="review-section">
                 <h3 className="review-section-title">Đánh giá của bạn</h3>
-                <div className="review-completed-list">
-                  <div className="review-completed-card">
-                    <div className="review-completed-header">
-                      <div className="review-pending-product">
-                        <div className="review-product-img">
-                          <img src="https://images.unsplash.com/photo-1542272604-787c3835535d?w=80&h=80&fit=crop" alt="Quần Jeans" />
+                {!reviewsLoading && !reviewsError && completedReviews.length > 0 ? (
+                  <div className="review-completed-list">
+                    {completedReviews.map((review) => (
+                      <div key={review.id} className="review-completed-card">
+                        <div className="review-completed-header">
+                          <div className="review-pending-product">
+                            <div className="review-product-img">
+                              <img
+                                src={review.productImage || 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=80&h=80&fit=crop'}
+                                alt={review.productName}
+                              />
+                            </div>
+                            <div className="review-product-info">
+                              <p className="review-product-name">{review.productName}</p>
+                              <p className="review-product-variant">Đơn hàng: #{review.orderId}</p>
+                            </div>
+                          </div>
+                          <span className="review-date">{new Date(review.createdAt).toLocaleDateString('vi-VN')}</span>
                         </div>
-                        <div className="review-product-info">
-                          <p className="review-product-name">Quần Jeans Nam Slim Fit</p>
-                          <p className="review-product-variant">Màu: Xanh đậm | Size: 32</p>
+                        <div className="review-stars">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <span key={i} className={`review-star ${i < review.rating ? 'filled' : ''}`}>★</span>
+                          ))}
                         </div>
+                        <p className="review-text">{review.content}</p>
+                        {review.shopReply ? (
+                          <div className="review-reply">
+                            <div className="review-reply-header">
+                              <span className="review-reply-badge">Phản hồi từ shop</span>
+                            </div>
+                            <p className="review-reply-text">{review.shopReply.content}</p>
+                          </div>
+                        ) : null}
                       </div>
-                      <span className="review-date">01/03/2026</span>
-                    </div>
-                    <div className="review-stars">
-                      {'★★★★★'.split('').map((star, i) => (
-                        <span key={i} className={`review-star ${i < 5 ? 'filled' : ''}`}>{star}</span>
-                      ))}
-                    </div>
-                    <p className="review-text">
-                      Vải jeans mềm, co giãn tốt, mặc rất thoải mái. Form slim fit vừa vặn, không quá ôm. Sẽ mua thêm màu khác!
-                    </p>
-                    <div className="review-reply">
-                      <div className="review-reply-header">
-                        <span className="review-reply-badge">Phản hồi từ shop</span>
-                      </div>
-                      <p className="review-reply-text">
-                        Cảm ơn bạn đã tin tưởng và mua hàng tại Coolmate! Rất vui khi biết bạn hài lòng với sản phẩm. Chúc bạn một ngày tốt lành!
-                      </p>
-                    </div>
+                    ))}
                   </div>
-                </div>
+                ) : !reviewsLoading && !reviewsError ? (
+                  <div className="review-empty">
+                    <p>Bạn chưa có đánh giá nào</p>
+                  </div>
+                ) : null}
               </div>
             )}
           </div>

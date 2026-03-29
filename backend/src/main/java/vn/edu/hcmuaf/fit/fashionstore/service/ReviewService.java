@@ -1,14 +1,27 @@
 package vn.edu.hcmuaf.fit.fashionstore.service;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+import vn.edu.hcmuaf.fit.fashionstore.dto.request.ReviewRequestDTO;
+import vn.edu.hcmuaf.fit.fashionstore.dto.response.ReviewEligibleItemResponse;
 import vn.edu.hcmuaf.fit.fashionstore.dto.response.ReviewResponse;
+import vn.edu.hcmuaf.fit.fashionstore.entity.Order;
+import vn.edu.hcmuaf.fit.fashionstore.entity.Product;
 import vn.edu.hcmuaf.fit.fashionstore.entity.Review;
+import vn.edu.hcmuaf.fit.fashionstore.entity.Store;
+import vn.edu.hcmuaf.fit.fashionstore.entity.User;
 import vn.edu.hcmuaf.fit.fashionstore.exception.ResourceNotFoundException;
+import vn.edu.hcmuaf.fit.fashionstore.repository.OrderRepository;
+import vn.edu.hcmuaf.fit.fashionstore.repository.ProductRepository;
 import vn.edu.hcmuaf.fit.fashionstore.repository.ReviewRepository;
+import vn.edu.hcmuaf.fit.fashionstore.repository.StoreRepository;
+import vn.edu.hcmuaf.fit.fashionstore.repository.UserRepository;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -21,9 +34,23 @@ import java.util.stream.Collectors;
 public class ReviewService {
 
     private final ReviewRepository reviewRepository;
+    private final ProductRepository productRepository;
+    private final UserRepository userRepository;
+    private final OrderRepository orderRepository;
+    private final StoreRepository storeRepository;
 
-    public ReviewService(ReviewRepository reviewRepository) {
+    public ReviewService(
+            ReviewRepository reviewRepository,
+            ProductRepository productRepository,
+            UserRepository userRepository,
+            OrderRepository orderRepository,
+            StoreRepository storeRepository
+    ) {
         this.reviewRepository = reviewRepository;
+        this.productRepository = productRepository;
+        this.userRepository = userRepository;
+        this.orderRepository = orderRepository;
+        this.storeRepository = storeRepository;
     }
 
     private List<String> toPlainImages(Review review) {
@@ -77,12 +104,91 @@ public class ReviewService {
         return new PageImpl<>(content, pageable, page.getTotalElements());
     }
 
+    @Transactional(readOnly = true)
+    public List<ReviewResponse> getApprovedProductReviews(UUID productId) {
+        return reviewRepository.findByProductIdAndStatusOrderByCreatedAtDesc(productId, Review.ReviewStatus.APPROVED)
+                .stream()
+                .map(this::toReviewResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReviewResponse> getApprovedStoreReviews(UUID storeId) {
+        return reviewRepository.findByStoreIdAndStatusOrderByCreatedAtDesc(storeId, Review.ReviewStatus.APPROVED)
+                .stream()
+                .map(this::toReviewResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReviewResponse> getCustomerReviews(UUID userId, UUID orderId, UUID productId) {
+        return reviewRepository.findByUserIdOrderByCreatedAtDesc(userId)
+                .stream()
+                .filter(review -> orderId == null || (review.getOrder() != null && orderId.equals(review.getOrder().getId())))
+                .filter(review -> productId == null || (review.getProduct() != null && productId.equals(review.getProduct().getId())))
+                .map(this::toReviewResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReviewEligibleItemResponse> getEligibleCustomerReviews(UUID userId) {
+        return orderRepository.findEligibleReviewItemsByUserId(userId).stream()
+                .map(item -> ReviewEligibleItemResponse.builder()
+                        .orderId(item.getOrderId())
+                        .productId(item.getProductId())
+                        .productName(item.getProductName() == null || item.getProductName().isBlank() ? "Sản phẩm" : item.getProductName())
+                        .productImage(item.getProductImage() == null ? "" : item.getProductImage())
+                        .variantName(item.getVariantName() == null ? "" : item.getVariantName())
+                        .quantity(item.getQuantity() == null ? 0 : item.getQuantity())
+                        .deliveredAt(item.getDeliveredAt())
+                        .build())
+                .toList();
+    }
+
+    @Transactional
+    public ReviewResponse submitCustomerReview(UUID userId, ReviewRequestDTO request) {
+        Product product = productRepository.findById(request.getProductId())
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (product.getStoreId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Product is not associated with a store");
+        }
+
+        Order order = resolveDeliveredOrderForReview(userId, request.getProductId(), request.getOrderId());
+
+        if (reviewRepository.existsByUserIdAndProductIdAndOrderId(userId, request.getProductId(), order.getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "You have already reviewed this product for the order");
+        }
+
+        Review review = Review.builder()
+                .product(product)
+                .user(user)
+                .order(order)
+                .storeId(product.getStoreId())
+                .rating(request.getRating())
+                .title(safeTitle(request.getTitle()))
+                .content(request.getContent().trim())
+                .images(normalizeImages(request.getImages()))
+                .helpful(0)
+                .status(Review.ReviewStatus.PENDING)
+                .version(1)
+                .build();
+
+        Review saved = reviewRepository.save(review);
+        refreshStoreAverageRating(product.getStoreId());
+        return toReviewResponse(saved);
+    }
+
     @Transactional
     public ReviewResponse updateStatus(UUID id, Review.ReviewStatus status) {
         Review review = reviewRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
         review.setStatus(status);
-        return toReviewResponse(reviewRepository.save(review));
+        Review saved = reviewRepository.save(review);
+        refreshStoreAverageRating(saved.getStoreId());
+        return toReviewResponse(saved);
     }
 
     @Transactional
@@ -112,9 +218,78 @@ public class ReviewService {
 
     @Transactional
     public void deleteReview(UUID id) {
-        if (!reviewRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Review not found");
-        }
+        Review review = reviewRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
         reviewRepository.deleteById(id);
+        refreshStoreAverageRating(review.getStoreId());
     }
+
+    private void refreshStoreAverageRating(UUID storeId) {
+        if (storeId == null) {
+            return;
+        }
+        Store store = storeRepository.findById(storeId).orElse(null);
+        if (store == null) {
+            return;
+        }
+        Double average = reviewRepository.calculateAverageRatingByStoreId(storeId);
+        double normalized = average == null ? 0.0 : Math.round(average * 10.0) / 10.0;
+        store.setRating(normalized);
+        storeRepository.save(store);
+    }
+
+    private String safeTitle(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private Order resolveDeliveredOrderForReview(UUID userId, UUID productId, UUID orderId) {
+        if (orderId != null) {
+            boolean purchasedByOrder = orderRepository.existsDeliveredOrderItemByUserAndOrderAndProduct(
+                    userId,
+                    orderId,
+                    productId
+            );
+            if (!purchasedByOrder) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "You can only review products from delivered orders that you purchased"
+                );
+            }
+            return orderRepository.findByUserIdAndId(userId, orderId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        }
+
+        boolean purchased = orderRepository.existsDeliveredOrderItemByUserAndProduct(userId, productId);
+        if (!purchased) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You can only review products that you have purchased"
+            );
+        }
+
+        List<Order> deliveredOrders = orderRepository.findDeliveredOrdersByUserAndProduct(
+                userId,
+                productId,
+                PageRequest.of(0, 1)
+        );
+        if (deliveredOrders.isEmpty()) {
+            throw new ResourceNotFoundException("Delivered order not found");
+        }
+        return deliveredOrders.get(0);
+    }
+
+    private List<String> normalizeImages(List<String> images) {
+        if (images == null || images.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return images.stream()
+                .map(String::trim)
+                .filter(url -> !url.isEmpty())
+                .collect(Collectors.toCollection(ArrayList::new));
+    }
+
 }

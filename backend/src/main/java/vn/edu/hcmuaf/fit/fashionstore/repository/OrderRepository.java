@@ -25,6 +25,16 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
         BigDecimal getGrossRevenue();
     }
 
+    interface EligibleReviewItemProjection {
+        UUID getOrderId();
+        UUID getProductId();
+        String getProductName();
+        String getProductImage();
+        String getVariantName();
+        Integer getQuantity();
+        LocalDateTime getDeliveredAt();
+    }
+
     List<Order> findByUserIdOrderByCreatedAtDesc(UUID userId);
 
     List<Order> findByUserIdAndParentOrderIsNullOrderByCreatedAtDesc(UUID userId);
@@ -200,4 +210,70 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             @Param("storeId") UUID storeId,
             @Param("productIds") List<UUID> productIds
     );
+
+    @Query("""
+            SELECT CASE WHEN COUNT(oi) > 0 THEN true ELSE false END
+            FROM OrderItem oi
+            JOIN oi.order o
+            WHERE o.id = :orderId
+              AND o.user.id = :userId
+              AND o.status = 'DELIVERED'
+              AND oi.product.id = :productId
+            """)
+    boolean existsDeliveredOrderItemByUserAndOrderAndProduct(
+            @Param("userId") UUID userId,
+            @Param("orderId") UUID orderId,
+            @Param("productId") UUID productId
+    );
+
+    @Query("""
+            SELECT CASE WHEN COUNT(oi) > 0 THEN true ELSE false END
+            FROM OrderItem oi
+            JOIN oi.order o
+            WHERE o.user.id = :userId
+              AND o.status = 'DELIVERED'
+              AND oi.product.id = :productId
+            """)
+    boolean existsDeliveredOrderItemByUserAndProduct(
+            @Param("userId") UUID userId,
+            @Param("productId") UUID productId
+    );
+
+    @Query("""
+            SELECT o
+            FROM Order o
+            JOIN o.items oi
+            WHERE o.user.id = :userId
+              AND o.status = 'DELIVERED'
+              AND oi.product.id = :productId
+            ORDER BY o.createdAt DESC
+            """)
+    List<Order> findDeliveredOrdersByUserAndProduct(
+            @Param("userId") UUID userId,
+            @Param("productId") UUID productId,
+            Pageable pageable
+    );
+
+    @Query("""
+            SELECT o.id AS orderId,
+                   oi.product.id AS productId,
+                   COALESCE(oi.productName, oi.product.name) AS productName,
+                   COALESCE(oi.productImage, '') AS productImage,
+                   COALESCE(oi.variantName, '') AS variantName,
+                   oi.quantity AS quantity,
+                   o.createdAt AS deliveredAt
+            FROM OrderItem oi
+            JOIN oi.order o
+            WHERE o.user.id = :userId
+              AND o.status = 'DELIVERED'
+              AND NOT EXISTS (
+                SELECT 1
+                FROM Review r
+                WHERE r.user.id = :userId
+                  AND r.order.id = o.id
+                  AND r.product.id = oi.product.id
+              )
+            ORDER BY o.createdAt DESC, oi.createdAt DESC
+            """)
+    List<EligibleReviewItemProjection> findEligibleReviewItemsByUserId(@Param("userId") UUID userId);
 }

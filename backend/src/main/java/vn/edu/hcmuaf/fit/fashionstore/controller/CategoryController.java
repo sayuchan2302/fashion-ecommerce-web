@@ -48,25 +48,25 @@ public class CategoryController {
     }
 
     @GetMapping("/admin/all")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<List<AdminCategoryResponse>> getAdminAll() {
         return ResponseEntity.ok(categoryService.getAdminCategories());
     }
 
     @PostMapping("/admin")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Category> create(@RequestBody CategoryRequest request) {
         return ResponseEntity.ok(categoryService.create(request));
     }
 
     @PutMapping("/admin/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Category> update(@PathVariable UUID id, @RequestBody CategoryRequest request) {
         return ResponseEntity.ok(categoryService.update(id, request));
     }
 
     @PatchMapping("/admin/{id}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<AdminCategoryResponse> updateStatus(
             @PathVariable UUID id,
             @RequestBody CategoryStatusUpdateRequest request) {
@@ -74,7 +74,7 @@ public class CategoryController {
     }
 
     @DeleteMapping("/admin/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         categoryService.delete(id);
         return ResponseEntity.noContent().build();

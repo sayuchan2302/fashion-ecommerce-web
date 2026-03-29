@@ -117,6 +117,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/orders/*/status").hasAnyRole("VENDOR", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/orders/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/orders/**").hasRole("SUPER_ADMIN")
+
+                        // ─── Reviews: public read, customer submit, scoped admin/vendor ops ─
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/product/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/store/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/reviews").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/my").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/my/eligible").authenticated()
+                        .requestMatchers("/api/reviews/my-store", "/api/reviews/my-store/**").hasAnyRole("VENDOR", "SUPER_ADMIN")
+                        .requestMatchers("/api/reviews/admin/**").hasRole("SUPER_ADMIN")
                         
                         // ─── Cart: authenticated users ─────────────────────────────────────
                         .requestMatchers("/api/cart").authenticated()

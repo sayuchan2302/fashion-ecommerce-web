@@ -39,6 +39,9 @@ const ReviewModal = ({ isOpen, onClose, product, existingReview }: ReviewModalPr
 
   if (!isOpen) return null;
 
+  const isBackendReadyReference = (value: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
   const handleSubmit = async () => {
     if (rating === 0) {
       addToast(CLIENT_TOAST_MESSAGES.review.errorSelectStars, 'error');
@@ -48,25 +51,35 @@ const ReviewModal = ({ isOpen, onClose, product, existingReview }: ReviewModalPr
       addToast(CLIENT_TOAST_MESSAGES.review.errorEmptyContent, 'error');
       return;
     }
+    if (!isBackendReadyReference(product.productId) || !isBackendReadyReference(product.orderId)) {
+      addToast('Dữ liệu đánh giá chưa đồng bộ với đơn hàng backend.', 'error');
+      return;
+    }
 
     setIsSubmitting(true);
+    try {
+      const submission: ReviewSubmission = {
+        productId: product.productId,
+        productName: product.productName,
+        productImage: product.productImage,
+        orderId: product.orderId,
+        rating,
+        title: title || undefined,
+        content,
+        images: images.length > 0 ? images : undefined,
+      };
 
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    const submission: ReviewSubmission = {
-      productId: product.productId,
-      productName: product.productName,
-      productImage: product.productImage,
-      orderId: product.orderId,
-      rating,
-      title: title || undefined,
-      content,
-      images: images.length > 0 ? images : undefined,
-    };
-
-    await reviewService.submitReview(submission);
-    addToast(CLIENT_TOAST_MESSAGES.review.pendingModeration, 'success');
-    setIsSubmitting(false);
-    onClose();
+      await reviewService.submitReview(submission);
+      addToast(CLIENT_TOAST_MESSAGES.review.pendingModeration, 'success');
+      onClose();
+    } catch (error: unknown) {
+      const message = error instanceof Error && error.message.trim()
+        ? error.message
+        : 'Không thể gửi đánh giá. Vui lòng kiểm tra lại đơn hàng đã mua.';
+      addToast(message, 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleStarClick = (star: number) => {

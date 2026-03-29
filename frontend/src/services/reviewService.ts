@@ -25,12 +25,22 @@ export interface Review {
   version: number;
 }
 
+export interface EligibleReviewItem {
+  orderId: string;
+  productId: string;
+  productName: string;
+  productImage: string;
+  variantName?: string;
+  quantity: number;
+  deliveredAt?: string;
+}
+
 export interface ReviewSubmission {
   storeId?: string;
   productId: string;
   productName?: string;
   productImage?: string;
-  orderId: string;
+  orderId?: string;
   rating: number;
   title?: string;
   content: string;
@@ -54,33 +64,22 @@ interface BackendReviewResponse {
   version?: number;
 }
 
+interface BackendEligibleReviewItem {
+  orderId?: string;
+  productId?: string;
+  productName?: string;
+  productImage?: string;
+  variantName?: string;
+  quantity?: number;
+  deliveredAt?: string;
+}
+
 interface BackendPage<T> {
   content?: T[];
 }
 
-const STORAGE_KEY = 'fashionstore_reviews_v1';
-
-const parseStoredReviews = (): Review[] => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const persistReviews = (reviews: Review[]) => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(reviews));
-};
-
 const sortByNewest = (rows: Review[]) =>
   [...rows].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
-
-const isApproved = (review: Review) => review.status === 'approved';
 
 const normalizeStatus = (status?: string): ReviewStatus => {
   const normalized = (status || '').toUpperCase();
@@ -116,37 +115,38 @@ const mapBackendReview = (row: BackendReviewResponse): Review => {
   };
 };
 
-const buildSubmissionRecord = (submission: ReviewSubmission): Review => ({
-  id: `rev_${Date.now()}_${Math.round(Math.random() * 1000)}`,
-  storeId: submission.storeId || 'store_001',
-  productId: submission.productId,
-  productName: submission.productName || 'Sản phẩm',
-  productImage: submission.productImage || '',
-  orderId: submission.orderId,
-  rating: submission.rating,
-  title: submission.title,
-  content: submission.content,
-  images: submission.images,
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-  helpful: 0,
-  shopReply: undefined,
-  status: 'pending',
-  version: 1,
+const mapBackendEligibleReview = (row: BackendEligibleReviewItem): EligibleReviewItem => ({
+  orderId: String(row.orderId || ''),
+  productId: String(row.productId || ''),
+  productName: row.productName || 'Sản phẩm',
+  productImage: row.productImage || '',
+  variantName: row.variantName || '',
+  quantity: Number(row.quantity || 0),
+  deliveredAt: row.deliveredAt,
 });
 
 export const reviewService = {
   async getReviews(): Promise<Review[]> {
-    return sortByNewest(parseStoredReviews());
+    if (!hasBackendJwt()) return [];
+    const rows = await apiRequest<BackendReviewResponse[]>('/api/reviews/my', {}, { auth: true });
+    return sortByNewest((rows || []).map(mapBackendReview));
   },
 
   async getReviewsByStore(storeId: string): Promise<Review[]> {
-    if (hasBackendJwt()) {
-      const rows = await this.getVendorReviews({ size: 1000 });
-      return rows.filter((review) => review.storeId === storeId);
-    }
-    const all = await this.getReviews();
-    return all.filter((review) => review.storeId === storeId);
+    const rows = await apiRequest<BackendReviewResponse[]>(`/api/reviews/store/${storeId}`);
+    return sortByNewest((rows || []).map(mapBackendReview));
+  },
+
+  async getEligibleReviews(): Promise<EligibleReviewItem[]> {
+    if (!hasBackendJwt()) return [];
+    const rows = await apiRequest<BackendEligibleReviewItem[]>(
+      '/api/reviews/my/eligible',
+      {},
+      { auth: true },
+    );
+    return (rows || [])
+      .map(mapBackendEligibleReview)
+      .filter((item) => Boolean(item.orderId && item.productId));
   },
 
   async getVendorReviews(params: { status?: ReviewStatus | 'all'; page?: number; size?: number } = {}): Promise<Review[]> {
@@ -179,13 +179,21 @@ export const reviewService = {
   },
 
   async getReviewsByOrder(orderId: string): Promise<Review[]> {
-    const all = await this.getReviews();
-    return all.filter((review) => review.orderId === orderId && isApproved(review));
+    if (!hasBackendJwt()) return [];
+    const rows = await apiRequest<BackendReviewResponse[]>(
+      `/api/reviews/my?orderId=${encodeURIComponent(orderId)}`,
+      {},
+      { auth: true },
+    );
+    return sortByNewest((rows || []).map(mapBackendReview));
   },
 
   async getReviewsByProduct(productId: string): Promise<Review[]> {
-    const all = await this.getReviews();
-    return all.filter((review) => review.productId === productId && isApproved(review));
+    if (!productId) return [];
+    const rows = await apiRequest<BackendReviewResponse[]>(
+      `/api/reviews/product/${encodeURIComponent(productId)}`,
+    );
+    return sortByNewest((rows || []).map(mapBackendReview));
   },
 
   async getAverageRating(productId: string): Promise<number> {
@@ -196,15 +204,44 @@ export const reviewService = {
   },
 
   async submitReview(submission: ReviewSubmission): Promise<Review> {
-    const rows = parseStoredReviews();
-    const next = buildSubmissionRecord(submission);
-    persistReviews([next, ...rows]);
-    return next;
+    const payload: {
+      productId: string;
+      orderId?: string;
+      rating: number;
+      title?: string;
+      content: string;
+      images?: string[];
+    } = {
+      productId: submission.productId,
+      rating: submission.rating,
+      title: submission.title,
+      content: submission.content,
+      images: submission.images,
+    };
+
+    if (submission.orderId && submission.orderId.trim()) {
+      payload.orderId = submission.orderId.trim();
+    }
+
+    const response = await apiRequest<BackendReviewResponse>(
+      '/api/reviews',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+      { auth: true },
+    );
+    return mapBackendReview(response);
   },
 
   async hasReviewed(productId: string, orderId: string): Promise<boolean> {
-    const all = await this.getReviews();
-    return all.some((review) => review.productId === productId && review.orderId === orderId);
+    if (!hasBackendJwt()) return false;
+    const rows = await apiRequest<BackendReviewResponse[]>(
+      `/api/reviews/my?productId=${encodeURIComponent(productId)}&orderId=${encodeURIComponent(orderId)}`,
+      {},
+      { auth: true },
+    );
+    return (rows || []).length > 0;
   },
 
   canVendorReply(): boolean {
