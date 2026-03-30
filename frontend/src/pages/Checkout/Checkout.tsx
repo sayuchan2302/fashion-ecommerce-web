@@ -8,6 +8,11 @@ import { formatPrice } from '../../utils/formatters';
 import { CLIENT_TEXT } from '../../utils/texts';
 import { couponService, type Coupon } from '../../services/couponService';
 import { addressService } from '../../services/addressService';
+import {
+  clearSelectedCartIdsForCheckout,
+  getSelectedCartIdsForCheckout,
+  setSelectedCartIdsForCheckout,
+} from '../../services/checkoutSelectionStore';
 import { orderService } from '../../services/orderService';
 import { apiRequest, hasBackendJwt } from '../../services/apiClient';
 import type { Address } from '../../types';
@@ -40,6 +45,8 @@ interface FormErrors {
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const FREE_SHIPPING_THRESHOLD = 500000;
+const DEFAULT_SHIPPING_FEE = 30000;
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -63,6 +70,8 @@ const Checkout = () => {
   const [isCouponLoading, setIsCouponLoading] = useState(false);
   const [isCouponsFetching, setIsCouponsFetching] = useState(false);
   const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
+  const [selectedCartIds, setSelectedCartIds] = useState<string[]>(() => getSelectedCartIdsForCheckout());
+  const [hasExplicitSelection] = useState<boolean>(() => getSelectedCartIdsForCheckout().length > 0);
 
   const addressLocation = useAddressLocation();
   const couponScrollRef = useRef<HTMLDivElement>(null);
@@ -87,7 +96,32 @@ const Checkout = () => {
     return () => el.removeEventListener('wheel', handleWheel);
   }, []);
 
-  const storeGroups = useMemo(() => groupedByStore(), [items]);
+  const checkoutItems = useMemo(() => {
+    const validSelectedIds = selectedCartIds.filter((cartId) => items.some((item) => item.cartId === cartId));
+    if (validSelectedIds.length === 0) {
+      return hasExplicitSelection ? [] : items;
+    }
+    const selectedSet = new Set(validSelectedIds);
+    return items.filter((item) => selectedSet.has(item.cartId));
+  }, [hasExplicitSelection, items, selectedCartIds]);
+
+  const storeGroups = useMemo(() => {
+    const selectedSet = new Set(checkoutItems.map((item) => item.cartId));
+    return groupedByStore()
+      .map((group) => {
+        const groupItems = group.items.filter((item) => selectedSet.has(item.cartId));
+        if (groupItems.length === 0) return null;
+        const subtotal = groupItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        return {
+          ...group,
+          items: groupItems,
+          subtotal,
+          shippingFee: subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : DEFAULT_SHIPPING_FEE,
+        };
+      })
+      .filter((group): group is NonNullable<typeof group> => Boolean(group));
+  }, [checkoutItems, groupedByStore]);
+
   const checkoutStoreIds = useMemo(
     () => Array.from(new Set(
       storeGroups
@@ -148,7 +182,7 @@ const Checkout = () => {
   }, [availableCoupons, appliedCoupon]);
 
   const handleQuantityChange = (cartId: string, delta: number) => {
-    const item = items.find(i => i.cartId === cartId);
+    const item = checkoutItems.find(i => i.cartId === cartId);
     if (item) {
       const newQty = item.quantity + delta;
       if (newQty > 0) updateQuantity(cartId, newQty);
@@ -157,6 +191,11 @@ const Checkout = () => {
 
   const handleRemoveItem = (cartId: string) => {
     removeFromCart(cartId);
+    setSelectedCartIds((prev) => {
+      const next = prev.filter((id) => id !== cartId);
+      setSelectedCartIdsForCheckout(next);
+      return next;
+    });
   };
 
   const applyCouponCode = async (code: string) => {
@@ -208,7 +247,7 @@ const Checkout = () => {
     }
   };
 
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = checkoutItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const shippingFee = storeGroups.reduce((sum, group) => sum + group.shippingFee, 0);
   const appliedCouponOrderValue = appliedCoupon
     ? (appliedCoupon.storeId && Number.isFinite(storeSubtotals[appliedCoupon.storeId])
@@ -305,7 +344,7 @@ const Checkout = () => {
         paymentMethod: paymentMethod.toUpperCase(),
         couponCode: appliedCoupon?.code,
         note: formValues.note.trim() || undefined,
-        items: items.map((item) => ({
+        items: checkoutItems.map((item) => ({
           productId: String(item.backendProductId),
           variantId: item.backendVariantId,
           quantity: item.quantity,
@@ -329,7 +368,12 @@ const Checkout = () => {
         couponService.recordUsage(appliedCoupon.code);
       }
 
-      clearCart();
+      if (checkoutItems.length === items.length) {
+        clearCart();
+      } else {
+        checkoutItems.forEach((item) => removeFromCart(item.cartId));
+      }
+      clearSelectedCartIdsForCheckout();
       navigate(`/order-success?id=${backendOrder.code || backendOrder.id}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Dat hang that bai. Vui long thu lai.';
@@ -647,15 +691,15 @@ const Checkout = () => {
 
                 {/* Cart Header */}
                 <div className="cart-header-actions">
-                  <span className="cart-item-count">{t.cartItemCount.replace('{count}', String(items.length))}</span>
+                  <span className="cart-item-count">{t.cartItemCount.replace('{count}', String(checkoutItems.length))}</span>
                 </div>
 
                 {/* Cart Items */}
                 <div className="unified-cart-list">
-                  {items.length === 0 ? (
+                  {checkoutItems.length === 0 ? (
                     <div className="empty-cart-msg">{t.emptyCart}</div>
                   ) : (
-                    items.map(item => (
+                    checkoutItems.map(item => (
                       <div className="unified-cart-item" key={item.cartId}>
                         <img src={item.image}
                           alt={item.name} className="unified-item-img" />
@@ -845,7 +889,7 @@ const Checkout = () => {
                 </div>
                 <button className="btn-place-order-sticky"
                   onClick={handlePlaceOrder}
-                  disabled={isLoading || items.length === 0}>
+                  disabled={isLoading || checkoutItems.length === 0}>
                   {isLoading ? <Loader2 size={24} className="spinner" /> : t.orderPlaced}
                 </button>
               </div>

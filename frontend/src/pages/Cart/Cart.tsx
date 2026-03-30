@@ -8,6 +8,7 @@ import { mensFashion } from '../../mocks/products';
 import { useCart, type StoreGroup } from '../../contexts/CartContext';
 import { useToast } from '../../contexts/ToastContext';
 import { hasBackendJwt } from '../../services/apiClient';
+import { setSelectedCartIdsForCheckout } from '../../services/checkoutSelectionStore';
 import { formatPrice } from '../../utils/formatters';
 import { CLIENT_TEXT } from '../../utils/texts';
 import { MARKETPLACE_DICTIONARY } from '../../utils/clientDictionary';
@@ -389,6 +390,7 @@ const Cart = () => {
                     navigate('/login?redirect=/checkout');
                     return;
                   }
+                  setSelectedCartIdsForCheckout(validSelectedItems);
                   navigate('/checkout');
                 }}>
                 {t.proceedCheckout}
