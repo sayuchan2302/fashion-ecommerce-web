@@ -102,7 +102,7 @@ public class ProductController {
             @RequestHeader("Authorization") String authHeader,
             @PathVariable UUID id,
             @RequestBody ProductRequest request) {
-        UserContext ctx = authContext.fromAuthHeader(authHeader);
+        UserContext ctx = authContext.requireVendor(authHeader);
 
         if (ctx.isAdmin()) {
             return ResponseEntity.ok(productService.updateProductSummary(id, request));
@@ -123,7 +123,7 @@ public class ProductController {
     public ResponseEntity<Void> delete(
             @RequestHeader("Authorization") String authHeader,
             @PathVariable UUID id) {
-        UserContext ctx = authContext.fromAuthHeader(authHeader);
+        UserContext ctx = authContext.requireVendor(authHeader);
 
         if (ctx.isAdmin()) {
             productService.delete(id);

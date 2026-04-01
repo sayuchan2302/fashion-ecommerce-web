@@ -14,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 public interface WalletTransactionRepository extends JpaRepository<WalletTransaction, UUID> {
     List<WalletTransaction> findByWalletIdOrderByCreatedAtDesc(UUID walletId);
     Page<WalletTransaction> findByWalletId(UUID walletId, Pageable pageable);
+    boolean existsByOrderIdAndType(UUID orderId, WalletTransaction.TransactionType type);
     Optional<WalletTransaction> findTopByTransactionCodeStartingWithOrderByTransactionCodeDesc(String transactionCodePrefix);
     List<WalletTransaction> findByTransactionCodeIsNullOrderByCreatedAtAscIdAsc();
 }

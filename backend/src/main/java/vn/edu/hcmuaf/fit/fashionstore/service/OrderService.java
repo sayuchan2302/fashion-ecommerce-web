@@ -574,7 +574,7 @@ public class OrderService {
             cascadeStatusToSubOrders(savedOrder, status, trackingNumber, carrier, reason);
         }
 
-        if (status == Order.OrderStatus.DELIVERED && savedOrder.isSubOrder()) {
+        if (status == Order.OrderStatus.DELIVERED && savedOrder.getStoreId() != null) {
             walletService.creditVendorForOrder(savedOrder);
         }
 
@@ -803,7 +803,8 @@ public class OrderService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantity must be greater than 0");
             }
 
-            BigDecimal unitPrice = itemReq.getUnitPrice() != null ? itemReq.getUnitPrice() : resolveUnitPrice(product, variant);
+            // Always resolve price server-side to prevent client-side price tampering.
+            BigDecimal unitPrice = resolveUnitPrice(product, variant);
             BigDecimal totalPrice = unitPrice.multiply(BigDecimal.valueOf(itemReq.getQuantity()));
 
             preparedItems.add(new PreparedOrderItem(
@@ -1151,10 +1152,11 @@ public class OrderService {
     }
 
     private BigDecimal resolveUnitPrice(Product product, ProductVariant variant) {
-        if (variant != null) {
-            return variant.getPrice();
+        BigDecimal resolvedPrice = variant != null ? variant.getPrice() : product.getEffectivePrice();
+        if (resolvedPrice == null || resolvedPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Product price is invalid");
         }
-        return product.getEffectivePrice();
+        return resolvedPrice;
     }
 
     private String resolvePrimaryImage(Product product) {

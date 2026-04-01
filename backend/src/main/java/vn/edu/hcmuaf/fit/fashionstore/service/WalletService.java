@@ -5,6 +5,8 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.edu.hcmuaf.fit.fashionstore.entity.Order;
 import vn.edu.hcmuaf.fit.fashionstore.entity.VendorWallet;
 import vn.edu.hcmuaf.fit.fashionstore.entity.WalletTransaction;
+import vn.edu.hcmuaf.fit.fashionstore.exception.ResourceNotFoundException;
+import vn.edu.hcmuaf.fit.fashionstore.repository.OrderRepository;
 import vn.edu.hcmuaf.fit.fashionstore.repository.VendorWalletRepository;
 import vn.edu.hcmuaf.fit.fashionstore.repository.WalletTransactionRepository;
 
@@ -15,13 +17,16 @@ import java.util.UUID;
 @Service
 public class WalletService {
 
+    private final OrderRepository orderRepository;
     private final VendorWalletRepository vendorWalletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
     private final PublicCodeService publicCodeService;
 
-    public WalletService(VendorWalletRepository vendorWalletRepository,
+    public WalletService(OrderRepository orderRepository,
+                         VendorWalletRepository vendorWalletRepository,
                          WalletTransactionRepository walletTransactionRepository,
                          PublicCodeService publicCodeService) {
+        this.orderRepository = orderRepository;
         this.vendorWalletRepository = vendorWalletRepository;
         this.walletTransactionRepository = walletTransactionRepository;
         this.publicCodeService = publicCodeService;
@@ -29,14 +34,28 @@ public class WalletService {
 
     @Transactional
     public void creditVendorForOrder(Order order) {
-        if (!order.isSubOrder()) {
-            return; // Only credit for sub-orders belonging to a vendor
+        if (order == null || order.getId() == null) {
+            return;
         }
 
-        VendorWallet wallet = vendorWalletRepository.findByStoreId(order.getStoreId())
-                .orElseGet(() -> createWallet(order.getStoreId()));
+        Order lockedOrder = orderRepository.findByIdForUpdate(order.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
-        BigDecimal amount = order.getVendorPayout();
+        if (lockedOrder.getStoreId() == null) {
+            return; // Only credit orders that belong to a vendor store
+        }
+
+        if (walletTransactionRepository.existsByOrderIdAndType(
+                lockedOrder.getId(),
+                WalletTransaction.TransactionType.CREDIT
+        )) {
+            return; // Idempotent: payout already credited for this order
+        }
+
+        VendorWallet wallet = vendorWalletRepository.findByStoreId(lockedOrder.getStoreId())
+                .orElseGet(() -> createWallet(lockedOrder.getStoreId()));
+
+        BigDecimal amount = lockedOrder.getVendorPayout();
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
@@ -48,10 +67,10 @@ public class WalletService {
         WalletTransaction transaction = WalletTransaction.builder()
                 .transactionCode(publicCodeService.nextTransactionCode())
                 .wallet(wallet)
-                .orderId(order.getId())
+                .orderId(lockedOrder.getId())
                 .amount(amount)
                 .type(WalletTransaction.TransactionType.CREDIT)
-                .description("Payout for Order " + (order.getOrderCode() != null ? order.getOrderCode() : order.getId()))
+                .description("Payout for Order " + (lockedOrder.getOrderCode() != null ? lockedOrder.getOrderCode() : lockedOrder.getId()))
                 .build();
         
         walletTransactionRepository.save(transaction);

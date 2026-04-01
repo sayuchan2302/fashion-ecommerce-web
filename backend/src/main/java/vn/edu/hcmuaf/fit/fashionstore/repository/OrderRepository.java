@@ -3,11 +3,13 @@ package vn.edu.hcmuaf.fit.fashionstore.repository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import vn.edu.hcmuaf.fit.fashionstore.entity.Order;
 import java.math.BigDecimal;
+import jakarta.persistence.LockModeType;
 
 import java.util.List;
 import java.time.LocalDateTime;
@@ -43,6 +45,10 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     @Query("SELECT o FROM Order o LEFT JOIN FETCH o.items WHERE o.id = :id")
     Optional<Order> findByIdWithItems(UUID id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT o FROM Order o WHERE o.id = :id")
+    Optional<Order> findByIdForUpdate(@Param("id") UUID id);
 
     Optional<Order> findByUserIdAndId(UUID userId, UUID id);
 
