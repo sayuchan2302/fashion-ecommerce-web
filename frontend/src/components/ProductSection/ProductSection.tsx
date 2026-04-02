@@ -46,11 +46,11 @@ const ProductSection = ({ title, products, viewAllLink = '/search?scope=products
     <section className="product-section container">
       <div className="section-header">
         <h2 className="section-title">{title}</h2>
-        <Link to={viewAllLink} className="view-all-link">Xem tất cả</Link>
+        <Link to={viewAllLink} className="view-all-link">{'Xem t\u1ea5t c\u1ea3'}</Link>
       </div>
 
       <div className="slider-container">
-        <button className="slider-nav prev-btn" onClick={scrollLeft} aria-label="Previous">
+        <button className="slider-nav prev-btn" onClick={scrollLeft} aria-label={'Tr\u01b0\u1edbc'}>
           <ChevronLeft size={24} />
         </button>
 
@@ -62,7 +62,7 @@ const ProductSection = ({ title, products, viewAllLink = '/search?scope=products
           ))}
         </div>
 
-        <button className="slider-nav next-btn" onClick={scrollRight} aria-label="Next">
+        <button className="slider-nav next-btn" onClick={scrollRight} aria-label="Sau">
           <ChevronRight size={24} />
         </button>
       </div>

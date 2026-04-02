@@ -1,30 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { ShieldCheck, Store } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ShieldCheck, Store } from 'lucide-react';
 import './HeroSlider.css';
 
 const slides = [
   {
-    title: 'SIÊU SALE ĐA CỬA HÀNG',
-    subtitle: 'Hàng chính hãng từ hàng nghìn vendor đã xác thực',
+    title: 'SI\u00caU SALE \u0110A C\u1eeca H\u00c0NG',
+    subtitle: 'H\u00e0ng ch\u00ednh h\u00e3ng t\u1eeb h\u00e0ng ngh\u00ecn vendor \u0111\u00e3 x\u00e1c th\u1ef1c',
     image: 'https://images.unsplash.com/photo-1445205170230-053b83016050?q=80&w=1920&auto=format&fit=crop',
-    cta: 'Khám phá sản phẩm',
+    cta: 'Kh\u00e1m ph\u00e1 s\u1ea3n ph\u1ea9m',
     ctaLink: '/search?scope=products',
   },
   {
-    title: 'Mua sắm an toàn, Platform bảo vệ 100%',
-    subtitle: 'Thanh toán giữ tại sàn (escrow) cho đến khi đơn giao thành công',
+    title: 'Mua s\u1eafm an to\u00e0n, Platform b\u1ea3o v\u1ec7 100%',
+    subtitle: 'Thanh to\u00e1n gi\u1eef t\u1ea1i s\u00e0n (escrow) cho \u0111\u1ebfn khi \u0111\u01a1n giao th\u00e0nh c\u00f4ng',
     image: 'https://images.unsplash.com/photo-1556740749-887f6717d7e4?q=80&w=1920&auto=format&fit=crop',
-    cta: 'Xem cam kết sàn',
+    cta: 'Xem cam k\u1ebft s\u00e0n',
     ctaLink: '/policy/bao-mat',
     icon: <ShieldCheck size={20} strokeWidth={1.8} />,
   },
   {
-    title: 'Trở thành đối tác Marketplace',
-    subtitle: 'Tiếp cận 5 triệu khách hàng và hệ thống vận hành chuẩn sàn',
+    title: 'Tr\u1edf th\u00e0nh \u0111\u1ed1i t\u00e1c Marketplace',
+    subtitle: 'Ti\u1ebfp c\u1eadn 5 tri\u1ec7u kh\u00e1ch h\u00e0ng v\u00e0 h\u1ec7 th\u1ed1ng v\u1eadn h\u00e0nh chu\u1ea9n s\u00e0n',
     image: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=1920&auto=format&fit=crop',
-    cta: 'Đăng ký bán hàng',
+    cta: '\u0110\u0103ng k\u00fd b\u00e1n h\u00e0ng',
     ctaLink: '/vendor/register',
     icon: <Store size={20} strokeWidth={1.8} />,
   },
@@ -35,7 +34,7 @@ const AUTO_DELAY = 5500;
 const HeroSlider = () => {
   const navigate = useNavigate();
   const loopSlides = [slides[slides.length - 1], ...slides, slides[0]];
-  const [position, setPosition] = useState(1); // index in loopSlides (offset by 1)
+  const [position, setPosition] = useState(1);
   const [isTransitioning, setIsTransitioning] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
@@ -74,7 +73,6 @@ const HeroSlider = () => {
     };
 
     updateTrackWidth();
-
     const observer = new ResizeObserver(updateTrackWidth);
     observer.observe(node);
     window.addEventListener('resize', updateTrackWidth);
@@ -113,7 +111,6 @@ const HeroSlider = () => {
     }
   };
 
-  // Re-enable transition on the next frame after snapping to a loop position
   useEffect(() => {
     if (!isTransitioning) {
       const id = requestAnimationFrame(() => setIsTransitioning(true));
@@ -140,6 +137,7 @@ const HeroSlider = () => {
     const threshold = 50;
     setIsDragging(false);
     setDragOffset(0);
+
     if (delta > threshold) {
       prev();
     } else if (delta < -threshold) {
@@ -151,12 +149,11 @@ const HeroSlider = () => {
   };
 
   const handlePointerLeave = () => {
-    if (isDragging) {
-      setIsDragging(false);
-      setDragOffset(0);
-      setIsTransitioning(true);
-      restartTimer();
-    }
+    if (!isDragging) return;
+    setIsDragging(false);
+    setDragOffset(0);
+    setIsTransitioning(true);
+    restartTimer();
   };
 
   const dragOffsetPercent = isDragging && trackWidth ? (dragOffset / trackWidth) * 100 : 0;
@@ -208,10 +205,10 @@ const HeroSlider = () => {
         ))}
       </div>
 
-      <button className="hero-nav prev" onClick={prev} aria-label="Slide trước">
+      <button className="hero-nav prev" onClick={prev} aria-label={'Slide tr\u01b0\u1edbc'}>
         <ChevronLeft size={22} />
       </button>
-      <button className="hero-nav next" onClick={next} aria-label="Slide tiếp">
+      <button className="hero-nav next" onClick={next} aria-label={'Slide ti\u1ebfp'}>
         <ChevronRight size={22} />
       </button>
     </section>

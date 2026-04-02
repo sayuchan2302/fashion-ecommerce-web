@@ -15,9 +15,16 @@
 
 .topbar-content {
   display: flex;
-  justify-content: flex-start;
+  justify-content: space-between;
   align-items: center;
   width: 100%;
+  gap: var(--space-4);
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0;
 }
 
 .topbar-item {
@@ -44,9 +51,29 @@
   }
 
   .topbar-item-primary {
-    max-width: 70%;
+    max-width: 55%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
+
+  .topbar-right .topbar-item:not(:first-child) {
+    display: none; /* Only show first right link on mobile */
+  }
+}
+
+/* Separator between right links */
+.topbar-right .topbar-item {
+  padding: 0 10px;
+  position: relative;
+}
+
+.topbar-right .topbar-item + .topbar-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 25%;
+  height: 50%;
+  width: 1px;
+  background: #c7d3f5;
 }

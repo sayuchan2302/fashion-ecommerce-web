@@ -24,6 +24,7 @@
   font-size: 22px;
   font-weight: 800;
   text-transform: uppercase;
+  font-style: italic;
   color: var(--co-blue);
   letter-spacing: 0.03em;
   line-height: 1;
@@ -53,7 +54,7 @@
 .flash-sale-timer-sep {
   font-size: 16px;
   font-weight: 700;
-  color: var(--co-gray-900);
+  color: var(--co-blue);
   padding: 0 2px;
   line-height: 1;
 }
@@ -68,18 +69,59 @@
 }
 
 .flash-sale-view-all:hover {
-  color: var(--co-black);
+  color: var(--co-blue-dark);
 }
 
-/* ─── Scroll Track ────────────────────────────────────────── */
+/* ─── Scroll Track & Slider ───────────────────────────────── */
+.flash-slider-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.flash-slider-nav {
+  position: absolute;
+  top: 40%;
+  transform: translateY(-50%);
+  z-index: 10;
+  background-color: var(--co-white);
+  border: 1px solid var(--co-gray-200);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  color: var(--co-black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.flash-slider-nav:hover {
+  background-color: var(--co-blue);
+  color: var(--co-white);
+  border-color: var(--co-blue);
+}
+
+.flash-slider-nav.prev-btn {
+  left: -22px;
+}
+
+.flash-slider-nav.next-btn {
+  right: -22px;
+}
+
 .flash-sale-track {
   display: flex;
   gap: 12px;
   overflow-x: auto;
   padding-bottom: 8px;
+  scroll-behavior: smooth;
   scroll-snap-type: x mandatory;
   -ms-overflow-style: none;
   scrollbar-width: none;
+  width: 100%;
 }
 
 .flash-sale-track::-webkit-scrollbar {
@@ -159,10 +201,14 @@
   line-height: 1.4;
 }
 
-/* Mall badge removed per user request */
-
 .flash-badge-type.sale {
   background-color: var(--co-blue);
+}
+
+.flash-badge-icon {
+  width: 11px;
+  height: 11px;
+  fill: currentColor;
 }
 
 .flash-badge-discount {
@@ -273,6 +319,23 @@
   line-height: 1;
 }
 
+.flash-card-vendor {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--co-gray-500);
+  margin-bottom: 8px;
+}
+
+.flash-card-vendor-name {
+  display: inline-block;
+  max-width: 130px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ─── Progress Bar ────────────────────────────────────────── */
 .flash-progress-wrap {
   position: relative;
@@ -354,4 +417,11 @@
   .flash-card-body {
     padding: 8px 10px 10px;
   }
+  
+  .flash-slider-nav { 
+    width: 36px; 
+    height: 36px; 
+  }
+  .flash-slider-nav.prev-btn { left: -10px; }
+  .flash-slider-nav.next-btn { right: -10px; }
 }

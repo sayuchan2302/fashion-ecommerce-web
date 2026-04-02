@@ -83,8 +83,7 @@ const handleSearchSubmit = (query: string, scope: SearchScope = searchScope) => 
         {/* Navigation */}
         <nav className="header-nav">
           <ul className="nav-list">
-            <li><Link to="/category/new" className="nav-link nav-new">NEW</Link></li>
-            <li className="nav-item has-mega-menu">
+          <li className="nav-item has-mega-menu">
               <Link to="/category/men" className="nav-link">NAM</Link>
               <div className="mega-menu">
                 <div className="mega-menu-content">
@@ -415,8 +414,6 @@ const handleSearchSubmit = (query: string, scope: SearchScope = searchScope) => 
 
         {/* Mobile Nav */}
         <nav className="mobile-nav">
-          <Link to="/category/new" className="mobile-nav-link mobile-new" onClick={closeMobileMenu}>NEW</Link>
-          
           <div className="mobile-nav-group">
             <button className="mobile-nav-link" onClick={() => toggleMobileSubMenu('men')} aria-label="Danh mục Nam">
               NAM <ChevronDown size={16} className={expandedMobileMenu === 'men' ? 'rotated' : ''} aria-hidden="true" />

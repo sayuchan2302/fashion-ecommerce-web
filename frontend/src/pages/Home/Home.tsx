@@ -10,6 +10,7 @@ import TrustBadges from '../../components/TrustBadges/TrustBadges';
 import { mensFashion, womensFashion } from '../../mocks/products';
 import Skeleton from '../../components/Skeleton/Skeleton';
 import { marketplaceService, type MarketplaceStoreCard } from '../../services/marketplaceService';
+import { useCart } from '../../contexts/CartContext';
 
 interface HomeSectionProduct {
   id: number | string;
@@ -26,6 +27,9 @@ interface HomeSectionProduct {
   storeName?: string;
   storeSlug?: string;
   isOfficialStore?: boolean;
+  stock?: number;
+  soldCount?: number;
+  totalStock?: number;
 }
 
 const fallbackFeaturedProducts: HomeSectionProduct[] = mensFashion.map((product) => ({ ...product }));
@@ -44,7 +48,7 @@ const fallbackTopVendors: MarketplaceStoreCard[] = [
   },
   {
     id: 'store-thinh-fashion',
-    name: 'Thịnh Fashion Shop',
+    name: 'Th\u1ecbnh Fashion Shop',
     storeCode: 'SHOP-TF-028',
     slug: 'thinh-fashion',
     logo: 'https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb?q=80&w=200&auto=format&fit=crop',
@@ -79,6 +83,7 @@ const Home = () => {
   const [featuredStores, setFeaturedStores] = useState<MarketplaceStoreCard[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<HomeSectionProduct[]>(fallbackFeaturedProducts);
   const [trendingProducts, setTrendingProducts] = useState<HomeSectionProduct[]>(fallbackTrendingProducts);
+  const { addToCart } = useCart();
 
   useEffect(() => {
     let mounted = true;
@@ -86,18 +91,13 @@ const Home = () => {
     const loadHomeData = async () => {
       try {
         const data = await marketplaceService.getHomeData();
-        if (!mounted) {
-          return;
-        }
+        if (!mounted) return;
 
         setFeaturedStores(data.featuredStores);
         setFeaturedProducts(data.featuredProducts.length > 0 ? data.featuredProducts : fallbackFeaturedProducts);
         setTrendingProducts(data.trendingProducts.length > 0 ? data.trendingProducts : fallbackTrendingProducts);
       } catch {
-        if (!mounted) {
-          return;
-        }
-
+        if (!mounted) return;
         setFeaturedStores([]);
         setFeaturedProducts(fallbackFeaturedProducts);
         setTrendingProducts(fallbackTrendingProducts);
@@ -133,21 +133,26 @@ const Home = () => {
 
   const flashSaleItems = useMemo<FlashSaleItem[]>(
     () =>
-      flashSaleProducts.map((product, index) => {
-        const totalStock = 80 + (index % 7) * 20;
-        const soldRate = 0.35 + (index % 5) * 0.1;
-        const soldCount = Math.min(totalStock - 2, Math.max(1, Math.round(totalStock * soldRate)));
+      flashSaleProducts.map((product) => {
+        const availableStock = Math.max(0, Number(product.stock || 0));
+        const soldCountFromApi = typeof product.soldCount === 'number' ? Math.max(0, Math.round(product.soldCount)) : 0;
+        const totalStockFromApi = typeof product.totalStock === 'number' ? Math.max(1, Math.round(product.totalStock)) : 0;
+
+        const totalStock = totalStockFromApi > 0 ? totalStockFromApi : Math.max(1, soldCountFromApi + availableStock);
+        const soldCount = Math.min(totalStock, soldCountFromApi);
 
         return {
           id: product.id,
+          backendProductId: product.backendId,
           name: product.name,
           image: product.image,
           price: product.price,
           originalPrice: product.originalPrice,
-          storeName: product.storeName || 'Nhà bán',
+          storeName: product.storeName || 'Nh\u00e0 b\u00e1n',
+          storeId: product.storeId,
+          isOfficialStore: product.isOfficialStore,
           soldCount,
           totalStock,
-          badge: product.isOfficialStore ? 'MALL' : 'SALE',
         };
       }),
     [flashSaleProducts],
@@ -159,6 +164,22 @@ const Home = () => {
     }
     return fallbackTopVendors;
   }, [featuredStores]);
+
+  const handleQuickAddFlashItem = (item: FlashSaleItem) => {
+    addToCart({
+      id: item.id,
+      backendProductId: item.backendProductId,
+      name: item.name,
+      price: item.price,
+      originalPrice: item.originalPrice,
+      image: item.image,
+      color: 'M\u1eb7c \u0111\u1ecbnh',
+      size: 'M',
+      storeId: item.storeId || 'default-store',
+      storeName: item.storeName || 'C\u1eeda h\u00e0ng',
+      isOfficialStore: Boolean(item.isOfficialStore),
+    });
+  };
 
   return (
     <div className="home-page">
@@ -189,51 +210,59 @@ const Home = () => {
         ) : (
           <>
             <HeroSlider />
-
             <Categories featuredStores={featuredStores} showFeaturedStores={false} />
 
-            <FlashSaleSection items={flashSaleItems} />
+            <div className="home-section-gap">
+              <FlashSaleSection
+                items={flashSaleItems}
+                onQuickAdd={handleQuickAddFlashItem}
+              />
+            </div>
 
-            <section className="top-vendor-section container">
-              <div className="top-vendor-head">
-                <div className="top-vendor-title-wrap">
-                  <span className="top-vendor-eyebrow">
-                    <Store size={14} />
-                    Top Vendor
-                  </span>
-                  <h2>Nhà bán nổi bật trên sàn</h2>
-                </div>
-                <Link to="/search?scope=stores" className="top-vendor-view-all">
-                  Xem tất cả
-                </Link>
-              </div>
-
-              <div className="top-vendor-grid">
-                {topVendors.map((store) => (
-                  <Link key={store.id} to={`/store/${store.slug}`} className="top-vendor-card">
-                    <img src={store.logo} alt={store.name} className="top-vendor-logo" />
-                    <div className="top-vendor-meta">
-                      <span className="top-vendor-code">{store.storeCode}</span>
-                      <span className="top-vendor-name">{store.name}</span>
-                      <div className="top-vendor-stats">
-                        <span className="top-vendor-rating">
-                          <Star size={12} fill="currentColor" />
-                          {store.rating.toFixed(1)}
-                        </span>
-                        <span>{store.totalOrders.toLocaleString('vi-VN')} đơn</span>
-                        <span>{store.liveProductCount.toLocaleString('vi-VN')} sản phẩm</span>
-                      </div>
-                    </div>
+            <div className="home-section-gap container">
+              <section className="top-vendor-section">
+                <div className="top-vendor-head">
+                  <div className="top-vendor-title-wrap">
+                    <span className="top-vendor-eyebrow">
+                      <Store size={14} />
+                      Top Vendor
+                    </span>
+                    <h2>{'Nh\u00e0 b\u00e1n n\u1ed5i b\u1eadt tr\u00ean s\u00e0n'}</h2>
+                  </div>
+                  <Link to="/search?scope=stores" className="top-vendor-view-all">
+                    {'Xem t\u1ea5t c\u1ea3'}
                   </Link>
-                ))}
-              </div>
-            </section>
+                </div>
 
-            <ProductSection
-              title="GỢI Ý HÔM NAY"
-              products={trendingProducts}
-              viewAllLink="/search?scope=products"
-            />
+                <div className="top-vendor-grid">
+                  {topVendors.map((store) => (
+                    <Link key={store.id} to={`/store/${store.slug}`} className="top-vendor-card">
+                      <img src={store.logo} alt={store.name} className="top-vendor-logo" />
+                      <div className="top-vendor-meta">
+                        <span className="top-vendor-code">{store.storeCode}</span>
+                        <span className="top-vendor-name">{store.name}</span>
+                        <div className="top-vendor-stats">
+                          <span className="top-vendor-rating">
+                            <Star size={12} fill="currentColor" />
+                            {store.rating.toFixed(1)}
+                          </span>
+                          <span className="top-vendor-stat-item">{store.totalOrders.toLocaleString('vi-VN')} {'\u0111\u01a1n'}</span>
+                          <span className="top-vendor-stat-item">{store.liveProductCount.toLocaleString('vi-VN')} SP</span>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            <div className="home-section-gap">
+              <ProductSection
+                title={'G\u1ee2I \u00dd H\u00d4M NAY'}
+                products={trendingProducts}
+                viewAllLink="/search?scope=products"
+              />
+            </div>
 
             <TrustBadges />
           </>
