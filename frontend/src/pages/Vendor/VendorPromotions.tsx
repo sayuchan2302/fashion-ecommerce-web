@@ -383,10 +383,9 @@ const VendorPromotions = () => {
         updates.map((item) => vendorVoucherService.updateStatus(item.id, item.status)),
       );
       setSelected(new Set());
-      addToast('Đã cập nhật trạng thái voucher', 'success');
       await loadVouchers();
-    } catch (error: unknown) {
-      addToast(getUiErrorMessage(error, 'Không thể cập nhật trạng thái voucher'), 'error');
+    } catch {
+      // Intentionally suppress toast for pause/resume actions.
     } finally {
       setWorking(false);
     }

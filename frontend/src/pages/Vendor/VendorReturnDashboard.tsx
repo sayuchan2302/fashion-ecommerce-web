@@ -100,7 +100,7 @@ const VendorReturnDashboard = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<VendorReturnTab>('needsAction');
+  const [activeTab, setActiveTab] = useState<VendorReturnTab>('all');
   const [page, setPage] = useState(1);
   const [detailItem, setDetailItem] = useState<ReturnRequest | null>(null);
   const [rejectReason, setRejectReason] = useState('');
