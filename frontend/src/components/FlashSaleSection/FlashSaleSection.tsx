@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingBag, ChevronLeft, ChevronRight, Store } from 'lucide-react';
-import { useCartAnimation } from '../../context/CartAnimationContext';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import ProductCard from '../ProductCard/ProductCard';
 import './FlashSaleSection.css';
 
 export interface FlashSaleItem {
@@ -11,8 +11,17 @@ export interface FlashSaleItem {
   image: string;
   price: number;
   originalPrice?: number;
+  badge?: string;
+  colors?: string[];
+  sizes?: string[];
+  variants?: Array<{
+    color: string;
+    size: string;
+    backendId?: string;
+  }>;
   storeName: string;
   storeId?: string;
+  storeSlug?: string;
   isOfficialStore?: boolean;
   soldCount: number;
   totalStock: number;
@@ -21,7 +30,6 @@ export interface FlashSaleItem {
 interface FlashSaleSectionProps {
   items?: FlashSaleItem[];
   viewAllLink?: string;
-  onQuickAdd?: (item: FlashSaleItem) => void;
 }
 
 const getRemainingSecondsToEndOfDay = () => {
@@ -42,17 +50,12 @@ const toTimeParts = (seconds: number) => {
   ];
 };
 
-const formatVnd = (amount: number) => `${Math.round(amount).toLocaleString('vi-VN')}\u0111`;
-
 const FlashSaleSection = ({
   items = [],
   viewAllLink = '/search?scope=products&sort=discount',
-  onQuickAdd,
 }: FlashSaleSectionProps) => {
   const [remainingSeconds, setRemainingSeconds] = useState(getRemainingSecondsToEndOfDay());
   const sliderRef = useRef<HTMLDivElement>(null);
-  const imageRefs = useRef<Record<string, HTMLImageElement | null>>({});
-  const { triggerAnimation } = useCartAnimation();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -86,7 +89,7 @@ const FlashSaleSection = ({
             {timeParts.map((part, i) => (
               <div key={`t-${i}`} style={{ display: 'flex', alignItems: 'center' }}>
                 <span className="flash-sale-timer-digit">{part}</span>
-                {i < timeParts.length - 1 && <span className="flash-sale-timer-sep">:</span>}
+                {i < timeParts.length - 1 ? <span className="flash-sale-timer-sep">:</span> : null}
               </div>
             ))}
           </div>
@@ -103,98 +106,49 @@ const FlashSaleSection = ({
 
         <div className="flash-sale-track" ref={sliderRef}>
           {items.map((item) => {
-            const safeStock = Math.max(1, item.totalStock);
-            const progress = Math.min(100, Math.round((item.soldCount / safeStock) * 100));
-            const discountPercent = item.originalPrice && item.originalPrice > item.price
-              ? Math.round(((item.originalPrice - item.price) / item.originalPrice) * 100)
-              : 0;
+            const safeStock = Math.max(1, Math.round(item.totalStock || 0));
+            const soldCount = Math.min(safeStock, Math.max(0, Math.round(item.soldCount || 0)));
+            const progress = Math.min(100, Math.round((soldCount / safeStock) * 100));
             const isAlmostOut = progress > 80;
 
             return (
               <article key={item.id} className="flash-card">
-                <div className="flash-card-image-wrap">
-                  <Link to={`/product/${item.id}`} className="flash-card-image-link" style={{ display: 'block' }}>
-                    {item.image ? (
-                      <img
-                        ref={(node) => {
-                          imageRefs.current[String(item.id)] = node;
-                        }}
-                        src={item.image}
-                        alt={item.name}
-                        className="flash-card-image"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="flash-card-no-image">{'Kh\u00f4ng c\u00f3 \u1ea3nh'}</div>
-                    )}
-
-                    <span className="flash-badge-type sale">
-                      <svg viewBox="0 0 24 24" className="flash-badge-icon" aria-hidden="true">
-                        <path d="M13 2 4 14h6l-1 8 9-12h-6z" />
-                      </svg>
-                      {'Gi\u1ea3m'}
-                    </span>
-
-                    {discountPercent > 0 && (
-                      <div className="flash-badge-discount">
-                        <span className="flash-badge-discount-num">{discountPercent}%</span>
-                        <span className="flash-badge-discount-label">{'Gi\u1ea3m'}</span>
-                      </div>
-                    )}
-                  </Link>
-
-                  <button
-                    type="button"
-                    className="flash-card-quick-add"
-                    title={'Th\u00eam v\u00e0o gi\u1ecf'}
-                    onClick={(e) => {
-                      triggerAnimation({
-                        imgSrc: item.image,
-                        imageRect: imageRefs.current[String(item.id)]?.getBoundingClientRect() || null,
-                        fallbackPoint: { x: e.clientX, y: e.clientY },
-                      });
-                      onQuickAdd?.(item);
-                    }}
-                  >
-                    <ShoppingBag size={15} strokeWidth={2.5} />
-                  </button>
+                <div className="flash-card-product">
+                  <ProductCard
+                    id={item.id}
+                    backendId={item.backendProductId}
+                    name={item.name}
+                    image={item.image}
+                    price={item.price}
+                    originalPrice={item.originalPrice}
+                    badge={item.badge}
+                    colors={item.colors}
+                    sizes={item.sizes}
+                    variants={item.variants}
+                    storeName={item.storeName}
+                    storeId={item.storeId}
+                    storeSlug={item.storeSlug}
+                    isOfficialStore={item.isOfficialStore}
+                  />
                 </div>
 
-                <div className="flash-card-body">
-                  <Link to={`/product/${item.id}`} style={{ display: 'block' }}>
-                    <h3 className="flash-card-name">{item.name}</h3>
-                  </Link>
+                <div className="flash-progress-wrap">
+                  <div
+                    className={`flash-progress-fill${isAlmostOut ? ' almost-out' : ''}`}
+                    style={{ width: `${progress}%` }}
+                  />
 
-                  <div className="flash-card-prices">
-                    <span className="flash-card-price-current">{formatVnd(item.price)}</span>
-                    {typeof item.originalPrice === 'number' && item.originalPrice > item.price && (
-                      <span className="flash-card-price-original">{formatVnd(item.originalPrice)}</span>
-                    )}
-                  </div>
+                  {isAlmostOut && progress < 100 ? (
+                    <div className="flash-fire-icon">
+                      <svg width="10" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+                      </svg>
+                    </div>
+                  ) : null}
 
-                  <div className="flash-card-vendor">
-                    <Store size={12} />
-                    <span className="flash-card-vendor-name">{item.storeName}</span>
-                  </div>
-
-                  <div className="flash-progress-wrap">
-                    <div
-                      className={`flash-progress-fill${isAlmostOut ? ' almost-out' : ''}`}
-                      style={{ width: `${progress}%` }}
-                    />
-
-                    {isAlmostOut && progress < 100 && (
-                      <div className="flash-fire-icon">
-                        <svg width="10" height="12" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
-                        </svg>
-                      </div>
-                    )}
-
-                    <span className={`flash-progress-text${progress < 50 ? ' low' : ''}`}>
-                      {progress >= 100 ? 'H\u1ebft h\u00e0ng' : `\u0110\u00e3 b\u00e1n ${item.soldCount}`}
-                    </span>
-                  </div>
+                  <span className={`flash-progress-text${progress < 50 ? ' low' : ''}`}>
+                    {progress >= 100 ? 'H\u1ebft h\u00e0ng' : `\u0110\u00e3 b\u00e1n ${soldCount}`}
+                  </span>
                 </div>
               </article>
             );

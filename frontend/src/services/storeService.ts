@@ -43,6 +43,7 @@ export interface StoreProfile {
 
 export interface StoreProduct {
   id: number;
+  backendId?: string;
   sku: string;
   name: string;
   slug?: string;
@@ -52,6 +53,11 @@ export interface StoreProduct {
   badge?: string;
   colors?: string[];
   sizes?: string[];
+  variants?: Array<{
+    color: string;
+    size: string;
+    backendId?: string;
+  }>;
   stock: number;
   status: string;
   statusType: 'active' | 'low' | 'out';
@@ -189,7 +195,7 @@ interface BackendProduct {
   status?: string;
   category?: { name?: string; slug?: string };
   images?: Array<{ url?: string }>;
-  variants?: Array<{ sku?: string; color?: string; size?: string; stockQuantity?: number }>;
+  variants?: Array<{ id?: string; sku?: string; color?: string; size?: string; stockQuantity?: number }>;
 }
 
 const buildRegistrationDescription = (payload: StoreRegistrationRequest) =>
@@ -245,20 +251,36 @@ const mapBackendStore = (store: BackendStoreResponse): StoreProfile => ({
 
 const mapBackendProduct = (product: BackendProduct, store?: StoreProfile): StoreProduct => {
   const variants = product.variants || [];
+  const variantOptions = variants
+    .map((variant) => ({
+      color: String(variant.color || '').trim(),
+      size: String(variant.size || '').trim(),
+      backendId: variant.id,
+    }))
+    .filter((variant) => variant.color || variant.size);
+
   const stock = variants.reduce((sum, variant) => sum + Number(variant.stockQuantity || 0), 0);
   const price = Number(product.salePrice || product.basePrice || 0);
   const originalPrice = product.salePrice ? Number(product.basePrice || product.salePrice) : undefined;
 
   return {
     id: Number(product.id.replace(/\D/g, '')) || Date.now(),
+    backendId: product.id,
     sku: variants[0]?.sku || product.slug || product.id,
     slug: product.slug,
     name: product.name || 'San pham',
     price,
     originalPrice,
     image: product.images?.[0]?.url || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=672&h=990&fit=crop',
-    colors: variants.map((variant) => variant.color).filter(Boolean) as string[],
-    sizes: variants.map((variant) => variant.size).filter(Boolean) as string[],
+    colors: Array.from(new Set(variantOptions.map((variant) => variant.color).filter(Boolean))),
+    sizes: Array.from(new Set(variantOptions.map((variant) => variant.size).filter(Boolean))),
+    variants: variantOptions
+      .filter((variant) => Boolean(variant.color && variant.size))
+      .map((variant) => ({
+        color: variant.color,
+        size: variant.size,
+        backendId: variant.backendId,
+      })),
     stock,
     status: (product.status || 'ACTIVE').toLowerCase(),
     statusType: stock === 0 ? 'out' : stock < 10 ? 'low' : 'active',

@@ -159,7 +159,6 @@ interface StorefrontTabPanelProps {
 
 const StoreProductCard = memo(({ product, storeName, onQuickAdd }: StoreProductCardProps) => (
   <ProductCard
-    staticMode
     id={getProductLink(product)}
     sku={product.sku}
     name={product.name}
@@ -169,7 +168,8 @@ const StoreProductCard = memo(({ product, storeName, onQuickAdd }: StoreProductC
     badge={product.badge}
     colors={product.colors}
     sizes={product.sizes}
-    backendId={String(product.id)}
+    variants={product.variants}
+    backendId={product.backendId}
     storeId={product.storeId}
     storeName={product.storeName || storeName}
     storeSlug={product.storeSlug}

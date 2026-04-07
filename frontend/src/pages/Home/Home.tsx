@@ -13,7 +13,6 @@ import {
   type MarketplaceStoreCard,
   type MarketplaceHomeCategoryTab,
 } from '../../services/marketplaceService';
-import { useCart } from '../../contexts/CartContext';
 
 interface HomeSectionProduct {
   id: number | string;
@@ -25,6 +24,11 @@ interface HomeSectionProduct {
   badge?: string;
   colors?: string[];
   sizes?: string[];
+  variants?: Array<{
+    color: string;
+    size: string;
+    backendId?: string;
+  }>;
   backendId?: string;
   storeId?: string;
   storeName?: string;
@@ -87,7 +91,6 @@ const Home = () => {
   const [categoryTabs, setCategoryTabs] = useState<MarketplaceHomeCategoryTab[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<HomeSectionProduct[]>(fallbackFeaturedProducts);
   const [trendingProducts, setTrendingProducts] = useState<HomeSectionProduct[]>(fallbackTrendingProducts);
-  const { addToCart } = useCart();
 
   useEffect(() => {
     let mounted = true;
@@ -154,8 +157,13 @@ const Home = () => {
           image: product.image,
           price: product.price,
           originalPrice: product.originalPrice,
+          badge: product.badge,
+          colors: product.colors,
+          sizes: product.sizes,
+          variants: product.variants,
           storeName: product.storeName || 'Nh\u00e0 b\u00e1n',
           storeId: product.storeId,
+          storeSlug: product.storeSlug,
           isOfficialStore: product.isOfficialStore,
           soldCount,
           totalStock,
@@ -170,48 +178,6 @@ const Home = () => {
     }
     return fallbackTopVendors;
   }, [featuredStores]);
-
-  const handleQuickAddFlashItem = (item: FlashSaleItem) => {
-    addToCart({
-      id: item.id,
-      backendProductId: item.backendProductId,
-      name: item.name,
-      price: item.price,
-      originalPrice: item.originalPrice,
-      image: item.image,
-      color: 'M\u1eb7c \u0111\u1ecbnh',
-      size: 'M',
-      storeId: item.storeId || 'default-store',
-      storeName: item.storeName || 'C\u1eeda h\u00e0ng',
-      isOfficialStore: Boolean(item.isOfficialStore),
-    });
-  };
-
-  const handleQuickAddTrendingItem = (item: {
-    id: number | string;
-    backendId?: string;
-    name: string;
-    price: number;
-    originalPrice?: number;
-    image: string;
-    storeId?: string;
-    storeName?: string;
-    isOfficialStore?: boolean;
-  }) => {
-    addToCart({
-      id: item.id,
-      backendProductId: item.backendId,
-      name: item.name,
-      price: item.price,
-      originalPrice: item.originalPrice,
-      image: item.image,
-      color: 'Mặc định',
-      size: 'M',
-      storeId: item.storeId || 'default-store',
-      storeName: item.storeName || 'Cửa hàng',
-      isOfficialStore: Boolean(item.isOfficialStore),
-    });
-  };
 
   return (
     <div className="home-page">
@@ -266,7 +232,6 @@ const Home = () => {
             <div className="home-section-gap">
               <FlashSaleSection
                 items={flashSaleItems}
-                onQuickAdd={handleQuickAddFlashItem}
               />
             </div>
 
@@ -312,8 +277,6 @@ const Home = () => {
                 title={'GỢI Ý HÔM NAY'}
                 products={trendingProducts}
                 viewAllLink="/search?scope=products"
-                staticCards
-                onQuickAdd={handleQuickAddTrendingItem}
               />
             </section>
           </>
@@ -324,3 +287,4 @@ const Home = () => {
 };
 
 export default Home;
+
