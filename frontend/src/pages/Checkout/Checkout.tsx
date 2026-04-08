@@ -14,6 +14,11 @@ import {
   getSelectedCartIdsForCheckout,
   setSelectedCartIdsForCheckout,
 } from '../../services/checkoutSelectionStore';
+import {
+  clearPendingVnpayCheckout,
+  getPendingVnpayCheckout,
+  setPendingVnpayCheckout,
+} from '../../services/vnpayCheckoutStore';
 import { orderService } from '../../services/orderService';
 import { ApiError, apiRequest, hasBackendJwt } from '../../services/apiClient';
 import type { ToastType } from '../../contexts/ToastContext';
@@ -83,6 +88,7 @@ const Checkout = () => {
 
   const addressLocation = useAddressLocation();
   const couponScrollRef = useRef<HTMLDivElement>(null);
+  const hasReconciledPendingRef = useRef(false);
 
   useEffect(() => {
     if (!hasBackendJwt()) {
@@ -146,6 +152,67 @@ const Checkout = () => {
     }, {}),
     [storeGroups],
   );
+
+  const clearCartByMarker = useCallback((cartIds: string[]) => {
+    const selected = Array.from(new Set(cartIds.map((value) => value.trim()).filter(Boolean)));
+    if (selected.length === 0) {
+      return;
+    }
+    const selectedSet = new Set(selected);
+    const removable = items.filter((item) => selectedSet.has(item.cartId));
+    if (removable.length === 0) {
+      return;
+    }
+
+    if (removable.length === items.length) {
+      clearCart();
+    } else {
+      removable.forEach((item) => removeFromCart(item.cartId));
+    }
+
+    setSelectedCartIds((prev) => {
+      const next = prev.filter((id) => !selectedSet.has(id));
+      setSelectedCartIdsForCheckout(next);
+      return next;
+    });
+  }, [clearCart, items, removeFromCart]);
+
+  useEffect(() => {
+    if (hasReconciledPendingRef.current) {
+      return;
+    }
+    hasReconciledPendingRef.current = true;
+
+    let cancelled = false;
+    const pending = getPendingVnpayCheckout();
+    if (!pending || !hasBackendJwt()) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const reconcile = async () => {
+      try {
+        const order = await apiRequest<{ paymentStatus?: string }>(
+          `/api/orders/code/${encodeURIComponent(pending.orderCode)}`,
+          {},
+          { auth: true },
+        );
+        if (cancelled) return;
+        if ((order.paymentStatus || '').toUpperCase() === 'PAID') {
+          clearCartByMarker(pending.cartIds);
+          clearPendingVnpayCheckout();
+        }
+      } catch {
+        // keep marker for next app bootstrapping attempt
+      }
+    };
+
+    void reconcile();
+    return () => {
+      cancelled = true;
+    };
+  }, [clearCartByMarker]);
 
   useEffect(() => {
     let cancelled = false;
@@ -428,11 +495,31 @@ const Checkout = () => {
         couponService.recordUsage(appliedCoupon.code);
       }
 
+      if (paymentMethod === 'vnpay') {
+        const orderCode = String(backendOrder.code || '').trim();
+        if (!orderCode) {
+          throw new Error('Khong tao duoc ma don hang de thanh toan VNPAY');
+        }
+        const payPayload = await orderService.createVnpayPayUrl(orderCode);
+        if (!payPayload.paymentUrl) {
+          throw new Error('Khong tao duoc URL thanh toan VNPAY');
+        }
+
+        setPendingVnpayCheckout({
+          orderCode: payPayload.orderCode || orderCode,
+          cartIds: checkoutItems.map((item) => item.cartId),
+          createdAt: Date.now(),
+        });
+        window.location.href = payPayload.paymentUrl;
+        return;
+      }
+
       if (checkoutItems.length === items.length) {
         clearCart();
       } else {
         checkoutItems.forEach((item) => removeFromCart(item.cartId));
       }
+      clearPendingVnpayCheckout();
       clearSelectedCartIdsForCheckout();
       navigate(`/order-success?id=${backendOrder.code || backendOrder.id}`);
     } catch (error) {

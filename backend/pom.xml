@@ -11,10 +11,10 @@
     </parent>
 
     <groupId>vn.edu.hcmuaf.fit</groupId>
-    <artifactId>fashionstore</artifactId>
+    <artifactId>marketplace</artifactId>
     <version>1.0.0</version>
-    <name>fashionstore</name>
-    <description>Ecommerce Fashion Store - Backend API</description>
+    <name>marketplace</name>
+    <description>Marketplace System - Backend API</description>
 
     <properties>
         <java.version>21</java.version>

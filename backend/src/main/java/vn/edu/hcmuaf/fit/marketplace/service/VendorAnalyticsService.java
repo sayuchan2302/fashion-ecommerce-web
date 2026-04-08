@@ -1,0 +1,101 @@
+package vn.edu.hcmuaf.fit.marketplace.service;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import vn.edu.hcmuaf.fit.marketplace.dto.response.VendorAnalyticsResponse;
+import vn.edu.hcmuaf.fit.marketplace.dto.response.VendorAnalyticsResponse.DailySeriesData;
+import vn.edu.hcmuaf.fit.marketplace.dto.response.VendorAnalyticsResponse.PeriodData;
+import vn.edu.hcmuaf.fit.marketplace.repository.OrderRepository;
+import vn.edu.hcmuaf.fit.marketplace.repository.OrderRepository.DailySeriesProjection;
+import vn.edu.hcmuaf.fit.marketplace.repository.OrderRepository.PeriodSummaryProjection;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@Service
+public class VendorAnalyticsService {
+
+    private final OrderRepository orderRepository;
+
+    public VendorAnalyticsService(OrderRepository orderRepository) {
+        this.orderRepository = orderRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public VendorAnalyticsResponse getAnalytics(UUID storeId, BigDecimal commissionRate) {
+        LocalDate today = LocalDate.now();
+        LocalDateTime todayStart = today.atStartOfDay();
+        LocalDateTime weekStart = today.minusDays(6).atStartOfDay();
+        LocalDateTime monthStart = today.minusDays(29).atStartOfDay();
+        LocalDateTime tomorrowStart = today.plusDays(1).atStartOfDay();
+
+        PeriodData todayData = buildPeriodData(storeId, todayStart, tomorrowStart);
+        PeriodData weekData = buildPeriodData(storeId, weekStart, tomorrowStart);
+        PeriodData monthData = buildPeriodData(storeId, monthStart, tomorrowStart);
+
+        List<DailySeriesProjection> dailyRows = orderRepository.findDailySeriesByStoreBetween(
+                storeId, monthStart, tomorrowStart);
+
+        Map<LocalDate, DailySeriesProjection> dailyMap = dailyRows.stream()
+                .collect(Collectors.toMap(
+                        row -> LocalDate.parse(row.getDate()),
+                        row -> row
+                ));
+
+        List<DailySeriesData> dailyData = new ArrayList<>();
+        for (LocalDate date = monthStart.toLocalDate(); !date.isAfter(today); date = date.plusDays(1)) {
+            DailySeriesProjection row = dailyMap.get(date);
+            dailyData.add(DailySeriesData.builder()
+                    .date(date.toString())
+                    .revenue(row != null ? row.getRevenue() : BigDecimal.ZERO)
+                    .payout(row != null ? row.getPayout() : BigDecimal.ZERO)
+                    .commission(row != null ? row.getCommission() : BigDecimal.ZERO)
+                    .orders(row != null ? row.getOrderCount() : 0L)
+                    .build());
+        }
+
+        return VendorAnalyticsResponse.builder()
+                .today(todayData)
+                .week(weekData)
+                .month(monthData)
+                .dailyData(dailyData)
+                .commissionRate(commissionRate)
+                .build();
+    }
+
+    private PeriodData buildPeriodData(UUID storeId, LocalDateTime from, LocalDateTime to) {
+        List<PeriodSummaryProjection> summaries = orderRepository.findPeriodSummaryByStoreBetween(storeId, from, to);
+        PeriodSummaryProjection current = summaries.isEmpty() ? null : summaries.get(0);
+
+        long durationDays = java.time.Duration.between(from, to).toDays();
+        LocalDateTime prevFrom = from.minusDays(durationDays);
+        LocalDateTime prevTo = to.minusDays(durationDays);
+
+        List<PeriodSummaryProjection> prevSummaries = orderRepository.findPeriodSummaryByStoreBetween(storeId, prevFrom, prevTo);
+        PeriodSummaryProjection previous = prevSummaries.isEmpty() ? null : prevSummaries.get(0);
+
+        long distinctCustomers = orderRepository.countDistinctCustomersByStoreBetween(storeId, from, to);
+        double conversionRate = distinctCustomers > 0 && current != null && current.getOrderCount() != null
+                ? (double) current.getOrderCount() / distinctCustomers
+                : 0.0;
+
+        return PeriodData.builder()
+                .revenue(current != null ? current.getTotalRevenue() : BigDecimal.ZERO)
+                .payout(current != null ? current.getTotalPayout() : BigDecimal.ZERO)
+                .commission(current != null ? current.getTotalCommission() : BigDecimal.ZERO)
+                .orders(current != null ? current.getOrderCount() : 0L)
+                .avgOrderValue(current != null ? current.getAvgOrderValue() : BigDecimal.ZERO)
+                .conversionRate(conversionRate)
+                .previousRevenue(previous != null ? previous.getTotalRevenue() : BigDecimal.ZERO)
+                .previousPayout(previous != null ? previous.getTotalPayout() : BigDecimal.ZERO)
+                .previousCommission(previous != null ? previous.getTotalCommission() : BigDecimal.ZERO)
+                .previousOrders(previous != null ? previous.getOrderCount() : 0L)
+                .build();
+    }
+}
