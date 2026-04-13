@@ -31,6 +31,7 @@ interface AdminLayoutProps {
   searchPlaceholder?: string;
   notificationsLabel?: string;
   settingsLabel?: string;
+  hideSidebarCard?: boolean;
 }
 
 const defaultNavItems: PanelNavItem[] = adminPanelNav;
@@ -51,6 +52,7 @@ const AdminLayout = ({
   searchPlaceholder,
   notificationsLabel,
   settingsLabel,
+  hideSidebarCard = false,
 }: AdminLayoutProps) => {
   const isNested = useContext(AdminLayoutLevelContext);
   const setShellState = useContext(AdminShellContext);
@@ -60,6 +62,12 @@ const AdminLayout = ({
   const { user: sessionUser, logout } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const t = ADMIN_DICTIONARY.layout;
+  const resolvedSidebarDescription = sidebarDescription ?? t.sidebar.description;
+  const resolvedSidebarCtaLabel = sidebarCtaLabel ?? t.sidebar.cta;
+  const shouldRenderSidebarCard =
+    !hideSidebarCard &&
+    resolvedSidebarDescription.trim().length > 0 &&
+    resolvedSidebarCtaLabel.trim().length > 0;
 
   const displayName = sessionUser?.name?.trim() || t.adminName;
   const displayEmail = sessionUser?.email?.trim() || 'Chưa có email';
@@ -125,12 +133,14 @@ const AdminLayout = ({
             );
           })}
         </nav>
-        <div className="admin-sidebar-card">
-          <p>{sidebarDescription || t.sidebar.description}</p>
-          <Link to={sidebarCtaTo || '/admin/settings'} className="admin-sidebar-btn">
-            {sidebarCtaLabel || t.sidebar.cta}
-          </Link>
-        </div>
+        {shouldRenderSidebarCard ? (
+          <div className="admin-sidebar-card">
+            <p>{resolvedSidebarDescription}</p>
+            <Link to={sidebarCtaTo || '/admin/settings'} className="admin-sidebar-btn">
+              {resolvedSidebarCtaLabel}
+            </Link>
+          </div>
+        ) : null}
       </aside>
 
       <main className="admin-main">

@@ -21,7 +21,7 @@ export const VENDOR_DICTIONARY = {
     notifications: 'Thông báo',
     settings: 'Cài đặt',
     sidebar: {
-      description: 'Quản lý gian hàng, theo dõi đơn hàng và doanh thu thực nhận ở một nơi.',
+      description: '',
       cta: 'Mở cài đặt',
     },
   },

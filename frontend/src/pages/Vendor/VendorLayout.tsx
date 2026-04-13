@@ -70,6 +70,7 @@ const VendorLayout = ({ title, actions, children, hideTopbarTitle = false, bread
       title={title}
       actions={actions}
       hideTopbarTitle={hideTopbarTitle}
+      hideSidebarCard
       breadcrumbs={normalizedBreadcrumbs}
       navItems={vendorNavItems}
       logoIcon={<Store size={22} />}

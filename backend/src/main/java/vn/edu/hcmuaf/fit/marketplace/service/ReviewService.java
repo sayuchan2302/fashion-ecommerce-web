@@ -12,6 +12,7 @@ import vn.edu.hcmuaf.fit.marketplace.dto.request.ReviewRequestDTO;
 import vn.edu.hcmuaf.fit.marketplace.dto.response.ReviewEligibleItemResponse;
 import vn.edu.hcmuaf.fit.marketplace.dto.response.ReviewResponse;
 import vn.edu.hcmuaf.fit.marketplace.dto.response.VendorReviewSummaryResponse;
+import vn.edu.hcmuaf.fit.marketplace.entity.Notification;
 import vn.edu.hcmuaf.fit.marketplace.entity.Order;
 import vn.edu.hcmuaf.fit.marketplace.entity.Product;
 import vn.edu.hcmuaf.fit.marketplace.entity.Review;
@@ -39,19 +40,26 @@ public class ReviewService {
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
     private final StoreRepository storeRepository;
+    private final NotificationDomainService notificationDomainService;
+
+    private static final String REVIEW_NOTIFICATION_LINK = "/profile?tab=reviews";
+    private static final String REVIEW_NOTIFICATION_TITLE_ADMIN = "Hệ thống đã phản hồi đánh giá của bạn";
+    private static final String REVIEW_NOTIFICATION_TITLE_VENDOR = "Shop đã phản hồi đánh giá của bạn";
 
     public ReviewService(
             ReviewRepository reviewRepository,
             ProductRepository productRepository,
             UserRepository userRepository,
             OrderRepository orderRepository,
-            StoreRepository storeRepository
+            StoreRepository storeRepository,
+            NotificationDomainService notificationDomainService
     ) {
         this.reviewRepository = reviewRepository;
         this.productRepository = productRepository;
         this.userRepository = userRepository;
         this.orderRepository = orderRepository;
         this.storeRepository = storeRepository;
+        this.notificationDomainService = notificationDomainService;
     }
 
     private List<String> toPlainImages(Review review) {
@@ -234,25 +242,33 @@ public class ReviewService {
     public ReviewResponse addReply(UUID id, String reply) {
         Review review = reviewRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
-        review.setShopReply(reply);
+        String previousReply = normalizeOptionalText(review.getShopReply());
+        String normalizedReply = normalizeRequiredText(reply, "Reply content cannot be empty");
+        review.setShopReply(normalizedReply);
         review.setShopReplyAt(LocalDateTime.now());
         // Auto-approve if pending
         if (review.getStatus() == Review.ReviewStatus.PENDING) {
             review.setStatus(Review.ReviewStatus.APPROVED);
         }
-        return toReviewResponse(reviewRepository.save(review));
+        Review saved = reviewRepository.save(review);
+        notifyCustomerReviewReply(saved, previousReply, normalizedReply, true);
+        return toReviewResponse(saved);
     }
 
     @Transactional
     public ReviewResponse addStoreReply(UUID id, UUID storeId, String reply) {
         Review review = reviewRepository.findByIdAndStoreId(id, storeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
-        review.setShopReply(reply);
+        String previousReply = normalizeOptionalText(review.getShopReply());
+        String normalizedReply = normalizeRequiredText(reply, "Reply content cannot be empty");
+        review.setShopReply(normalizedReply);
         review.setShopReplyAt(LocalDateTime.now());
         if (review.getStatus() == Review.ReviewStatus.PENDING) {
             review.setStatus(Review.ReviewStatus.APPROVED);
         }
-        return toReviewResponse(reviewRepository.save(review));
+        Review saved = reviewRepository.save(review);
+        notifyCustomerReviewReply(saved, previousReply, normalizedReply, false);
+        return toReviewResponse(saved);
     }
 
     @Transactional
@@ -283,6 +299,30 @@ public class ReviewService {
         }
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private void notifyCustomerReviewReply(Review review, String previousReply, String currentReply, boolean adminReply) {
+        if (notificationDomainService == null || review == null || review.getUser() == null || review.getUser().getId() == null) {
+            return;
+        }
+        if (normalizeOptionalText(previousReply).equals(normalizeOptionalText(currentReply))) {
+            return;
+        }
+
+        String productName = review.getProduct() == null
+                ? "sản phẩm"
+                : normalizeOptionalText(review.getProduct().getName());
+        if (productName.isEmpty()) {
+            productName = "sản phẩm";
+        }
+        String message = "Đánh giá cho sản phẩm " + productName + " đã có phản hồi mới.";
+        notificationDomainService.createAndPush(
+                review.getUser().getId(),
+                Notification.NotificationType.REVIEW,
+                adminReply ? REVIEW_NOTIFICATION_TITLE_ADMIN : REVIEW_NOTIFICATION_TITLE_VENDOR,
+                message,
+                REVIEW_NOTIFICATION_LINK
+        );
     }
 
     private Order resolveDeliveredOrderForReview(UUID userId, UUID productId, UUID orderId) {
@@ -329,6 +369,18 @@ public class ReviewService {
                 .map(String::trim)
                 .filter(url -> !url.isEmpty())
                 .collect(Collectors.toCollection(ArrayList::new));
+    }
+
+    private String normalizeOptionalText(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private String normalizeRequiredText(String value, String message) {
+        String normalized = normalizeOptionalText(value);
+        if (normalized.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+        }
+        return normalized;
     }
 
 }

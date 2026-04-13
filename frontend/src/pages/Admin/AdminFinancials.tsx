@@ -1,4 +1,4 @@
-import './AdminFinancials.css';
+﻿import './AdminFinancials.css';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowUpRight, CheckCircle2, Eye, WalletCards, X } from 'lucide-react';
@@ -252,15 +252,7 @@ const AdminFinancials = () => {
         <div className="admin-panel">
           <div className="admin-panel-head">
             <h2>{activeTab === 'wallets' ? 'Sổ đối soát và commission' : 'Yêu cầu rút tiền chờ duyệt'}</h2>
-            {activeTab === 'wallets' && selected.size > 0 && (
-              <div className="admin-actions">
-                <span className="admin-muted">Đã chọn {selected.size} bản ghi</span>
-                <button className="admin-ghost-btn" disabled={isApplyingPayout} onClick={() => openReleaseConfirm(Array.from(selected))}>
-                  Xác nhận giải ngân
-                </button>
-                <button className="admin-ghost-btn" disabled={isApplyingPayout} onClick={() => setSelected(new Set())}>Bỏ chọn</button>
-              </div>
-            )}
+            
           </div>
 
           {activeTab === 'wallets' ? (
@@ -325,7 +317,7 @@ const AdminFinancials = () => {
                         <div role="cell">
                           <span className={`admin-pill ${record.frozenBalance > 0 ? 'warning' : 'neutral'}`}>{formatCurrency(record.frozenBalance)}</span>
                         </div>
-                        <div role="cell" className="admin-actions">
+                        <div role="cell" className="financial-actions">
                           <button className="admin-icon-btn subtle" title="Xem chi tiết" onClick={() => setDetailRecord(record)}>
                             <Eye size={16} />
                           </button>
@@ -386,7 +378,7 @@ const AdminFinancials = () => {
                         <div role="cell">{payout.bankName}</div>
                         <div role="cell" className="admin-muted">{payout.bankAccountNumber}</div>
                         <div role="cell" className="admin-muted">{new Date(payout.createdAt).toLocaleString('vi-VN')}</div>
-                        <div role="cell" className="admin-actions">
+                        <div role="cell" className="financial-actions">
                           <button className="admin-icon-btn subtle" title="Xem chi tiết" onClick={() => setSelectedPayout(payout)}>
                             <Eye size={16} />
                           </button>
@@ -579,3 +571,5 @@ const AdminFinancials = () => {
 };
 
 export default AdminFinancials;
+
+

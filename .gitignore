@@ -22,9 +22,6 @@ backend/target/
 # Env files
 .env
 .env.*
-frontend/.env
-backend/.env
-
 
 # Logs
 *.log

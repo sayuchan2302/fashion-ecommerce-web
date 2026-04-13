@@ -15,9 +15,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import vn.edu.hcmuaf.fit.marketplace.entity.Product;
+import vn.edu.hcmuaf.fit.marketplace.entity.Review;
 import vn.edu.hcmuaf.fit.marketplace.entity.User;
 import vn.edu.hcmuaf.fit.marketplace.repository.OrderRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.ProductRepository;
+import vn.edu.hcmuaf.fit.marketplace.repository.ReviewRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.UserRepository;
 
 import java.util.HashMap;
@@ -52,6 +54,9 @@ class ReviewControllerCustomerFlowIntegrationTest {
 
     @Autowired
     private OrderRepository orderRepository;
+
+    @Autowired
+    private ReviewRepository reviewRepository;
 
     @Test
     @org.junit.jupiter.api.Order(1)
@@ -179,6 +184,55 @@ class ReviewControllerCustomerFlowIntegrationTest {
                 String.class
         );
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+    }
+
+    @Test
+    @org.junit.jupiter.api.Order(5)
+    void vendorReplyCreatesRealtimeReviewNotificationForCustomer() throws Exception {
+        String customerToken = loginAndExtractToken(CUSTOMER_EMAIL, TEST_PASSWORD);
+        String vendorToken = loginAndExtractToken(VENDOR_EMAIL, TEST_PASSWORD);
+
+        User vendor = userRepository.findByEmail(VENDOR_EMAIL).orElseThrow();
+        User customer = userRepository.findByEmail(CUSTOMER_EMAIL).orElseThrow();
+        assertNotNull(vendor.getStoreId(), "Vendor must have a storeId in seed data");
+        Optional<Review> targetReview = reviewRepository.findByUserIdOrderByCreatedAtDesc(customer.getId())
+                .stream()
+                .filter(review -> vendor.getStoreId().equals(review.getStoreId()))
+                .findFirst();
+        assertTrue(targetReview.isPresent(), "Expected at least one review of customer for vendor store");
+        String reviewId = targetReview.get().getId().toString();
+
+        Map<String, Object> replyPayload = new HashMap<>();
+        replyPayload.put("reply", "Shop đã phản hồi đánh giá của bạn (" + System.currentTimeMillis() + ").");
+        ResponseEntity<String> replyResponse = restTemplate.exchange(
+                "/api/reviews/my-store/" + reviewId + "/reply",
+                HttpMethod.POST,
+                authorizedJsonEntity(vendorToken, replyPayload),
+                String.class
+        );
+        assertEquals(HttpStatus.OK, replyResponse.getStatusCode());
+
+        ResponseEntity<String> notificationsResponse = restTemplate.exchange(
+                "/api/notifications/me?type=review&page=0&size=20",
+                HttpMethod.GET,
+                authorizedEntity(customerToken),
+                String.class
+        );
+        assertEquals(HttpStatus.OK, notificationsResponse.getStatusCode());
+        JsonNode notificationsBody = objectMapper.readTree(notificationsResponse.getBody());
+        JsonNode content = notificationsBody.get("content");
+        assertTrue(content.isArray());
+
+        boolean foundReviewNotification = false;
+        for (JsonNode item : content) {
+            if ("review".equalsIgnoreCase(item.path("type").asText())
+                    && "/profile?tab=reviews".equals(item.path("link").asText())
+                    && item.path("title").asText().contains("phản hồi đánh giá")) {
+                foundReviewNotification = true;
+                break;
+            }
+        }
+        assertTrue(foundReviewNotification, "Expected a review notification with deeplink /profile?tab=reviews");
     }
 
     @SuppressWarnings("unchecked")

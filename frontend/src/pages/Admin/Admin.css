@@ -4181,6 +4181,14 @@ input:disabled,
   min-width: 980px;
 }
 
+.admin-table-row.returns-row,
+.admin-table-row.returns-row > [role='cell'] {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
 .admin-table-row.returns-row > div {
   min-width: 0;
 }
@@ -4188,8 +4196,10 @@ input:disabled,
 .admin-table-row.returns-row > [role='columnheader']:last-child {
   display: flex;
   align-items: center;
-  justify-content: center;
-  text-align: center;
+  justify-content: flex-start;
+  justify-self: start;
+  text-align: left;
+  white-space: nowrap;
 }
 
 .returns-code-cell,
@@ -4224,7 +4234,7 @@ input:disabled,
 
 .returns-amount {
   white-space: nowrap;
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--co-admin-text);
 }
@@ -4244,11 +4254,11 @@ input:disabled,
 .admin-table-row.returns-row .returns-actions {
   display: flex;
   align-items: center;
-  justify-content: center;
-  justify-self: center;
+  justify-content: flex-start;
+  justify-self: start;
   gap: 8px;
-  flex-wrap: wrap;
-  width: 100%;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 @media (max-width: 1200px) {

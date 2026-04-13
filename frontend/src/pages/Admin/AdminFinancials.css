@@ -15,6 +15,13 @@
   min-width: 0;
 }
 
+.financial-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .financial-drawer {
   width: 42vw;
   max-width: 620px;

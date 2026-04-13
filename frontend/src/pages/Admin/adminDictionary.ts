@@ -6,7 +6,7 @@ export const ADMIN_DICTIONARY = {
     settings: 'Cài đặt',
     adminName: 'Admin',
     sidebar: {
-      description: 'Thiết lập gateway thanh toán, phí ship, email thông báo.',
+      description: '',
       cta: 'Cấu hình ngay',
     },
     nav: {

@@ -1,4 +1,4 @@
-import './Admin.css';
+﻿import './Admin.css';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, Eye, ShieldAlert, XCircle } from 'lucide-react';
@@ -10,7 +10,6 @@ import {
   PanelDrawerFooter,
   PanelDrawerHeader,
   PanelDrawerSection,
-  PanelSearchField,
   PanelStatsGrid,
   PanelTabs,
   PanelTableFooter,
@@ -104,7 +103,6 @@ const EMPTY_ADMIN_COUNTS: AdminTabCounts = {
 const AdminReturns = () => {
   const { pushToast } = useAdminToast();
   const [activeTab, setActiveTab] = useState<TabKey>('all');
-  const [searchQuery, setSearchQuery] = useState('');
   const [rows, setRows] = useState<ReturnRequest[]>([]);
   const [tabCounts, setTabCounts] = useState<AdminTabCounts>(EMPTY_ADMIN_COUNTS);
   const [totalElements, setTotalElements] = useState(0);
@@ -153,7 +151,6 @@ const AdminReturns = () => {
       setLoadError(null);
       const response = await returnService.listAdmin({
         statuses: TAB_STATUS_MAP[activeTab],
-        q: searchQuery,
         page: Math.max(page - 1, 0),
         size: PAGE_SIZE,
       });
@@ -173,7 +170,7 @@ const AdminReturns = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [activeTab, page, searchQuery]);
+  }, [activeTab, page]);
 
   useEffect(() => {
     void fetchTabCounts();
@@ -186,7 +183,7 @@ const AdminReturns = () => {
   useEffect(() => {
     setPage(1);
     setSelected(new Set());
-  }, [activeTab, searchQuery]);
+  }, [activeTab]);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -222,7 +219,7 @@ const AdminReturns = () => {
 
   const resetCurrentView = () => {
     setActiveTab('all');
-    setSearchQuery('');
+    
     setPage(1);
     setSelected(new Set());
   };
@@ -284,11 +281,6 @@ const AdminReturns = () => {
           <div className="admin-panel-head">
             <h2>Danh sách yêu cầu hoàn trả</h2>
             <div className="admin-actions">
-              <PanelSearchField
-                placeholder="Tìm mã yêu cầu, mã đơn, khách hàng, gian hàng..."
-                value={searchQuery}
-                onChange={setSearchQuery}
-              />
               {tabCounts.disputed > 0 && (
                 <span className="admin-pill error">
                   <ShieldAlert size={14} />
@@ -314,13 +306,9 @@ const AdminReturns = () => {
             />
           ) : rows.length === 0 ? (
             <AdminStateBlock
-              type={searchQuery.trim() ? 'search-empty' : 'empty'}
-              title={searchQuery.trim() ? 'Không tìm thấy yêu cầu phù hợp' : 'Chưa có yêu cầu hoàn trả'}
-              description={
-                searchQuery.trim()
-                  ? 'Thử đổi từ khóa hoặc đặt lại bộ lọc để xem lại dữ liệu.'
-                  : 'Khi khách gửi yêu cầu đổi trả, danh sách sẽ xuất hiện tại đây.'
-              }
+              type="empty"
+              title="Chưa có yêu cầu hoàn trả"
+              description="Khi khách gửi yêu cầu đổi trả, danh sách sẽ xuất hiện tại đây."
               actionLabel="Đặt lại"
               onAction={resetCurrentView}
             />
@@ -597,3 +585,5 @@ const AdminReturns = () => {
 };
 
 export default AdminReturns;
+
+
