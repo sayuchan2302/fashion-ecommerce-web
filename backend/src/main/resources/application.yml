@@ -43,6 +43,8 @@ jwt:
 app:
   seed:
     enabled: ${APP_SEED_ENABLED:true}
+  chatbot:
+    ai-fallback-enabled: ${APP_CHATBOT_AI_FALLBACK_ENABLED:false}
   notifications:
     promotion:
       timezone: ${APP_PROMOTION_NOTIFICATION_TIMEZONE:Asia/Ho_Chi_Minh}
@@ -97,3 +99,10 @@ momo:
   request-type: ${MOMO_REQUEST_TYPE:captureWallet}
   lang: ${MOMO_LANG:vi}
   auto-capture: ${MOMO_AUTO_CAPTURE:true}
+
+azure-bot:
+  microsoft-app-id: ${MicrosoftAppId:}
+  microsoft-app-password: ${MicrosoftAppPassword:}
+  microsoft-app-tenant-id: ${MicrosoftAppTenantId:}
+  microsoft-app-type: ${MicrosoftAppType:SingleTenant}
+  authentication-enabled: ${AZURE_BOT_AUTH_ENABLED:false}

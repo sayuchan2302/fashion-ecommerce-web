@@ -65,6 +65,9 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         // ─── Public endpoints (no auth required) ───────────────────────────
+                        .requestMatchers(HttpMethod.GET, "/").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/favicon.ico").permitAll()
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
@@ -73,6 +76,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/payments/vnpay/return/verify").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/payments/momo/ipn").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/payments/momo/return/verify").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/messages").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/api/messages").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
