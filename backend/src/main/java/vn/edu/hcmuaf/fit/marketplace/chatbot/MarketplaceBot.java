@@ -17,9 +17,12 @@ import vn.edu.hcmuaf.fit.marketplace.chatbot.service.CustomerSupportChatService.
 import vn.edu.hcmuaf.fit.marketplace.chatbot.service.CustomerSupportChatService.SizeAdviceResult;
 import vn.edu.hcmuaf.fit.marketplace.config.ChatbotProperties;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.text.Normalizer;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -80,11 +83,123 @@ public class MarketplaceBot extends ActivityHandler {
     }
 
     private ChatSessionState toChatSessionState(Object rawState) {
+        if (rawState == null) {
+            return new ChatSessionState();
+        }
         if (rawState instanceof ChatSessionState state) {
             return state;
         }
-        // Handles devtools restart classloader mismatch (same class name, different loader).
+        if (rawState instanceof Map<?, ?> map) {
+            return convertStateValues(
+                    map.get("step"),
+                    map.get("pendingOrderCode"),
+                    map.get("heightCm")
+            );
+        }
+
+        ChatSessionState remappedState = remapUnknownStateObject(rawState);
+        if (remappedState != null) {
+            return remappedState;
+        }
+
+        // Fallback for unknown state type.
         return new ChatSessionState();
+    }
+
+    private ChatSessionState remapUnknownStateObject(Object rawState) {
+        boolean hasStateShape =
+                hasProperty(rawState, "step")
+                        || hasProperty(rawState, "pendingOrderCode")
+                        || hasProperty(rawState, "heightCm");
+
+        if (!hasStateShape) {
+            return null;
+        }
+
+        return convertStateValues(
+                readProperty(rawState, "step"),
+                readProperty(rawState, "pendingOrderCode"),
+                readProperty(rawState, "heightCm")
+        );
+    }
+
+    private ChatSessionState convertStateValues(Object rawStep, Object rawPendingOrderCode, Object rawHeightCm) {
+        ChatSessionState state = new ChatSessionState();
+
+        if (rawStep != null) {
+            try {
+                state.step = ConversationStep.valueOf(rawStep.toString());
+            } catch (IllegalArgumentException ignored) {
+                state.step = ConversationStep.ROOT;
+            }
+        }
+
+        if (rawPendingOrderCode != null) {
+            state.pendingOrderCode = rawPendingOrderCode.toString();
+        }
+
+        state.heightCm = parseNullableInt(rawHeightCm);
+        return state;
+    }
+
+    private Integer parseNullableInt(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.parseInt(value.toString());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private boolean hasProperty(Object target, String propertyName) {
+        Class<?> type = target.getClass();
+        String getterName = getterName(propertyName);
+
+        try {
+            type.getMethod(getterName);
+            return true;
+        } catch (NoSuchMethodException ignored) {
+            // ignore
+        }
+
+        try {
+            type.getDeclaredField(propertyName);
+            return true;
+        } catch (NoSuchFieldException ignored) {
+            return false;
+        }
+    }
+
+    private Object readProperty(Object target, String propertyName) {
+        Class<?> type = target.getClass();
+        String getterName = getterName(propertyName);
+
+        try {
+            Method getter = type.getMethod(getterName);
+            return getter.invoke(target);
+        } catch (Exception ignored) {
+            // Fall back to field access for foreign classloader objects.
+        }
+
+        try {
+            Field field = type.getDeclaredField(propertyName);
+            field.setAccessible(true);
+            return field.get(target);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private String getterName(String propertyName) {
+        if (propertyName == null || propertyName.isBlank()) {
+            return propertyName;
+        }
+        return "get" + Character.toUpperCase(propertyName.charAt(0)) + propertyName.substring(1);
     }
 
     private CompletableFuture<Void> routeMessage(TurnContext turnContext, ChatSessionState state, String input) {
@@ -174,7 +289,10 @@ public class MarketplaceBot extends ActivityHandler {
         }
         String noAccent = Normalizer.normalize(value, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "");
-        return noAccent.toLowerCase(Locale.ROOT).trim().replaceAll("\\s+", " ");
+        String normalized = noAccent
+                .replace('đ', 'd')
+                .replace('Đ', 'D');
+        return normalized.toLowerCase(Locale.ROOT).trim().replaceAll("\\s+", " ");
     }
 
     private String onlyDigits(String value) {

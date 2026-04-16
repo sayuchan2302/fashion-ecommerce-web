@@ -38,9 +38,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         String path = request.getServletPath();
+        String method = request.getMethod();
         // Bot Framework sends its own RS256 bearer token to this endpoint.
         // This filter should only handle our marketplace JWT (HS256).
-        return "/api/messages".equals(path);
+        return "/api/messages".equals(path) && "POST".equalsIgnoreCase(method);
     }
 
     @Override

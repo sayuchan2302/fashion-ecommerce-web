@@ -1,5 +1,6 @@
 package vn.edu.hcmuaf.fit.marketplace.exception;
 
+import com.microsoft.bot.connector.authentication.AuthenticationException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -110,6 +111,15 @@ public class GlobalExceptionHandler {
             HttpServletRequest request
     ) {
         return build(HttpStatus.FORBIDDEN, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiErrorResponse> handleBotAuthentication(
+            AuthenticationException ex,
+            HttpServletRequest request
+    ) {
+        logger.warn("Bot auth rejected on {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.UNAUTHORIZED, "Authentication required or token is invalid", request);
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
