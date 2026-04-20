@@ -16,6 +16,7 @@ public class CategoryTreeResponse {
     private UUID id;
     private String name;
     private String slug;
+    private String image;
     private Integer sortOrder;
     private List<CategoryTreeResponse> children;
 }

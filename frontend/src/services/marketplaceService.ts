@@ -103,6 +103,7 @@ interface BackendCategoryTreeNode {
   id: string;
   name: string;
   slug?: string;
+  image?: string;
   children?: BackendCategoryTreeNode[];
 }
 
@@ -284,6 +285,7 @@ const mapHomeCategoryTab = (
   const items = children.map((item, index) => {
     const slug = (item.slug || '').trim();
     const image =
+      optimizeMarketplaceImage(item.image, 400) ||
       CATEGORY_IMAGE_BY_SLUG[slug] ||
       CATEGORY_FALLBACK_IMAGES[index % CATEGORY_FALLBACK_IMAGES.length];
 

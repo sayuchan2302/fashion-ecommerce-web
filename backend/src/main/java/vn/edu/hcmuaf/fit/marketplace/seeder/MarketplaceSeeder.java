@@ -37,6 +37,18 @@ public class MarketplaceSeeder implements ApplicationRunner {
     private static final String STORE_LOGO_IMAGE = unsplashImage("photo-1441986300917-64674bd600d8", 512, 512);
     private static final String STORE_BANNER_IMAGE = unsplashImage("photo-1523381210434-271e8be1f52b", 1600, 600);
     private static final String CATEGORY_IMAGE = unsplashImage("photo-1441986300917-64674bd600d8", 800, 800);
+    private static final String MEN_TOP_IMAGE = "https://www.gap.com/webcontent/0060/843/422/cn60843422.jpg";
+    private static final String MEN_PANTS_IMAGE = "https://www.gap.com/webcontent/0055/673/193/cn55673193.jpg";
+    private static final String MEN_SPORT_IMAGE = "https://www.gap.com/webcontent/0058/089/131/cn58089131.jpg";
+    private static final String MEN_LOUNGE_IMAGE = "https://www.gap.com/webcontent/0028/365/400/cn28365400.jpg";
+    private static final String WOMEN_TOP_IMAGE = "https://www.gap.com/webcontent/0061/868/558/cn61868558.jpg";
+    private static final String WOMEN_DRESS_IMAGE = "https://www.gap.com/webcontent/0061/530/723/cn61530723.jpg";
+    private static final String WOMEN_PANTS_IMAGE = "https://www.gap.com/webcontent/0061/870/502/cn61870502.jpg";
+    private static final String WOMEN_SPORT_IMAGE = "https://www.gap.com/webcontent/0061/936/240/cn61936240.jpg";
+    private static final String WOMEN_LOUNGE_IMAGE = "https://www.gap.com/webcontent/0061/302/702/cn61302702.jpg";
+    private static final String ACCESSORIES_BAGS_WALLETS_IMAGE = "https://www.gap.com/webcontent/0056/071/943/cn56071943.jpg";
+    private static final String ACCESSORIES_FASHION_IMAGE = "https://www.gap.com/webcontent/0061/234/303/cn61234303.jpg";
+    private static final String ACCESSORIES_OTHER_IMAGE = "https://www.gap.com/webcontent/0057/184/072/cn57184072.jpg";
 
     private final UserRepository userRepository;
     private final StoreRepository storeRepository;
@@ -167,22 +179,22 @@ public class MarketplaceSeeder implements ApplicationRunner {
         Category phuKienRoot = createCategory("Phụ kiện", "accessories", "Danh mục gốc cho phụ kiện.", null, 3);
 
         // Level 2 - Nam
-        Category namAo = createCategory("Áo nam", "men-ao", "Nhóm áo dành cho nam.", namRoot, 10);
-        Category namQuan = createCategory("Quần nam", "men-quan", "Nhóm quần dành cho nam.", namRoot, 20);
-        Category namTheThao = createCategory("Đồ thể thao nam", "men-do-the-thao", "Nhóm đồ thể thao nam.", namRoot, 30);
-        Category namMacNha = createCategory("Đồ mặc nhà nam", "men-do-mac-nha", "Nhóm đồ mặc nhà nam.", namRoot, 40);
+        Category namAo = createCategory("Áo nam", "men-ao", "Nhóm áo dành cho nam.", namRoot, 10, MEN_TOP_IMAGE);
+        Category namQuan = createCategory("Quần nam", "men-quan", "Nhóm quần dành cho nam.", namRoot, 20, MEN_PANTS_IMAGE);
+        Category namTheThao = createCategory("Đồ thể thao nam", "men-do-the-thao", "Nhóm đồ thể thao nam.", namRoot, 30, MEN_SPORT_IMAGE);
+        Category namMacNha = createCategory("Đồ mặc nhà nam", "men-do-mac-nha", "Nhóm đồ mặc nhà nam.", namRoot, 40, MEN_LOUNGE_IMAGE);
 
         // Level 2 - Nữ
-        Category nuAo = createCategory("Áo nữ", "women-ao", "Nhóm áo dành cho nữ.", nuRoot, 10);
-        Category nuVayDam = createCategory("Váy đầm nữ", "women-vay-dam", "Nhóm váy đầm dành cho nữ.", nuRoot, 20);
-        Category nuQuan = createCategory("Quần nữ", "women-quan", "Nhóm quần dành cho nữ.", nuRoot, 30);
-        Category nuTheThao = createCategory("Đồ thể thao nữ", "women-do-the-thao", "Nhóm đồ thể thao nữ.", nuRoot, 40);
-        Category nuMacNha = createCategory("Đồ mặc nhà nữ", "women-do-mac-nha", "Nhóm đồ mặc nhà nữ.", nuRoot, 50);
+        Category nuAo = createCategory("Áo nữ", "women-ao", "Nhóm áo dành cho nữ.", nuRoot, 10, WOMEN_TOP_IMAGE);
+        Category nuVayDam = createCategory("Váy đầm nữ", "women-vay-dam", "Nhóm váy đầm dành cho nữ.", nuRoot, 20, WOMEN_DRESS_IMAGE);
+        Category nuQuan = createCategory("Quần nữ", "women-quan", "Nhóm quần dành cho nữ.", nuRoot, 30, WOMEN_PANTS_IMAGE);
+        Category nuTheThao = createCategory("Đồ thể thao nữ", "women-do-the-thao", "Nhóm đồ thể thao nữ.", nuRoot, 40, WOMEN_SPORT_IMAGE);
+        Category nuMacNha = createCategory("Đồ mặc nhà nữ", "women-do-mac-nha", "Nhóm đồ mặc nhà nữ.", nuRoot, 50, WOMEN_LOUNGE_IMAGE);
 
         // Level 2 - Phụ kiện
-        Category pkTuiVaVi = createCategory("Túi và ví", "accessories-tui-va-vi", "Nhóm túi và ví.", phuKienRoot, 10);
-        Category pkThoiTrang = createCategory("Phụ kiện thời trang", "accessories-phu-kien-thoi-trang", "Nhóm phụ kiện thời trang.", phuKienRoot, 20);
-        Category pkKhac = createCategory("Phụ kiện khác", "accessories-phu-kien-khac", "Nhóm phụ kiện khác.", phuKienRoot, 30);
+        Category pkTuiVaVi = createCategory("Túi và ví", "accessories-tui-va-vi", "Nhóm túi và ví.", phuKienRoot, 10, ACCESSORIES_BAGS_WALLETS_IMAGE);
+        Category pkThoiTrang = createCategory("Phụ kiện thời trang", "accessories-phu-kien-thoi-trang", "Nhóm phụ kiện thời trang.", phuKienRoot, 20, ACCESSORIES_FASHION_IMAGE);
+        Category pkKhac = createCategory("Phụ kiện khác", "accessories-phu-kien-khac", "Nhóm phụ kiện khác.", phuKienRoot, 30, ACCESSORIES_OTHER_IMAGE);
 
         // Level 3 - Nam > Áo
         Category menAoThun = createCategory("Áo thun nam", "men-ao-thun", "Áo thun nam.", namAo, 1);
@@ -427,13 +439,17 @@ public class MarketplaceSeeder implements ApplicationRunner {
     }
 
     private Category createCategory(String name, String slug, String description, Category parent, int sortOrder) {
+        return createCategory(name, slug, description, parent, sortOrder, CATEGORY_IMAGE);
+    }
+
+    private Category createCategory(String name, String slug, String description, Category parent, int sortOrder, String image) {
         Category category = new Category();
         category.setName(name);
         category.setSlug(slug);
         category.setDescription(description);
         category.setParent(parent);
         category.setSortOrder(sortOrder);
-        category.setImage(CATEGORY_IMAGE);
+        category.setImage(image);
         return categoryRepository.save(category);
     }
 

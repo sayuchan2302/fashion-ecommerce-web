@@ -382,9 +382,30 @@ const AdminCategories = () => {
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      const collectDescendants = (nodeId: string, bucket: Set<string>) => {
+        const children = childMap.get(nodeId) || [];
+        children.forEach((child) => {
+          if (bucket.has(child.id)) return;
+          bucket.add(child.id);
+          collectDescendants(child.id, bucket);
+        });
+      };
+
+      if (prev.has(id)) {
+        const toRemove = new Set<string>([id]);
+        collectDescendants(id, toRemove);
+        const next = new Set(prev);
+        toRemove.forEach((nodeId) => next.delete(nodeId));
+        return next;
+      }
+
+      const next = new Set<string>();
+      let cursor = byId.get(id);
+      while (cursor?.parentId) {
+        next.add(cursor.parentId);
+        cursor = byId.get(cursor.parentId);
+      }
+      next.add(id);
       return next;
     });
   };

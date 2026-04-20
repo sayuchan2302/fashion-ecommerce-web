@@ -252,6 +252,7 @@ public class CategoryService {
                     .id(category.getId())
                     .name(category.getName())
                     .slug(category.getSlug())
+                    .image(category.getImage())
                     .sortOrder(category.getSortOrder())
                     .children(List.of())
                     .build();
@@ -265,6 +266,7 @@ public class CategoryService {
                 .id(category.getId())
                 .name(category.getName())
                 .slug(category.getSlug())
+                .image(category.getImage())
                 .sortOrder(category.getSortOrder())
                 .children(children)
                 .build();
