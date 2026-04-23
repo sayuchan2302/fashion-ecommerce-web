@@ -229,7 +229,12 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   }, [addToast, hasBackendSession]);
 
   useEffect(() => {
-    void refreshCartFromBackend();
+    const timer = window.setTimeout(() => {
+      void refreshCartFromBackend();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [refreshCartFromBackend]);
 
   const addToCart = useCallback((newItem: Omit<CartItem, 'cartId' | 'quantity'> & { quantity?: number }) => {

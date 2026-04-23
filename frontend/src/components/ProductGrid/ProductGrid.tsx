@@ -57,7 +57,7 @@ const buildPaginationTokens = (currentPage: number, totalPages: number): Paginat
 const ProductGrid = ({ customResults, viewState, itemsPerPage, scrollToTopOnPageChange = false }: ProductGridProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [catalog, setCatalog] = useState<Product[]>(() => customResults || productService.list());
-  const [currentPage, setCurrentPage] = useState(1);
+  const [pageByScope, setPageByScope] = useState<Record<string, number>>({});
   const internalView = useClientViewState({ validSortKeys: ['newest', 'bestseller', 'price-asc', 'price-desc', 'discount'] });
   const view = viewState ?? internalView;
 
@@ -128,16 +128,16 @@ const ProductGrid = ({ customResults, viewState, itemsPerPage, scrollToTopOnPage
   const hasPagination = typeof itemsPerPage === 'number' && itemsPerPage > 0;
   const pageSize = hasPagination ? Math.max(1, Math.floor(itemsPerPage)) : totalProducts || 1;
   const totalPages = hasPagination ? Math.max(1, Math.ceil(totalProducts / pageSize)) : 1;
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [customResults, view.priceRanges, view.colors, view.sortKey, pageSize, hasPagination]);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
+  const paginationScope = useMemo(() => JSON.stringify({
+    hasPagination,
+    pageSize,
+    sortKey: view.sortKey,
+    priceRanges: [...view.priceRanges].sort(),
+    colors: [...view.colors].sort(),
+    customResultsKey: customResults ? customResults.map((product) => String(product.id)).join('|') : 'catalog',
+  }), [hasPagination, pageSize, view.sortKey, view.priceRanges, view.colors, customResults]);
+  const rawCurrentPage = pageByScope[paginationScope] ?? 1;
+  const currentPage = hasPagination ? Math.min(Math.max(rawCurrentPage, 1), totalPages) : 1;
 
   const scrollViewportToTop = () => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -164,7 +164,10 @@ const ProductGrid = ({ customResults, viewState, itemsPerPage, scrollToTopOnPage
     if (hasPagination && scrollToTopOnPageChange) {
       scrollViewportToTop();
     }
-    setCurrentPage(normalized);
+    setPageByScope((current) => ({
+      ...current,
+      [paginationScope]: normalized,
+    }));
   };
 
   const pagedProducts = useMemo(() => {

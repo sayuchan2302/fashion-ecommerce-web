@@ -1,22 +1,23 @@
-import { isValidElement, Suspense, useCallback, useEffect, useState } from 'react';
+import { isValidElement, lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
-import Admin from './Admin';
-import AdminOrders from './AdminOrders';
-import AdminOrderDetail from './AdminOrderDetail';
-import AdminCategories from './AdminCategories';
-import AdminUsers from './AdminUsers';
-import AdminPromotions from './AdminPromotions';
-import AdminReviews from './AdminReviews';
-import StoreApprovals from './StoreApprovals';
-import AdminFinancials from './AdminFinancials';
-import AdminBotAI from './AdminBotAI';
-import AdminReturns from './AdminReturns';
-import AdminProductGovernance from './AdminProductGovernance';
 import { AdminShellContext, type AdminShellState } from './AdminShellContext';
 import { AdminMountedContext } from './useAdminPageAnimation';
 import AdminLayout from './AdminLayout';
 import PageFallback from '../../components/Transitions/PageFallback';
+
+const Admin = lazy(() => import('./Admin'));
+const AdminOrders = lazy(() => import('./AdminOrders'));
+const AdminOrderDetail = lazy(() => import('./AdminOrderDetail'));
+const AdminCategories = lazy(() => import('./AdminCategories'));
+const AdminUsers = lazy(() => import('./AdminUsers'));
+const AdminPromotions = lazy(() => import('./AdminPromotions'));
+const AdminReviews = lazy(() => import('./AdminReviews'));
+const StoreApprovals = lazy(() => import('./StoreApprovals'));
+const AdminFinancials = lazy(() => import('./AdminFinancials'));
+const AdminBotAI = lazy(() => import('./AdminBotAI'));
+const AdminReturns = lazy(() => import('./AdminReturns'));
+const AdminProductGovernance = lazy(() => import('./AdminProductGovernance'));
 
 const defaultShellState: AdminShellState = {
   title: 'Tổng quan',

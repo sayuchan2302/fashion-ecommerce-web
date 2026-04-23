@@ -165,8 +165,9 @@ const VendorReviews = () => {
       setReviewsPage(emptyReviewsPage);
       setLoadError(getUiErrorMessage(err, 'Không tải được đánh giá của cửa hàng.'));
     } finally {
-      if (requestId !== latestReviewsRequestIdRef.current) return;
-      setLoading(false);
+      if (requestId === latestReviewsRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [debouncedQuery, page, tabFilters]);
 

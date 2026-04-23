@@ -20,20 +20,25 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider = ({ children }: { children: ReactNode }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, token } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [popupNotifications, setPopupNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const resetNotificationState = useCallback(() => {
+    setNotifications([]);
+    setPopupNotifications([]);
+    setUnreadCount(0);
+  }, []);
+
   const hasBackendToken = useMemo(() => {
-    const session = authService.getSession() || authService.getAdminSession();
-    return Boolean(session?.token && authService.isBackendJwtToken(session.token));
-  }, [isAuthenticated]);
+    const sessionToken = authService.getSession()?.token || authService.getAdminSession()?.token;
+    const candidateToken = token || sessionToken || '';
+    return Boolean(candidateToken && authService.isBackendJwtToken(candidateToken));
+  }, [token]);
 
   const loadSnapshot = useCallback(async () => {
     if (!isAuthenticated || !hasBackendToken) {
-      setNotifications([]);
-      setPopupNotifications([]);
-      setUnreadCount(0);
+      resetNotificationState();
       return;
     }
 
@@ -45,22 +50,24 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
       setNotifications(listResponse.content || []);
       setUnreadCount(nextUnread);
     } catch {
-      setNotifications([]);
-      setPopupNotifications([]);
-      setUnreadCount(0);
+      resetNotificationState();
     }
-  }, [hasBackendToken, isAuthenticated]);
+  }, [hasBackendToken, isAuthenticated, resetNotificationState]);
 
   useEffect(() => {
     if (!isAuthenticated || !hasBackendToken) {
       notificationSocketService.disconnect();
-      setNotifications([]);
-      setPopupNotifications([]);
-      setUnreadCount(0);
-      return;
+      const timer = window.setTimeout(() => {
+        resetNotificationState();
+      }, 0);
+      return () => {
+        window.clearTimeout(timer);
+      };
     }
 
-    void loadSnapshot();
+    const snapshotTimer = window.setTimeout(() => {
+      void loadSnapshot();
+    }, 0);
 
     notificationSocketService.connect({
       onConnect: () => {
@@ -81,9 +88,10 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => {
+      window.clearTimeout(snapshotTimer);
       notificationSocketService.disconnect();
     };
-  }, [hasBackendToken, isAuthenticated, loadSnapshot]);
+  }, [hasBackendToken, isAuthenticated, loadSnapshot, resetNotificationState]);
 
   const refreshNotifications = useCallback(() => {
     void loadSnapshot();

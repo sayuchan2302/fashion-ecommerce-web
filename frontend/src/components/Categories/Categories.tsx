@@ -19,6 +19,7 @@ const Categories = ({
   showFeaturedStores = true,
 }: CategoriesProps) => {
   const tabs = useMemo(() => (categoryTabs && categoryTabs.length > 0 ? categoryTabs : []), [categoryTabs]);
+  const visibleStores = useMemo(() => featuredStores.slice(0, 4), [featuredStores]);
   const [selectedTab, setSelectedTab] = useState<string>(tabs[0]?.id || 'nam');
   if (tabs.length === 0) {
     return null;
@@ -27,7 +28,6 @@ const Categories = ({
   const activeTab = tabs.some((tab) => tab.id === selectedTab) ? selectedTab : (tabs[0]?.id || 'nam');
   const currentTab = tabs.find((tab) => tab.id === activeTab) || tabs[0];
   const currentData = currentTab?.items || [];
-  const visibleStores = useMemo(() => featuredStores.slice(0, 4), [featuredStores]);
   const toCategoryLink = (slug: string) => `/category/${encodeURIComponent(slug)}`;
 
   return (

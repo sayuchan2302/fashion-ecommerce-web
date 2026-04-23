@@ -1,7 +1,6 @@
-import { test, expect, Page, Response } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
-const API_URL = process.env.API_URL || 'http://localhost:8080';
 
 // ─── Test Data Fixtures ──────────────────────────────────────────────────────
 
@@ -56,12 +55,6 @@ async function getVendorWalletBalances(page: Page) {
 
 // ─── Helper: Intercept API Response ──────────────────────────────────────────
 
-async function waitForWalletApiResponse(page: Page): Promise<Response> {
-  return page.waitForResponse(
-    (res) => res.url().includes('/api/wallets/my-wallet') && res.status() === 200,
-    { timeout: 10000 }
-  );
-}
 
 // =============================================================================
 // FLOW A: The "Money Move" (Escrow)
@@ -129,11 +122,6 @@ test.describe('Flow A: Escrow Credit on Order Delivery', () => {
 
     // Step 4: Verify Transaction History shows ESCROW_CREDIT
     await test.step('7. Verify transaction history shows ESCROW_CREDIT', async () => {
-      // Intercept the transactions API
-      const txResponsePromise = page.waitForResponse(
-        (res) => res.url().includes('/api/wallets/my-wallet/transactions'),
-        { timeout: 10000 }
-      );
 
       // Navigate to transactions (if there's a link) or check via API directly
       const apiTx = await page.evaluate(async () => {
@@ -172,11 +160,6 @@ test.describe('Flow B: Payout Request (Withdrawal)', () => {
 
     // Step 2: Attempt to withdraw amount > Available Balance
     await test.step('3. Attempt withdrawal exceeding available balance', async () => {
-      // Intercept the payout API to capture the error
-      const errorResponsePromise = page.waitForResponse(
-        (res) => res.url().includes('/api/wallets/my-payout') && res.status() === 400,
-        { timeout: 5000 }
-      ).catch(() => null);
 
       // Open payout/payout dialog (if UI has a withdraw button)
       // For now, simulate via API call
@@ -329,7 +312,7 @@ test.describe('Flow C: Admin Approves Payout Request', () => {
       await page.goto(`${BASE_URL}/vendor/dashboard`);
       await page.waitForLoadState('networkidle');
 
-      const afterBalances = await getVendorWalletBalances(page);
+      await getVendorWalletBalances(page);
 
       // Verify payout status is APPROVED
       const payoutsResult = await page.evaluate(async () => {
@@ -375,7 +358,7 @@ test.describe('Error Handling: Backend Exceptions → UI Errors', () => {
 
       // Should show error state block, not crash
       const errorBlock = page.locator('[class*="state-block"], [class*="error"], .admin-state-block');
-      const hasError = await errorBlock.isVisible({ timeout: 5000 }).catch(() => false);
+      await errorBlock.isVisible({ timeout: 5000 }).catch(() => false);
 
       // Even if no explicit error block, the page should still be functional
       const pageTitle = await page.locator('h1, .page-title').textContent().catch(() => '');

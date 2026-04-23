@@ -1,19 +1,20 @@
-import { isValidElement, Suspense, useCallback, useState } from 'react';
+import { isValidElement, lazy, Suspense, useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
-import VendorDashboard from './VendorDashboard';
-import VendorOrders from './VendorOrders';
-import VendorOrderDetail from './VendorOrderDetail';
-import VendorProducts from './VendorProducts';
-import VendorAnalytics from './VendorAnalytics';
-import VendorSettings from './VendorSettings';
-import VendorStorefront from './VendorStorefront';
-import VendorPromotions from './VendorPromotions';
-import VendorReviews from './VendorReviews';
-import VendorReturnDashboard from './VendorReturnDashboard';
 import VendorLayout from './VendorLayout';
 import { AdminShellContext, type AdminShellState } from '../Admin/AdminShellContext';
 import PageFallback from '../../components/Transitions/PageFallback';
+
+const VendorDashboard = lazy(() => import('./VendorDashboard'));
+const VendorOrders = lazy(() => import('./VendorOrders'));
+const VendorOrderDetail = lazy(() => import('./VendorOrderDetail'));
+const VendorProducts = lazy(() => import('./VendorProducts'));
+const VendorAnalytics = lazy(() => import('./VendorAnalytics'));
+const VendorSettings = lazy(() => import('./VendorSettings'));
+const VendorStorefront = lazy(() => import('./VendorStorefront'));
+const VendorPromotions = lazy(() => import('./VendorPromotions'));
+const VendorReviews = lazy(() => import('./VendorReviews'));
+const VendorReturnDashboard = lazy(() => import('./VendorReturnDashboard'));
 
 const defaultShellState: AdminShellState = {
   title: 'Tổng quan',

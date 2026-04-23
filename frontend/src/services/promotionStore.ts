@@ -1,5 +1,5 @@
-﻿/**
- * promotionStore.ts â€” Shared source of truth for promotions/vouchers.
+/**
+ * promotionStore.ts - Shared source of truth for promotions/vouchers.
  *
  * Both AdminPromotions (admin management) and couponService (client checkout)
  * read/write from this store, ensuring they are always in sync.
@@ -25,13 +25,13 @@ export interface Promotion {
   status: PromotionStatus;
 }
 
-// â”€â”€ Initial seed data (unified, previously split between couponService and AdminPromotions) â”€
+// Initial seed data (unified, previously split between couponService and AdminPromotions)
 const INITIAL_PROMOTIONS: Promotion[] = [];
 
-// â”€â”€ In-memory store â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// In-memory store
 let _rows: Promotion[] = [...INITIAL_PROMOTIONS];
 
-// â”€â”€ Derived status logic â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Derived status logic
 export const derivePromotionStatus = (p: Promotion): PromotionStatus => {
   if (p.status === 'paused') return 'paused';
   const today = new Date();
@@ -49,7 +49,7 @@ export const derivePromotionStatus = (p: Promotion): PromotionStatus => {
   return 'running';
 };
 
-// â”€â”€ Store API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Store API
 export const promotionStore = {
   /** Returns all promotions with derived status applied */
   getAll(): Promotion[] {

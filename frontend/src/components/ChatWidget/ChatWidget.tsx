@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react';
 import { MessageCircle, RotateCcw, X } from 'lucide-react';
 import './ChatWidget.css';
 import { chatbotService } from '../../services/chatbotService';
@@ -10,6 +10,7 @@ const DIRECT_LINE_USER_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
 const ABSOLUTE_IMAGE_URL_PATTERN = /^https?:\/\//i;
 const DATA_IMAGE_PATTERN = /^data:image\//i;
 const WEBCHAT_JOIN_EVENT = 'webchat/join';
+type WebChatComponent = ComponentType<Record<string, unknown>>;
 
 type WebChatAction = {
   type: string;
@@ -57,7 +58,7 @@ const resolveErrorMessage = (error: unknown) => {
 
 const ChatWidget = () => {
   const { user } = useAuth();
-  const [ReactWebChatComponent, setReactWebChatComponent] = useState<any>(null);
+  const [ReactWebChatComponent, setReactWebChatComponent] = useState<WebChatComponent | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -117,7 +118,7 @@ const ChatWidget = () => {
       const tokenData = await chatbotService.createDirectLineToken(visitorId);
 
       if (!ReactWebChatComponent) {
-        setReactWebChatComponent(() => webChatModule.default);
+        setReactWebChatComponent(() => webChatModule.default as WebChatComponent);
       }
 
       const createdDirectLine = webChatModule.createDirectLine({
