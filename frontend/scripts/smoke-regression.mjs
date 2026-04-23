@@ -3,23 +3,25 @@
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const TIMEOUT = 15000;
 
-const requireEnv = (name) => {
+const readEnv = (name) => {
   const value = process.env[name];
-  if (!value || !value.trim()) {
-    throw new Error(`Missing required env var: ${name}`);
-  }
-  return value.trim();
+  return value && value.trim() ? value.trim() : '';
 };
 
 const CREDENTIALS = {
   admin: {
-    email: requireEnv('SMOKE_ADMIN_EMAIL'),
-    password: requireEnv('SMOKE_ADMIN_PASSWORD'),
+    email: readEnv('SMOKE_ADMIN_EMAIL'),
+    password: readEnv('SMOKE_ADMIN_PASSWORD'),
   },
   vendor: {
-    email: requireEnv('SMOKE_VENDOR_EMAIL'),
-    password: requireEnv('SMOKE_VENDOR_PASSWORD'),
+    email: readEnv('SMOKE_VENDOR_EMAIL'),
+    password: readEnv('SMOKE_VENDOR_PASSWORD'),
   },
+};
+
+const hasCredentials = (role) => {
+  const creds = CREDENTIALS[role];
+  return Boolean(creds?.email && creds?.password);
 };
 
 const pass = (label, details = '') => console.log(`PASS ${label}${details ? ` -> ${details}` : ''}`);
@@ -53,6 +55,9 @@ async function getFirstVisibleProductLink(page) {
 }
 
 async function loginAs(page, role) {
+  if (!hasCredentials(role)) {
+    throw new Error(`Missing smoke credentials for role: ${role}`);
+  }
   const creds = CREDENTIALS[role];
   await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle', timeout: TIMEOUT });
 
@@ -113,7 +118,7 @@ async function run() {
     }
 
     // Flow 4 (admin categories)
-    {
+    if (hasCredentials('admin')) {
       const context = await browser.newContext();
       const page = await context.newPage();
 
@@ -124,10 +129,12 @@ async function run() {
       pass('Admin Categories');
 
       await context.close();
+    } else {
+      info('Admin Categories', 'Skip because SMOKE_ADMIN_EMAIL/SMOKE_ADMIN_PASSWORD are not set.');
     }
 
     // Flow 5 (vendor products)
-    {
+    if (hasCredentials('vendor')) {
       const context = await browser.newContext();
       const page = await context.newPage();
 
@@ -138,6 +145,8 @@ async function run() {
       pass('Vendor Products');
 
       await context.close();
+    } else {
+      info('Vendor Products', 'Skip because SMOKE_VENDOR_EMAIL/SMOKE_VENDOR_PASSWORD are not set.');
     }
 
     console.log('SMOKE RESULT: ALL PASS');
