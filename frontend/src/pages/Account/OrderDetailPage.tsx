@@ -135,22 +135,37 @@ const OrderDetailPage = () => {
               </tr>
             </thead>
             <tbody>
-              {order.items.map((item) => (
-                <tr key={item.id + item.color + item.size}>
-                  <td style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <img src={getOptimizedImageUrl(item.image, { width: 100, format: 'webp' })} alt={item.name} />
-                    <div>
-                      <div>{item.name}</div>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="account-meta">Màu: {item.color || 'N/A'}</div>
-                    <div className="account-meta">Size: {item.size || 'N/A'}</div>
-                  </td>
-                  <td>{item.quantity}</td>
-                  <td>{formatPrice(item.price)}</td>
-                </tr>
-              ))}
+              {order.items.map((item) => {
+                const productIdentifier = String(item.productId || item.id || '').trim();
+                const productHref = productIdentifier ? `/product/${encodeURIComponent(productIdentifier)}` : '';
+
+                return (
+                  <tr key={item.id + item.color + item.size}>
+                    <td style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      {productHref ? (
+                        <Link to={productHref}>
+                          <img src={getOptimizedImageUrl(item.image, { width: 100, format: 'webp' })} alt={item.name} />
+                        </Link>
+                      ) : (
+                        <img src={getOptimizedImageUrl(item.image, { width: 100, format: 'webp' })} alt={item.name} />
+                      )}
+                      <div>
+                        {productHref ? (
+                          <Link to={productHref}>{item.name}</Link>
+                        ) : (
+                          <div>{item.name}</div>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="account-meta">Màu: {item.color || 'N/A'}</div>
+                      <div className="account-meta">Size: {item.size || 'N/A'}</div>
+                    </td>
+                    <td>{item.quantity}</td>
+                    <td>{formatPrice(item.price)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

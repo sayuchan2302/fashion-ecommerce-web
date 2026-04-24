@@ -20,6 +20,7 @@ const ENABLE_ORDER_LOCAL_CACHE = import.meta.env.VITE_ENABLE_ORDER_LOCAL_CACHE =
 // ── Unified Order Schema ───────────────────────────────────────────────────
 export interface SharedOrderItem {
   id: string;
+  productId?: string;
   name: string;
   price: number;
   originalPrice?: number;

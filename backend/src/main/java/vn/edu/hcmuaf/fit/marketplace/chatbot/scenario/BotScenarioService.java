@@ -31,6 +31,23 @@ public class BotScenarioService {
             BotScenarioActionKey.SIZE_ADVICE,
             BotScenarioActionKey.PRODUCT_FAQ
     );
+    private static final Map<String, String> LEGACY_VI_TEXT_MAP = Map.ofEntries(
+            Map.entry("Tra cuu don hang", "Tra cứu đơn hàng"),
+            Map.entry("Tu van size", "Tư vấn size"),
+            Map.entry("Hoi dap san pham", "Hỏi đáp sản phẩm"),
+            Map.entry("Xin chao! Minh la tro ly CSKH cua FashMarket. Ban can ho tro gi?", "Xin chào! Mình là trợ lý CSKH của FashMarket. Bạn cần hỗ trợ gì?"),
+            Map.entry("Minh chua hieu yeu cau. Ban chon mot chuc nang ben duoi nhe.", "Mình chưa hiểu yêu cầu. Bạn chọn một chức năng bên dưới nhé."),
+            Map.entry("Ban gui giup minh ma don hang (vi du: DH-260412-000037).", "Bạn gửi giúp mình mã đơn hàng (ví dụ: DH-260412-000037)."),
+            Map.entry("Vui long nhap 4 so cuoi SDT nhan hang de xac minh.", "Vui lòng nhập 4 số cuối SDT nhận hàng để xác minh."),
+            Map.entry("Dinh dang chua dung. Vui long nhap dung 4 chu so.", "Định dạng chưa đúng. Vui lòng nhập đúng 4 chữ số."),
+            Map.entry("Ban can ho tro them gi nua khong?", "Bạn cần hỗ trợ thêm gì nữa không?"),
+            Map.entry("Ban cho minh chieu cao (cm) truoc nhe.", "Bạn cho mình chiều cao (cm) trước nhé."),
+            Map.entry("Chieu cao chua hop le. Nhap lai giup minh (cm), vi du: 168.", "Chiều cao chưa hợp lệ. Nhập lại giúp mình (cm), ví dụ: 168."),
+            Map.entry("Cam on ban. Gio nhap can nang (kg), vi du: 58.", "Cảm ơn bạn. Giờ nhập cân nặng (kg), ví dụ: 58."),
+            Map.entry("Can nang chua hop le. Nhap lai giup minh (kg), vi du: 58.", "Cân nặng chưa hợp lệ. Nhập lại giúp mình (kg), ví dụ: 58."),
+            Map.entry("Ban muon tiep tuc voi tac vu nao?", "Bạn muốn tiếp tục với tác vụ nào?"),
+            Map.entry("Ban muon hoi them gi?", "Bạn muốn hỏi thêm gì?")
+    );
 
     private final BotScenarioRevisionRepository revisionRepository;
     private final AdminAuditLogService adminAuditLogService;
@@ -213,18 +230,18 @@ public class BotScenarioService {
         }
 
         BotScenarioPayload normalized = BotScenarioPayload.builder()
-                .welcomePrompt(requireNonBlank(payload.getWelcomePrompt(), "welcomePrompt"))
-                .unknownPrompt(requireNonBlank(payload.getUnknownPrompt(), "unknownPrompt"))
-                .askOrderCodePrompt(requireNonBlank(payload.getAskOrderCodePrompt(), "askOrderCodePrompt"))
-                .askOrderPhonePrompt(requireNonBlank(payload.getAskOrderPhonePrompt(), "askOrderPhonePrompt"))
-                .orderPhoneInvalidPrompt(requireNonBlank(payload.getOrderPhoneInvalidPrompt(), "orderPhoneInvalidPrompt"))
-                .orderLookupContinuePrompt(requireNonBlank(payload.getOrderLookupContinuePrompt(), "orderLookupContinuePrompt"))
-                .askHeightPrompt(requireNonBlank(payload.getAskHeightPrompt(), "askHeightPrompt"))
-                .invalidHeightPrompt(requireNonBlank(payload.getInvalidHeightPrompt(), "invalidHeightPrompt"))
-                .askWeightPrompt(requireNonBlank(payload.getAskWeightPrompt(), "askWeightPrompt"))
-                .invalidWeightPrompt(requireNonBlank(payload.getInvalidWeightPrompt(), "invalidWeightPrompt"))
-                .sizeAdviceContinuePrompt(requireNonBlank(payload.getSizeAdviceContinuePrompt(), "sizeAdviceContinuePrompt"))
-                .productFaqContinuePrompt(requireNonBlank(payload.getProductFaqContinuePrompt(), "productFaqContinuePrompt"))
+                .welcomePrompt(normalizeLegacyViText(requireNonBlank(payload.getWelcomePrompt(), "welcomePrompt")))
+                .unknownPrompt(normalizeLegacyViText(requireNonBlank(payload.getUnknownPrompt(), "unknownPrompt")))
+                .askOrderCodePrompt(normalizeLegacyViText(requireNonBlank(payload.getAskOrderCodePrompt(), "askOrderCodePrompt")))
+                .askOrderPhonePrompt(normalizeLegacyViText(requireNonBlank(payload.getAskOrderPhonePrompt(), "askOrderPhonePrompt")))
+                .orderPhoneInvalidPrompt(normalizeLegacyViText(requireNonBlank(payload.getOrderPhoneInvalidPrompt(), "orderPhoneInvalidPrompt")))
+                .orderLookupContinuePrompt(normalizeLegacyViText(requireNonBlank(payload.getOrderLookupContinuePrompt(), "orderLookupContinuePrompt")))
+                .askHeightPrompt(normalizeLegacyViText(requireNonBlank(payload.getAskHeightPrompt(), "askHeightPrompt")))
+                .invalidHeightPrompt(normalizeLegacyViText(requireNonBlank(payload.getInvalidHeightPrompt(), "invalidHeightPrompt")))
+                .askWeightPrompt(normalizeLegacyViText(requireNonBlank(payload.getAskWeightPrompt(), "askWeightPrompt")))
+                .invalidWeightPrompt(normalizeLegacyViText(requireNonBlank(payload.getInvalidWeightPrompt(), "invalidWeightPrompt")))
+                .sizeAdviceContinuePrompt(normalizeLegacyViText(requireNonBlank(payload.getSizeAdviceContinuePrompt(), "sizeAdviceContinuePrompt")))
+                .productFaqContinuePrompt(normalizeLegacyViText(requireNonBlank(payload.getProductFaqContinuePrompt(), "productFaqContinuePrompt")))
                 .quickActions(normalizeQuickActions(payload.getQuickActions()))
                 .build();
 
@@ -241,7 +258,7 @@ public class BotScenarioService {
             if (action == null || action.getKey() == null) {
                 throw badRequest("quickActions contains invalid key");
             }
-            String label = requireNonBlank(action.getLabel(), "quickActions." + action.getKey() + ".label");
+            String label = normalizeLegacyViText(requireNonBlank(action.getLabel(), "quickActions." + action.getKey() + ".label"));
             if (labelsByKey.put(action.getKey(), label) != null) {
                 throw badRequest("Duplicate quick action key: " + action.getKey());
             }
@@ -271,25 +288,29 @@ public class BotScenarioService {
         return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
     }
 
+    private String normalizeLegacyViText(String value) {
+        return LEGACY_VI_TEXT_MAP.getOrDefault(value, value);
+    }
+
     private BotScenarioPayload defaultPayload() {
         List<BotScenarioQuickAction> quickActions = new ArrayList<>();
-        quickActions.add(BotScenarioQuickAction.builder().key(BotScenarioActionKey.ORDER_LOOKUP).label("Tra cuu don hang").build());
-        quickActions.add(BotScenarioQuickAction.builder().key(BotScenarioActionKey.SIZE_ADVICE).label("Tu van size").build());
-        quickActions.add(BotScenarioQuickAction.builder().key(BotScenarioActionKey.PRODUCT_FAQ).label("Hoi dap san pham").build());
+        quickActions.add(BotScenarioQuickAction.builder().key(BotScenarioActionKey.ORDER_LOOKUP).label("Tra cứu đơn hàng").build());
+        quickActions.add(BotScenarioQuickAction.builder().key(BotScenarioActionKey.SIZE_ADVICE).label("Tư vấn size").build());
+        quickActions.add(BotScenarioQuickAction.builder().key(BotScenarioActionKey.PRODUCT_FAQ).label("Hỏi đáp sản phẩm").build());
 
         return BotScenarioPayload.builder()
-                .welcomePrompt("Xin chao! Minh la tro ly CSKH cua FashMarket. Ban can ho tro gi?")
-                .unknownPrompt("Minh chua hieu yeu cau. Ban chon mot chuc nang ben duoi nhe.")
-                .askOrderCodePrompt("Ban gui giup minh ma don hang (vi du: DH-260412-000037).")
-                .askOrderPhonePrompt("Vui long nhap 4 so cuoi SDT nhan hang de xac minh.")
-                .orderPhoneInvalidPrompt("Dinh dang chua dung. Vui long nhap dung 4 chu so.")
-                .orderLookupContinuePrompt("Ban can ho tro them gi nua khong?")
-                .askHeightPrompt("Ban cho minh chieu cao (cm) truoc nhe.")
-                .invalidHeightPrompt("Chieu cao chua hop le. Nhap lai giup minh (cm), vi du: 168.")
-                .askWeightPrompt("Cam on ban. Gio nhap can nang (kg), vi du: 58.")
-                .invalidWeightPrompt("Can nang chua hop le. Nhap lai giup minh (kg), vi du: 58.")
-                .sizeAdviceContinuePrompt("Ban muon tiep tuc voi tac vu nao?")
-                .productFaqContinuePrompt("Ban muon hoi them gi?")
+                .welcomePrompt("Xin chào! Mình là trợ lý CSKH của FashMarket. Bạn cần hỗ trợ gì?")
+                .unknownPrompt("Mình chưa hiểu yêu cầu. Bạn chọn một chức năng bên dưới nhé.")
+                .askOrderCodePrompt("Bạn gửi giúp mình mã đơn hàng (ví dụ: DH-260412-000037).")
+                .askOrderPhonePrompt("Vui lòng nhập 4 số cuối SDT nhận hàng để xác minh.")
+                .orderPhoneInvalidPrompt("Định dạng chưa đúng. Vui lòng nhập đúng 4 chữ số.")
+                .orderLookupContinuePrompt("Bạn cần hỗ trợ thêm gì nữa không?")
+                .askHeightPrompt("Bạn cho mình chiều cao (cm) trước nhé.")
+                .invalidHeightPrompt("Chiều cao chưa hợp lệ. Nhập lại giúp mình (cm), ví dụ: 168.")
+                .askWeightPrompt("Cảm ơn bạn. Giờ nhập cân nặng (kg), ví dụ: 58.")
+                .invalidWeightPrompt("Cân nặng chưa hợp lệ. Nhập lại giúp mình (kg), ví dụ: 58.")
+                .sizeAdviceContinuePrompt("Bạn muốn tiếp tục với tác vụ nào?")
+                .productFaqContinuePrompt("Bạn muốn hỏi thêm gì?")
                 .quickActions(quickActions)
                 .build();
     }

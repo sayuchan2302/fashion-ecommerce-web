@@ -27,10 +27,10 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
         String normalizedPhone4 = normalizeLast4(phoneLast4);
 
         if (normalizedCode.isBlank()) {
-            return new OrderLookupResult(false, "Ban hay nhap ma don hang.");
+            return new OrderLookupResult(false, "Bạn hãy nhập mã đơn hàng.");
         }
         if (normalizedPhone4.length() != 4) {
-            return new OrderLookupResult(false, "4 so cuoi so dien thoai chua hop le.");
+            return new OrderLookupResult(false, "4 số cuối số điện thoại chưa hợp lệ.");
         }
 
         try {
@@ -41,30 +41,30 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
             if (shippingDigits.length() < 4 || !shippingDigits.endsWith(normalizedPhone4)) {
                 return new OrderLookupResult(
                         false,
-                        "Khong xac minh duoc don hang. Vui long kiem tra lai ma don hoac 4 so cuoi SDT."
+                        "Không xác minh được đơn hàng. Vui lòng kiểm tra lại mã đơn hoặc 4 số cuối SDT."
                 );
             }
 
             String statusLabel = switch (order.getStatus()) {
-                case PENDING -> "Don moi tao";
-                case WAITING_FOR_VENDOR -> "Dang cho shop xac nhan";
-                case CONFIRMED -> "Shop da xac nhan don";
-                case PROCESSING -> "Don dang duoc chuan bi";
-                case SHIPPED -> "Don dang giao";
-                case DELIVERED -> "Don da giao thanh cong";
-                case CANCELLED -> "Don da huy";
+                case PENDING -> "Đơn mới tạo";
+                case WAITING_FOR_VENDOR -> "Đang chờ shop xác nhận";
+                case CONFIRMED -> "Shop đã xác nhận đơn";
+                case PROCESSING -> "Đơn đang được chuẩn bị";
+                case SHIPPED -> "Đơn đang giao";
+                case DELIVERED -> "Đơn đã giao thành công";
+                case CANCELLED -> "Đơn đã hủy";
             };
 
             String paymentLabel = order.getPaymentStatus() == null
-                    ? "Khong xac dinh"
+                    ? "Không xác định"
                     : order.getPaymentStatus().name();
 
             return new OrderLookupResult(
                     true,
-                    "Don " + order.getOrderCode() + " hien o trang thai: " + statusLabel + ". Thanh toan: " + paymentLabel + "."
+                    "Đơn " + order.getOrderCode() + " hiện ở trạng thái: " + statusLabel + ". Thanh toán: " + paymentLabel + "."
             );
         } catch (ResourceNotFoundException ex) {
-            return new OrderLookupResult(false, "Khong tim thay don hang. Ban kiem tra lai ma don giup minh nhe.");
+            return new OrderLookupResult(false, "Không tìm thấy đơn hàng. Bạn kiểm tra lại mã đơn giúp mình nhé.");
         }
     }
 
@@ -85,8 +85,8 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
 
         return new SizeAdviceResult(
                 suggestedSize,
-                "Voi chieu cao " + heightCm + "cm va can nang " + weightKg + "kg, size goi y la "
-                        + suggestedSize + ". Ban nen uu tien bang size theo tung san pham de chinh xac hon."
+                "Với chiều cao " + heightCm + "cm và cân nặng " + weightKg + "kg, size gợi ý là "
+                        + suggestedSize + ". Bạn nên ưu tiên bảng size theo từng sản phẩm để chính xác hơn."
         );
     }
 
@@ -99,15 +99,15 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
 
         String question = rawQuestion == null ? "" : rawQuestion.toLowerCase(Locale.ROOT);
         if (question.contains("doi tra") || question.contains("doi hang") || question.contains("tra hang")) {
-            return "Ban co the gui yeu cau doi/tra trong trang Don hang cua toi theo dung chinh sach hien hanh.";
+            return "Bạn có thể gửi yêu cầu đổi/trả trong trang Đơn hàng của tôi theo đúng chính sách hiện hành.";
         }
         if (question.contains("giao hang") || question.contains("ship")) {
-            return "Thoi gian giao hang tuy khu vuc, thuong tu 1-5 ngay lam viec.";
+            return "Thời gian giao hàng tùy khu vực, thường từ 1-5 ngày làm việc.";
         }
         if (question.contains("chat lieu")) {
-            return "Ban xem phan mo ta san pham de biet chat lieu va huong dan bao quan chi tiet.";
+            return "Bạn xem phần mô tả sản phẩm để biết chất liệu và hướng dẫn bảo quản chi tiết.";
         }
-        return "Ban co the hoi ve doi tra, giao hang, chat lieu hoac chon lai menu de tra cuu nhanh.";
+        return "Bạn có thể hỏi về đổi trả, giao hàng, chất liệu hoặc chọn lại menu để tra cứu nhanh.";
     }
 
     private String normalizeLast4(String value) {

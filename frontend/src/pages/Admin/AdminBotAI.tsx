@@ -21,9 +21,9 @@ type FaqFormState = {
 const QUICK_ACTION_ORDER: BotScenarioActionKey[] = ['ORDER_LOOKUP', 'SIZE_ADVICE', 'PRODUCT_FAQ'];
 
 const QUICK_ACTION_LABEL: Record<BotScenarioActionKey, string> = {
-  ORDER_LOOKUP: 'Tra cuu don',
-  SIZE_ADVICE: 'Tu van size',
-  PRODUCT_FAQ: 'Hoi dap san pham',
+  ORDER_LOOKUP: 'Tra cứu đơn',
+  SIZE_ADVICE: 'Tư vấn size',
+  PRODUCT_FAQ: 'Hỏi đáp sản phẩm',
 };
 
 const emptyFaqForm: FaqFormState = {
@@ -70,7 +70,7 @@ const AdminBotAI = () => {
       setDraft(sortQuickActions(scenarioSnapshot.draft));
       setFaqItems(faqList);
     } catch {
-      pushToast('Khong the tai du lieu Bot/AI.');
+      pushToast('Không thể tải dữ liệu Bot/AI.');
     } finally {
       setLoading(false);
     }
@@ -106,9 +106,9 @@ const AdminBotAI = () => {
       const nextSnapshot = await adminBotScenarioService.saveDraft(sortQuickActions(draft));
       setSnapshot(nextSnapshot);
       setDraft(sortQuickActions(nextSnapshot.draft));
-      pushToast('Da luu nhap kich ban bot.');
+      pushToast('Đã lưu nháp kịch bản bot.');
     } catch (error) {
-      pushToast(error instanceof Error ? error.message : 'Khong the luu nhap.');
+      pushToast(error instanceof Error ? error.message : 'Không thể lưu nháp.');
     } finally {
       setSavingDraft(false);
     }
@@ -120,9 +120,9 @@ const AdminBotAI = () => {
       const nextSnapshot = await adminBotScenarioService.publishDraft();
       setSnapshot(nextSnapshot);
       setDraft(sortQuickActions(nextSnapshot.draft));
-      pushToast('Da publish kich ban chatbot.');
+      pushToast('Đã publish kịch bản chatbot.');
     } catch (error) {
-      pushToast(error instanceof Error ? error.message : 'Khong the publish.');
+      pushToast(error instanceof Error ? error.message : 'Không thể publish.');
     } finally {
       setPublishing(false);
     }
@@ -133,9 +133,9 @@ const AdminBotAI = () => {
       const nextSnapshot = await adminBotScenarioService.resetDraftFromPublished();
       setSnapshot(nextSnapshot);
       setDraft(sortQuickActions(nextSnapshot.draft));
-      pushToast('Da khoi phuc draft theo ban published.');
+      pushToast('Đã khôi phục draft theo bản published.');
     } catch {
-      pushToast('Khong the khoi phuc draft.');
+      pushToast('Không thể khôi phục draft.');
     }
   };
 
@@ -154,7 +154,7 @@ const AdminBotAI = () => {
 
   const handleSaveFaq = async () => {
     if (!faqForm.title.trim() || !faqForm.body.trim()) {
-      pushToast('FAQ can co title va noi dung.');
+      pushToast('FAQ cần có tiêu đề và nội dung.');
       return;
     }
 
@@ -171,70 +171,70 @@ const AdminBotAI = () => {
       if (faqForm.id) {
         const updated = await contentService.update(faqForm.id, payload);
         setFaqItems((prev) => prev.map((item) => (item.id === faqForm.id ? updated : item)));
-        pushToast('Da cap nhat FAQ.');
+        pushToast('Đã cập nhật FAQ.');
       } else {
         const created = await contentService.create(payload);
         setFaqItems((prev) => [...prev, created]);
-        pushToast('Da tao FAQ moi.');
+        pushToast('Đã tạo FAQ mới.');
       }
       setFaqForm(emptyFaqForm);
     } catch {
-      pushToast('Khong the luu FAQ.');
+      pushToast('Không thể lưu FAQ.');
     } finally {
       setSavingFaq(false);
     }
   };
 
   const handleDeleteFaq = async (id: string) => {
-    if (!confirm('Ban chac chan muon xoa FAQ nay?')) return;
+    if (!confirm('Bạn chắc chắn muốn xóa FAQ này?')) return;
     try {
       await contentService.remove(id);
       setFaqItems((prev) => prev.filter((item) => item.id !== id));
       if (faqForm.id === id) {
         setFaqForm(emptyFaqForm);
       }
-      pushToast('Da xoa FAQ.');
+      pushToast('Đã xóa FAQ.');
     } catch {
-      pushToast('Khong the xoa FAQ.');
+      pushToast('Không thể xóa FAQ.');
     }
   };
 
   return (
-    <AdminLayout title="Bot va AI" breadcrumbs={['Bot va AI', 'Quan ly kich ban chatbot']}>
+    <AdminLayout title="Bot và AI" breadcrumbs={['Bot và AI', 'Quản lý kịch bản chatbot']}>
       <div className="admin-panels single">
         <section className="admin-panel">
           <div className="admin-panel-head">
             <div>
-              <h2>Cau hinh kich ban chatbot</h2>
+              <h2>Cấu hình kịch bản chatbot</h2>
               <p className="admin-muted">
-                Draft se duoc chinh sua o day. Runtime chatbot chi dung ban Published.
+                Draft sẽ được chỉnh sửa ở đây. Runtime chatbot chỉ dùng bản Published.
               </p>
             </div>
             <div className="admin-topbar-actions">
-              <button className="admin-icon-btn subtle" onClick={() => void loadData()} title="Tai lai du lieu">
+              <button className="admin-icon-btn subtle" onClick={() => void loadData()} title="Tải lại dữ liệu">
                 <RefreshCcw size={16} />
               </button>
               <button className="admin-primary-btn dark" onClick={handleResetDraft} disabled={loading || !snapshot}>
-                <RefreshCcw size={16} /> Khoi phuc draft
+                <RefreshCcw size={16} /> Khôi phục draft
               </button>
               <button className="admin-primary-btn" onClick={handleSaveDraft} disabled={loading || !draft || savingDraft || !hasDraftChanged}>
-                <Save size={16} /> {savingDraft ? 'Dang luu...' : 'Luu nhap'}
+                <Save size={16} /> {savingDraft ? 'Đang lưu...' : 'Lưu nháp'}
               </button>
               <button className="admin-primary-btn" onClick={handlePublish} disabled={loading || publishing || !snapshot}>
-                <UploadCloud size={16} /> {publishing ? 'Dang publish...' : 'Publish'}
+                <UploadCloud size={16} /> {publishing ? 'Đang publish...' : 'Publish'}
               </button>
             </div>
           </div>
 
           {loading || !draft ? (
-            <p className="admin-muted">Dang tai kich ban chatbot...</p>
+            <p className="admin-muted">Đang tải kịch bản chatbot...</p>
           ) : (
             <div className="bot-ai-grid">
               <div className="bot-ai-editor">
                 <div className="bot-ai-section">
-                  <h3><MessageSquare size={16} /> Prompt chinh</h3>
+                  <h3><MessageSquare size={16} /> Prompt chính</h3>
                   <label>
-                    Loi chao
+                    Lời chào
                     <textarea
                       value={draft.welcomePrompt}
                       onChange={(e) => updateDraftField('welcomePrompt', e.target.value)}
@@ -242,7 +242,7 @@ const AdminBotAI = () => {
                     />
                   </label>
                   <label>
-                    Loi nhan khong hieu
+                    Lời nhắn không hiểu
                     <textarea
                       value={draft.unknownPrompt}
                       onChange={(e) => updateDraftField('unknownPrompt', e.target.value)}
@@ -266,16 +266,16 @@ const AdminBotAI = () => {
 
                 <div className="bot-ai-section">
                   <h3>Flow prompts</h3>
-                  <label>Yeu cau ma don<input value={draft.askOrderCodePrompt} onChange={(e) => updateDraftField('askOrderCodePrompt', e.target.value)} /></label>
-                  <label>Yeu cau 4 so cuoi SDT<input value={draft.askOrderPhonePrompt} onChange={(e) => updateDraftField('askOrderPhonePrompt', e.target.value)} /></label>
-                  <label>Sai 4 so SDT<input value={draft.orderPhoneInvalidPrompt} onChange={(e) => updateDraftField('orderPhoneInvalidPrompt', e.target.value)} /></label>
-                  <label>Hoi tiep sau tra cuu don<input value={draft.orderLookupContinuePrompt} onChange={(e) => updateDraftField('orderLookupContinuePrompt', e.target.value)} /></label>
-                  <label>Yeu cau chieu cao<input value={draft.askHeightPrompt} onChange={(e) => updateDraftField('askHeightPrompt', e.target.value)} /></label>
-                  <label>Sai chieu cao<input value={draft.invalidHeightPrompt} onChange={(e) => updateDraftField('invalidHeightPrompt', e.target.value)} /></label>
-                  <label>Yeu cau can nang<input value={draft.askWeightPrompt} onChange={(e) => updateDraftField('askWeightPrompt', e.target.value)} /></label>
-                  <label>Sai can nang<input value={draft.invalidWeightPrompt} onChange={(e) => updateDraftField('invalidWeightPrompt', e.target.value)} /></label>
-                  <label>Hoi tiep sau tu van size<input value={draft.sizeAdviceContinuePrompt} onChange={(e) => updateDraftField('sizeAdviceContinuePrompt', e.target.value)} /></label>
-                  <label>Hoi tiep sau FAQ<input value={draft.productFaqContinuePrompt} onChange={(e) => updateDraftField('productFaqContinuePrompt', e.target.value)} /></label>
+                  <label>Yêu cầu mã đơn<input value={draft.askOrderCodePrompt} onChange={(e) => updateDraftField('askOrderCodePrompt', e.target.value)} /></label>
+                  <label>Yêu cầu 4 số cuối SDT<input value={draft.askOrderPhonePrompt} onChange={(e) => updateDraftField('askOrderPhonePrompt', e.target.value)} /></label>
+                  <label>Sai 4 số SDT<input value={draft.orderPhoneInvalidPrompt} onChange={(e) => updateDraftField('orderPhoneInvalidPrompt', e.target.value)} /></label>
+                  <label>Hỏi tiếp sau tra cứu đơn<input value={draft.orderLookupContinuePrompt} onChange={(e) => updateDraftField('orderLookupContinuePrompt', e.target.value)} /></label>
+                  <label>Yêu cầu chiều cao<input value={draft.askHeightPrompt} onChange={(e) => updateDraftField('askHeightPrompt', e.target.value)} /></label>
+                  <label>Sai chiều cao<input value={draft.invalidHeightPrompt} onChange={(e) => updateDraftField('invalidHeightPrompt', e.target.value)} /></label>
+                  <label>Yêu cầu cân nặng<input value={draft.askWeightPrompt} onChange={(e) => updateDraftField('askWeightPrompt', e.target.value)} /></label>
+                  <label>Sai cân nặng<input value={draft.invalidWeightPrompt} onChange={(e) => updateDraftField('invalidWeightPrompt', e.target.value)} /></label>
+                  <label>Hỏi tiếp sau tư vấn size<input value={draft.sizeAdviceContinuePrompt} onChange={(e) => updateDraftField('sizeAdviceContinuePrompt', e.target.value)} /></label>
+                  <label>Hỏi tiếp sau FAQ<input value={draft.productFaqContinuePrompt} onChange={(e) => updateDraftField('productFaqContinuePrompt', e.target.value)} /></label>
                 </div>
               </div>
 
@@ -306,27 +306,27 @@ const AdminBotAI = () => {
           <div className="admin-panel-head">
             <div>
               <h2>FAQ cho chatbot</h2>
-              <p className="admin-muted">FAQ su dung module ContentPage. Match theo keywords da normalize.</p>
+              <p className="admin-muted">FAQ sử dụng module ContentPage. Match theo keywords đã normalize.</p>
             </div>
             <button className="admin-primary-btn" onClick={() => openFaqEditor()}>
-              <Plus size={16} /> Tao FAQ
+              <Plus size={16} /> Tạo FAQ
             </button>
           </div>
 
           <div className="bot-ai-faq-layout">
             <div className="bot-ai-faq-list">
               {faqItems.length === 0 ? (
-                <p className="admin-muted">Chua co FAQ.</p>
+                <p className="admin-muted">Chưa có FAQ.</p>
               ) : (
                 faqItems.map((item) => (
                   <div key={item.id} className="bot-ai-faq-card">
                     <div className="bot-ai-faq-card-head">
                       <h4><FileText size={14} /> {item.title}</h4>
                       <div className="admin-actions">
-                        <button className="admin-icon-btn subtle" onClick={() => openFaqEditor(item)} title="Sua FAQ">
+                        <button className="admin-icon-btn subtle" onClick={() => openFaqEditor(item)} title="Sửa FAQ">
                           <Pencil size={14} />
                         </button>
-                        <button className="admin-icon-btn subtle danger-icon" onClick={() => void handleDeleteFaq(item.id)} title="Xoa FAQ">
+                        <button className="admin-icon-btn subtle danger-icon" onClick={() => void handleDeleteFaq(item.id)} title="Xóa FAQ">
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -343,16 +343,16 @@ const AdminBotAI = () => {
             </div>
 
             <div className="bot-ai-faq-editor">
-              <h3>{faqForm.id ? 'Chinh sua FAQ' : 'FAQ moi'}</h3>
+              <h3>{faqForm.id ? 'Chỉnh sửa FAQ' : 'FAQ mới'}</h3>
               <label>
-                Tieu de
+                Tiêu đề
                 <input
                   value={faqForm.title}
                   onChange={(e) => setFaqForm((prev) => ({ ...prev, title: e.target.value }))}
                 />
               </label>
               <label>
-                Noi dung tra loi
+                Nội dung trả lời
                 <textarea
                   value={faqForm.body}
                   onChange={(e) => setFaqForm((prev) => ({ ...prev, body: e.target.value }))}
@@ -360,7 +360,7 @@ const AdminBotAI = () => {
                 />
               </label>
               <label>
-                Keywords (tach boi dau phay hoac xuong dong)
+                Keywords (tách bởi dấu phẩy hoặc xuống dòng)
                 <textarea
                   value={faqForm.keywordsText}
                   onChange={(e) => setFaqForm((prev) => ({ ...prev, keywordsText: e.target.value }))}
@@ -369,10 +369,10 @@ const AdminBotAI = () => {
               </label>
               <div className="admin-topbar-actions">
                 <button className="admin-primary-btn dark" onClick={() => setFaqForm(emptyFaqForm)}>
-                  Lam moi form
+                  Làm mới form
                 </button>
                 <button className="admin-primary-btn" onClick={() => void handleSaveFaq()} disabled={savingFaq}>
-                  <Save size={16} /> {savingFaq ? 'Dang luu...' : 'Luu FAQ'}
+                  <Save size={16} /> {savingFaq ? 'Đang lưu...' : 'Lưu FAQ'}
                 </button>
               </div>
             </div>

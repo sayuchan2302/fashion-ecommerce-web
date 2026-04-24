@@ -131,6 +131,7 @@ const OrderDetail = () => {
   const shippingName = addressParts[0]?.trim() || '';
   const shippingPhone = addressParts[1]?.trim() || '';
   const shippingAddress = addressParts.slice(2).join(',').trim() || '';
+  const totalProductQuantity = order.items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <div className="od-page od-theme od-theme-client">
@@ -156,7 +157,7 @@ const OrderDetail = () => {
 
         <div className="od-grid">
           <div className="od-left">
-            <div className="od-card">
+            <div className="od-card od-items-card">
               <h3 className="od-card-title">Trạng thái đơn hàng</h3>
               <div className="od-timeline">
                 {order.statusSteps.map((step, idx) => (
@@ -185,21 +186,58 @@ const OrderDetail = () => {
               )}
             </div>
 
-            <div className="od-card">
+            <div className="od-card od-products-card">
               <h3 className="od-card-title">Sản phẩm ({order.items.length})</h3>
               <div className="od-items">
-                {order.items.map((item, idx) => (
-                  <div key={idx} className="od-item">
-                    <img src={getOptimizedImageUrl(item.image, { width: 100, format: 'webp' })} alt={item.name} className="od-item-img" />
-                    <div className="od-item-info">
-                      <p className="od-item-name">{item.name}</p>
-                      {item.color && <p className="od-item-variant">Màu: {item.color}</p>}
-                      {item.size && <p className="od-item-variant">Size: {item.size}</p>}
-                      <p className="od-item-qty">x{item.quantity}</p>
+                {order.items.map((item, idx) => {
+                  const lineTotal = item.price * item.quantity;
+                  const productIdentifier = String(item.productId || item.id || '').trim();
+                  const productHref = productIdentifier ? `/product/${encodeURIComponent(productIdentifier)}` : '';
+
+                  return (
+                    <div key={idx} className="od-item">
+                      {productHref ? (
+                        <Link to={productHref} className="od-item-link" title="Xem chi tiết sản phẩm">
+                          <img src={getOptimizedImageUrl(item.image, { width: 240, format: 'webp' })} alt={item.name} className="od-item-img" />
+                          <div className="od-item-info">
+                            <p className="od-item-name">{item.name}</p>
+                            <div className="od-item-meta">
+                              {item.color && <span className="od-item-meta-chip">Màu: {item.color}</span>}
+                              {item.size && <span className="od-item-meta-chip">Size: {item.size}</span>}
+                              <span className="od-item-meta-chip od-item-meta-chip-qty">SL: {item.quantity}</span>
+                            </div>
+                          </div>
+                        </Link>
+                      ) : (
+                        <>
+                          <img src={getOptimizedImageUrl(item.image, { width: 240, format: 'webp' })} alt={item.name} className="od-item-img" />
+                          <div className="od-item-info">
+                            <p className="od-item-name">{item.name}</p>
+                            <div className="od-item-meta">
+                              {item.color && <span className="od-item-meta-chip">Màu: {item.color}</span>}
+                              {item.size && <span className="od-item-meta-chip">Size: {item.size}</span>}
+                              <span className="od-item-meta-chip od-item-meta-chip-qty">SL: {item.quantity}</span>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                      <div className="od-item-pricing">
+                        <span className="od-item-price-label">Đơn giá</span>
+                        <span className="od-item-price">{formatPrice(item.price)}</span>
+                        <span className="od-item-line-total">Thành tiền: {formatPrice(lineTotal)}</span>
+                        {productHref && (
+                          <Link to={productHref} className="od-item-detail-link">
+                            Xem sản phẩm
+                          </Link>
+                        )}
+                      </div>
                     </div>
-                    <span className="od-item-price">{formatPrice(item.price)}</span>
-                  </div>
-                ))}
+                  );
+                })}
+              </div>
+              <div className="od-items-footer">
+                <span>{order.items.length} sản phẩm, {totalProductQuantity} món</span>
+                <span>Tạm tính: <strong>{formatPrice(order.total)}</strong></span>
               </div>
             </div>
           </div>
