@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import vn.edu.hcmuaf.fit.marketplace.dto.request.ReturnAdminVerdictRequest;
 import vn.edu.hcmuaf.fit.marketplace.dto.request.ReturnCancelRequest;
 import vn.edu.hcmuaf.fit.marketplace.dto.request.ReturnDisputeRequest;
@@ -24,12 +26,15 @@ import vn.edu.hcmuaf.fit.marketplace.dto.request.ReturnSubmitRequest;
 import vn.edu.hcmuaf.fit.marketplace.dto.response.ReturnRequestResponse;
 import vn.edu.hcmuaf.fit.marketplace.dto.response.VendorReturnSummaryResponse;
 import vn.edu.hcmuaf.fit.marketplace.entity.ReturnRequest;
+import vn.edu.hcmuaf.fit.marketplace.exception.ForbiddenException;
 import vn.edu.hcmuaf.fit.marketplace.security.AuthContext;
 import vn.edu.hcmuaf.fit.marketplace.security.AuthContext.UserContext;
+import vn.edu.hcmuaf.fit.marketplace.service.ReturnEvidenceStorageService;
 import vn.edu.hcmuaf.fit.marketplace.service.ReturnRequestService;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -38,10 +43,16 @@ public class ReturnRequestController {
 
     private final ReturnRequestService returnRequestService;
     private final AuthContext authContext;
+    private final ReturnEvidenceStorageService returnEvidenceStorageService;
 
-    public ReturnRequestController(ReturnRequestService returnRequestService, AuthContext authContext) {
+    public ReturnRequestController(
+            ReturnRequestService returnRequestService,
+            AuthContext authContext,
+            ReturnEvidenceStorageService returnEvidenceStorageService
+    ) {
         this.returnRequestService = returnRequestService;
         this.authContext = authContext;
+        this.returnEvidenceStorageService = returnEvidenceStorageService;
     }
 
     @PostMapping
@@ -52,6 +63,20 @@ public class ReturnRequestController {
     ) {
         UserContext ctx = authContext.fromAuthHeader(authHeader);
         return ResponseEntity.ok(returnRequestService.submit(ctx.getUserId(), request));
+    }
+
+    @PostMapping(value = "/upload-evidence", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, String>> uploadEvidence(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam("file") MultipartFile file
+    ) {
+        UserContext ctx = authContext.fromAuthHeader(authHeader);
+        if (!ctx.isCustomer() && !ctx.isVendor()) {
+            throw new ForbiddenException("Only customer or vendor accounts can upload return evidence");
+        }
+        String evidenceUrl = returnEvidenceStorageService.storeEvidence(file);
+        return ResponseEntity.ok(Map.of("url", evidenceUrl));
     }
 
     @PatchMapping("/{id}/shipping")

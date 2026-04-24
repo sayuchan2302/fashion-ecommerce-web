@@ -1,5 +1,6 @@
 import { apiRequest } from './apiClient';
 import { getOptimizedImageUrl } from '../utils/getOptimizedImageUrl';
+import { PLACEHOLDER_PRODUCT_IMAGE } from '../constants/placeholders';
 
 interface BackendCategoryOption {
   id?: string;
@@ -190,7 +191,7 @@ export interface VendorProductQuery {
   categoryId?: string;
 }
 
-const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=180&h=180&fit=crop';
+const FALLBACK_IMAGE = PLACEHOLDER_PRODUCT_IMAGE;
 const PRODUCT_PAGE_SIZE = 100;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

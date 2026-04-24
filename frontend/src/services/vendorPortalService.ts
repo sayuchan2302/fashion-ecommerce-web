@@ -1,6 +1,7 @@
 import { apiRequest } from './apiClient';
 import { storeService, type StoreProfile } from './storeService';
 import { getOptimizedImageUrl } from '../utils/getOptimizedImageUrl';
+import { PLACEHOLDER_PRODUCT_IMAGE, PLACEHOLDER_STORE_BANNER, PLACEHOLDER_STORE_IMAGE } from '../constants/placeholders';
 
 interface BackendPage<T> {
   content?: T[];
@@ -299,15 +300,15 @@ export interface VendorSettingsData {
   };
 }
 
-const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=100&h=120&fit=crop';
+const FALLBACK_IMAGE = PLACEHOLDER_PRODUCT_IMAGE;
 
 const DEFAULT_SETTINGS: VendorSettingsData = {
   storeInfo: {
     name: 'Fashion House',
     slug: 'fashion-house',
     description: 'Tinh chỉnh trải nghiệm cửa hàng, logistics và thông tin liên hệ tại đây.',
-    logo: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=200&h=200&fit=crop',
-    banner: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&h=600&fit=crop',
+    logo: PLACEHOLDER_STORE_IMAGE,
+    banner: PLACEHOLDER_STORE_BANNER,
     contactEmail: 'contact@fashionhouse.vn',
     phone: '0901234567',
     address: '123 Nguyen Hue, Quan 1, TP.HCM',

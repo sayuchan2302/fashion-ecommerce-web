@@ -1505,6 +1505,57 @@ body.modal-open {
   gap: 16px;
 }
 
+.voucher-pagination {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.voucher-pagination-meta {
+  font-size: 13px;
+  color: var(--co-gray-500);
+}
+
+.voucher-pagination-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voucher-page-btn {
+  min-width: 74px;
+  border: 1px solid var(--co-gray-300);
+  background: var(--co-white);
+  color: var(--co-black);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.voucher-page-btn:hover:not(:disabled) {
+  border-color: var(--co-blue);
+  color: var(--co-blue);
+}
+
+.voucher-page-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.voucher-page-indicator {
+  min-width: 58px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--co-blue);
+}
+
 .voucher-card {
   display: flex;
   border-radius: 8px;

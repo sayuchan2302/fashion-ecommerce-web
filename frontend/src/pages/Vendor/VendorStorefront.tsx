@@ -7,9 +7,8 @@ import { storeService, type StoreProfile } from '../../services/storeService';
 import { useToast } from '../../contexts/ToastContext';
 import { getUiErrorMessage } from '../../utils/errorMessage';
 import { AdminStateBlock } from '../Admin/AdminStateBlocks';
+import { PLACEHOLDER_STORE_BANNER } from '../../constants/placeholders';
 
-const PLACEHOLDER_BANNER =
-  'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&h=600&fit=crop';
 const STORE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 const defaultSettings: VendorSettingsData = {
@@ -519,7 +518,7 @@ const VendorStorefront = () => {
                     className="vendor-store-preview-banner"
                     style={{
                       backgroundImage: `linear-gradient(rgba(15,23,42,.22), rgba(15,23,42,.38)), url(${
-                        settings.storeInfo.banner || PLACEHOLDER_BANNER
+                        settings.storeInfo.banner || PLACEHOLDER_STORE_BANNER
                       })`,
                     }}
                   />

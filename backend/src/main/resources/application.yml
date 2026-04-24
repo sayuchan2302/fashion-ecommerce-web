@@ -46,6 +46,9 @@ app:
     max-avatar-size-bytes: ${APP_UPLOAD_MAX_AVATAR_SIZE_BYTES:3145728}
     max-product-image-size-bytes: ${APP_UPLOAD_MAX_PRODUCT_IMAGE_SIZE_BYTES:5242880}
     max-store-image-size-bytes: ${APP_UPLOAD_MAX_STORE_IMAGE_SIZE_BYTES:5242880}
+    max-category-image-size-bytes: ${APP_UPLOAD_MAX_CATEGORY_IMAGE_SIZE_BYTES:5242880}
+    max-review-image-size-bytes: ${APP_UPLOAD_MAX_REVIEW_IMAGE_SIZE_BYTES:5242880}
+    max-return-evidence-size-bytes: ${APP_UPLOAD_MAX_RETURN_EVIDENCE_SIZE_BYTES:5242880}
   seed:
     enabled: ${APP_SEED_ENABLED:true}
     gap:

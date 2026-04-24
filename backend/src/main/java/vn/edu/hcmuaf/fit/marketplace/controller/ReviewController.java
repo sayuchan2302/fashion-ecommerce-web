@@ -3,9 +3,11 @@ package vn.edu.hcmuaf.fit.marketplace.controller;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import vn.edu.hcmuaf.fit.marketplace.dto.request.ReviewRequestDTO;
 import vn.edu.hcmuaf.fit.marketplace.dto.request.ReviewReplyRequest;
 import vn.edu.hcmuaf.fit.marketplace.dto.request.ReviewStatusUpdateRequest;
@@ -15,9 +17,11 @@ import vn.edu.hcmuaf.fit.marketplace.dto.response.VendorReviewSummaryResponse;
 import vn.edu.hcmuaf.fit.marketplace.entity.Review;
 import vn.edu.hcmuaf.fit.marketplace.exception.ForbiddenException;
 import vn.edu.hcmuaf.fit.marketplace.security.AuthContext;
+import vn.edu.hcmuaf.fit.marketplace.service.ReviewImageStorageService;
 import vn.edu.hcmuaf.fit.marketplace.service.ReviewService;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -26,10 +30,16 @@ public class ReviewController {
 
     private final ReviewService reviewService;
     private final AuthContext authContext;
+    private final ReviewImageStorageService reviewImageStorageService;
 
-    public ReviewController(ReviewService reviewService, AuthContext authContext) {
+    public ReviewController(
+            ReviewService reviewService,
+            AuthContext authContext,
+            ReviewImageStorageService reviewImageStorageService
+    ) {
         this.reviewService = reviewService;
         this.authContext = authContext;
+        this.reviewImageStorageService = reviewImageStorageService;
     }
 
     @GetMapping("/product/{productId}")
@@ -75,6 +85,21 @@ public class ReviewController {
             throw new ForbiddenException("Only customer or vendor accounts can submit reviews");
         }
         return ResponseEntity.ok(reviewService.submitCustomerReview(ctx.getUserId(), request));
+    }
+
+    @PostMapping(value = "/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, String>> uploadReviewImage(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam("file") MultipartFile file
+    ) {
+        AuthContext.UserContext ctx = authContext.fromAuthHeader(authHeader);
+        if (!ctx.isCustomer() && !ctx.isVendor()) {
+            throw new ForbiddenException("Only customer or vendor accounts can upload review images");
+        }
+
+        String imageUrl = reviewImageStorageService.storeReviewImage(file);
+        return ResponseEntity.ok(Map.of("url", imageUrl));
     }
 
     @GetMapping("/admin/all")

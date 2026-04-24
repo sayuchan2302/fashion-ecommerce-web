@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Check, RefreshCw } from 'lucide-react';
+﻿import { useEffect, useMemo, useState } from 'react';
+import { Check, Loader2, RefreshCw, Upload, X } from 'lucide-react';
 import './Returns.css';
 import { useToast } from '../../contexts/ToastContext';
 import { CLIENT_TEXT } from '../../utils/texts';
@@ -8,6 +8,7 @@ import { returnService, type ReturnResolution, type ReturnReason } from '../../s
 import { toDisplayOrderCode, toDisplayReturnCode } from '../../utils/displayCode';
 
 const t = CLIENT_TEXT.returns;
+const MAX_EVIDENCE_SIZE = 5 * 1024 * 1024;
 
 interface BackendOrderItem {
   id: string;
@@ -33,6 +34,9 @@ const Returns = () => {
   const [reason, setReason] = useState<ReturnReason>('SIZE');
   const [resolution, setResolution] = useState<ReturnResolution>('EXCHANGE');
   const [note, setNote] = useState('');
+  const [evidenceByItemId, setEvidenceByItemId] = useState<Record<string, string>>({});
+  const [uploadingEvidenceByItemId, setUploadingEvidenceByItemId] = useState<Record<string, boolean>>({});
+  const [evidenceErrorByItemId, setEvidenceErrorByItemId] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submittedCode, setSubmittedCode] = useState<string | null>(null);
 
@@ -55,6 +59,9 @@ const Returns = () => {
   useEffect(() => {
     const order = orders.find((entry) => entry.id === selectedOrderId);
     setItems((order?.items || []).map((item) => ({ ...item, selected: false })));
+    setEvidenceByItemId({});
+    setUploadingEvidenceByItemId({});
+    setEvidenceErrorByItemId({});
   }, [selectedOrderId, orders]);
 
   const toggleItem = (id: string) => {
@@ -63,14 +70,74 @@ const Returns = () => {
 
   const selectedItems = useMemo(() => items.filter((item) => item.selected), [items]);
 
+  const hasUploadingEvidence = useMemo(
+    () => selectedItems.some((item) => Boolean(uploadingEvidenceByItemId[item.id])),
+    [selectedItems, uploadingEvidenceByItemId],
+  );
+
+  const handleEvidenceUpload = async (itemId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.toLowerCase().startsWith('image/')) {
+      addToast('Chỉ chấp nhận file hình ảnh cho minh chứng đổi trả.', 'error');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > MAX_EVIDENCE_SIZE) {
+      addToast('Ảnh minh chứng vượt quá 5MB.', 'error');
+      event.target.value = '';
+      return;
+    }
+
+    setUploadingEvidenceByItemId((prev) => ({ ...prev, [itemId]: true }));
+    setEvidenceErrorByItemId((prev) => ({ ...prev, [itemId]: '' }));
+
+    try {
+      const evidenceUrl = await returnService.uploadEvidence(file);
+      setEvidenceByItemId((prev) => ({ ...prev, [itemId]: evidenceUrl }));
+      addToast('Đã tải ảnh minh chứng.', 'success');
+    } catch (error: unknown) {
+      const message = error instanceof Error && error.message.trim() ? error.message : 'Tải ảnh minh chứng thất bại.';
+      setEvidenceErrorByItemId((prev) => ({ ...prev, [itemId]: message }));
+      addToast(message, 'error');
+    } finally {
+      setUploadingEvidenceByItemId((prev) => ({ ...prev, [itemId]: false }));
+      event.target.value = '';
+    }
+  };
+
+  const removeEvidence = (itemId: string, event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    setEvidenceByItemId((prev) => {
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+
+    setEvidenceErrorByItemId((prev) => ({ ...prev, [itemId]: '' }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!selectedOrderId) {
       addToast('Vui lòng chọn đơn hàng', 'error');
       return;
     }
+
     if (selectedItems.length === 0) {
       addToast(t.validation.selectOne, 'error');
+      return;
+    }
+
+    if (hasUploadingEvidence) {
+      addToast('Vui lòng chờ tải xong ảnh minh chứng trước khi gửi yêu cầu.', 'error');
       return;
     }
 
@@ -81,12 +148,20 @@ const Returns = () => {
         reason,
         note: note.trim(),
         resolution,
-        items: selectedItems.map((item) => ({ orderItemId: item.id, quantity: item.quantity || 1 })),
+        items: selectedItems.map((item) => ({
+          orderItemId: item.id,
+          quantity: item.quantity || 1,
+          evidenceUrl: evidenceByItemId[item.id] || undefined,
+        })),
       });
+
       setSubmittedCode(toDisplayReturnCode(res.code || res.id));
       addToast(t.submitted, 'success');
       setNote('');
       setItems((prev) => prev.map((item) => ({ ...item, selected: false })));
+      setEvidenceByItemId({});
+      setUploadingEvidenceByItemId({});
+      setEvidenceErrorByItemId({});
     } catch {
       addToast('Tạo yêu cầu đổi trả thất bại', 'error');
     } finally {
@@ -124,21 +199,71 @@ const Returns = () => {
             </label>
 
             <div className="returns-items">
-              {items.map((item) => (
-                <label key={item.id} className={`returns-item ${item.selected ? 'selected' : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={item.selected}
-                    onChange={() => toggleItem(item.id)}
-                  />
-                  {item.productImage && <img src={item.productImage} alt={item.productName} />}
-                  <div className="item-info">
-                    <p className="item-name">{item.productName}</p>
-                    <p className="item-variant">{item.variantName}</p>
-                    <p className="item-price">Số lượng: {item.quantity || 1}</p>
-                  </div>
-                </label>
-              ))}
+              {items.map((item) => {
+                const itemEvidenceId = `return-evidence-${item.id}`;
+                const evidenceUrl = evidenceByItemId[item.id];
+                const uploadingEvidence = Boolean(uploadingEvidenceByItemId[item.id]);
+                const evidenceError = evidenceErrorByItemId[item.id];
+
+                return (
+                  <label key={item.id} className={`returns-item ${item.selected ? 'selected' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={item.selected}
+                      onChange={() => toggleItem(item.id)}
+                    />
+                    {item.productImage && <img src={item.productImage} alt={item.productName} />}
+                    <div className="item-info">
+                      <p className="item-name">{item.productName}</p>
+                      <p className="item-variant">{item.variantName}</p>
+                      <p className="item-price">Số lượng: {item.quantity || 1}</p>
+
+                      {item.selected && (
+                        <div className="item-evidence-upload" onClick={(event) => event.stopPropagation()}>
+                          <input
+                            id={itemEvidenceId}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/gif"
+                            onChange={(event) => void handleEvidenceUpload(item.id, event)}
+                            style={{ display: 'none' }}
+                          />
+                          <button
+                            type="button"
+                            className="item-evidence-btn"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              const input = document.getElementById(itemEvidenceId) as HTMLInputElement | null;
+                              input?.click();
+                            }}
+                            disabled={uploadingEvidence}
+                          >
+                            {uploadingEvidence ? <Loader2 size={14} className="spin" /> : <Upload size={14} />}
+                            <span>{uploadingEvidence ? 'Đang tải...' : 'Tải ảnh minh chứng'}</span>
+                          </button>
+
+                          {evidenceUrl && (
+                            <div className="item-evidence-preview">
+                              <a href={evidenceUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
+                                <img src={evidenceUrl} alt={`Minh chứng ${item.productName || item.id}`} />
+                              </a>
+                              <button
+                                type="button"
+                                className="item-evidence-remove"
+                                onClick={(event) => removeEvidence(item.id, event)}
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          )}
+
+                          {evidenceError && <p className="item-evidence-error">{evidenceError}</p>}
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                );
+              })}
               {items.length === 0 && <p className="returns-empty">Không tìm thấy sản phẩm trong đơn hàng.</p>}
             </div>
           </div>
@@ -197,7 +322,7 @@ const Returns = () => {
             </div>
 
             <div className="returns-actions">
-              <button type="submit" className="returns-submit" disabled={submitting}>
+              <button type="submit" className="returns-submit" disabled={submitting || hasUploadingEvidence}>
                 {submitting ? t.summary.submitting : t.summary.submit}
               </button>
               {submittedCode && <p className="returns-success">Đã gửi yêu cầu #{submittedCode}</p>}

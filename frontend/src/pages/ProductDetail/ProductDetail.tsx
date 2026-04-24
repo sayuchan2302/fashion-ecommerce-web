@@ -1,6 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronRight, Star, Store, CheckCircle, Clock, Send, MessageSquare } from 'lucide-react';
+import { ChevronRight, Star, Store, CheckCircle, Clock, Send, MessageSquare, Camera, X } from 'lucide-react';
 import ProductGallery from '../../components/ProductGallery/ProductGallery';
 import ProductInfo from '../../components/ProductInfo/ProductInfo';
 import ProductActions from '../../components/ProductActions/ProductActions';
@@ -26,6 +26,8 @@ interface ClientReviewItem {
 }
 
 const t = CLIENT_TEXT.productDetail;
+const REVIEW_MAX_IMAGES = 5;
+const REVIEW_MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
 const StarInput = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => {
   const [hovered, setHovered] = useState(0);
@@ -80,9 +82,12 @@ const ProductDetail = () => {
   const [selectedSize, setSelectedSize] = useState('');
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewContent, setReviewContent] = useState('');
+  const [reviewImages, setReviewImages] = useState<string[]>([]);
+  const [uploadingReviewImages, setUploadingReviewImages] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [canReview, setCanReview] = useState(false);
+  const reviewImageInputRef = useRef<HTMLInputElement | null>(null);
 
   const productId = id || '';
   const storeSlug = normalizeStoreSlug(product?.storeSlug);
@@ -102,6 +107,7 @@ const ProductDetail = () => {
         setSubmitted(false);
         setReviewRating(0);
         setReviewContent('');
+        setReviewImages([]);
 
         if (fetched) {
           const defaultVariant = fetched.variants?.[0];
@@ -182,11 +188,13 @@ const ProductDetail = () => {
         productImage: product.image,
         rating: reviewRating,
         content: reviewContent.trim(),
+        images: reviewImages.length > 0 ? reviewImages : undefined,
       });
 
       setSubmitted(true);
       setReviewRating(0);
       setReviewContent('');
+      setReviewImages([]);
       setCanReview(false);
       addToast('Đánh giá đã được gửi, chờ phê duyệt.', 'success');
     } catch (error: unknown) {
@@ -198,6 +206,57 @@ const ProductDetail = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleUploadReviewImages = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) {
+      return;
+    }
+
+    const selectedFiles = Array.from(files);
+    const availableSlots = REVIEW_MAX_IMAGES - reviewImages.length;
+    if (availableSlots <= 0) {
+      addToast(`Tối đa ${REVIEW_MAX_IMAGES} ảnh cho mỗi đánh giá.`, 'error');
+      event.target.value = '';
+      return;
+    }
+
+    const filesToUpload = selectedFiles.slice(0, availableSlots);
+    if (filesToUpload.length < selectedFiles.length) {
+      addToast(`Chỉ lấy ${REVIEW_MAX_IMAGES} ảnh đầu tiên.`, 'info');
+    }
+
+    for (const file of filesToUpload) {
+      if (!file.type.toLowerCase().startsWith('image/')) {
+        addToast('Chỉ chấp nhận file hình ảnh.', 'error');
+        event.target.value = '';
+        return;
+      }
+      if (file.size > REVIEW_MAX_IMAGE_SIZE) {
+        addToast('Ảnh review vượt quá 5MB.', 'error');
+        event.target.value = '';
+        return;
+      }
+    }
+
+    setUploadingReviewImages(true);
+    try {
+      const uploadedUrls = await Promise.all(filesToUpload.map((file) => reviewService.uploadReviewImage(file)));
+      setReviewImages((prev) => Array.from(new Set([...prev, ...uploadedUrls])).slice(0, REVIEW_MAX_IMAGES));
+    } catch (error: unknown) {
+      const message = error instanceof Error && error.message.trim()
+        ? error.message
+        : 'Tải ảnh review thất bại.';
+      addToast(message, 'error');
+    } finally {
+      setUploadingReviewImages(false);
+      event.target.value = '';
+    }
+  };
+
+  const removeReviewImage = (index: number) => {
+    setReviewImages((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
   };
 
   const averageRating =
@@ -391,10 +450,48 @@ const ProductDetail = () => {
                       <span className="pdp-char-count">{reviewContent.length}/1000</span>
                     </div>
 
+                    <div className="pdp-form-field">
+                      <label className="pdp-form-label">Ảnh đính kèm (tùy chọn)</label>
+                      <div className="pdp-review-upload-grid">
+                        {reviewImages.map((imageUrl, index) => (
+                          <div key={`${imageUrl}-${index}`} className="pdp-review-upload-item">
+                            <img src={imageUrl} alt={`Review upload ${index + 1}`} />
+                            <button
+                              type="button"
+                              className="pdp-review-upload-remove"
+                              onClick={() => removeReviewImage(index)}
+                              aria-label="Xóa ảnh"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ))}
+                        {reviewImages.length < REVIEW_MAX_IMAGES && (
+                          <button
+                            type="button"
+                            className="pdp-review-upload-add"
+                            onClick={() => reviewImageInputRef.current?.click()}
+                            disabled={uploadingReviewImages}
+                          >
+                            <Camera size={16} />
+                            <span>{uploadingReviewImages ? 'Đang tải...' : 'Tải ảnh'}</span>
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        ref={reviewImageInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        multiple
+                        onChange={(event) => void handleUploadReviewImages(event)}
+                        style={{ display: 'none' }}
+                      />
+                    </div>
+
                     <button
                       type="submit"
                       className={`pdp-review-btn ${submitting ? 'loading' : ''}`}
-                      disabled={submitting}
+                      disabled={submitting || uploadingReviewImages}
                     >
                       {submitting ? (
                         <>

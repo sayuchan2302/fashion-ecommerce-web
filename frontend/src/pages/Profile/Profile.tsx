@@ -54,6 +54,7 @@ const tCommon = CLIENT_TEXT.common;
 type TabId = 'account' | 'orders' | 'vouchers' | 'addresses' | 'reviews' | 'notifications';
 const VALID_PROFILE_TABS: TabId[] = ['account', 'orders', 'vouchers', 'addresses', 'reviews', 'notifications'];
 const NOTIFICATIONS_PREVIEW_LIMIT = 7;
+const VOUCHERS_PER_PAGE = 10;
 
 interface PendingProduct {
   productId: string;
@@ -145,6 +146,7 @@ const Profile = () => {
   const [isDeletingAddress, setIsDeletingAddress] = useState(false);
   const [isCancellingOrder, setIsCancellingOrder] = useState(false);
   const [voucherWallet, setVoucherWallet] = useState<Coupon[]>([]);
+  const [voucherPage, setVoucherPage] = useState(1);
 
   const handleEditAddress = (address: Address) => {
     setEditingAddress(address);
@@ -163,6 +165,17 @@ const Profile = () => {
 
   const orders = activeTab === 'orders' ? allOrders : [];
   const vouchers = activeTab === 'vouchers' ? voucherWallet : [];
+  const totalVoucherPages = useMemo(
+    () => Math.max(1, Math.ceil(voucherWallet.length / VOUCHERS_PER_PAGE)),
+    [voucherWallet.length],
+  );
+  const pagedVouchers = useMemo(() => {
+    if (activeTab !== 'vouchers') {
+      return [];
+    }
+    const start = (voucherPage - 1) * VOUCHERS_PER_PAGE;
+    return voucherWallet.slice(start, start + VOUCHERS_PER_PAGE);
+  }, [activeTab, voucherPage, voucherWallet]);
   const orderCodeMap = useMemo(() => {
     const map = new Map<string, string>();
     allOrders.forEach((order) => {
@@ -434,6 +447,17 @@ const Profile = () => {
       cancelled = true;
     };
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'vouchers') {
+      return;
+    }
+    setVoucherPage(1);
+  }, [activeTab]);
+
+  useEffect(() => {
+    setVoucherPage((current) => Math.min(current, totalVoucherPages));
+  }, [totalVoucherPages]);
 
   useEffect(() => {
     if (activeTab !== 'reviews') {
@@ -814,9 +838,9 @@ const Profile = () => {
                   actionLink="/"
                 />
               ) : (
-                vouchers.map((voucher, index) => (
+                pagedVouchers.map((voucher, index) => (
                   <div
-                    key={voucher.id ?? `${voucher.code}-${voucher.storeId ?? 'global'}-${voucher.expiresAt ?? 'na'}-${index}`}
+                    key={voucher.id ?? `${voucher.code}-${voucher.storeId ?? 'global'}-${voucher.expiresAt ?? 'na'}-${(voucherPage - 1) * VOUCHERS_PER_PAGE + index}`}
                     className="voucher-card"
                   >
                     <div className="voucher-stripe"></div>
@@ -835,6 +859,34 @@ const Profile = () => {
                 ))
               )}
             </div>
+            {vouchers.length > VOUCHERS_PER_PAGE ? (
+              <div className="voucher-pagination">
+                <span className="voucher-pagination-meta">
+                  Hiển thị {(voucherPage - 1) * VOUCHERS_PER_PAGE + 1}-{Math.min(voucherPage * VOUCHERS_PER_PAGE, vouchers.length)} trên {vouchers.length} voucher
+                </span>
+                <div className="voucher-pagination-actions">
+                  <button
+                    type="button"
+                    className="voucher-page-btn"
+                    onClick={() => setVoucherPage((current) => Math.max(1, current - 1))}
+                    disabled={voucherPage === 1}
+                  >
+                    Trước
+                  </button>
+                  <span className="voucher-page-indicator">
+                    {voucherPage}/{totalVoucherPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="voucher-page-btn"
+                    onClick={() => setVoucherPage((current) => Math.min(totalVoucherPages, current + 1))}
+                    disabled={voucherPage === totalVoucherPages}
+                  >
+                    Sau
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         );
       case 'addresses':

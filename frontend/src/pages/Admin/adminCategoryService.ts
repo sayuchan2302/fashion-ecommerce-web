@@ -13,6 +13,10 @@ export interface Category {
   description: string;
 }
 
+interface BackendUploadImageResponse {
+  url?: string;
+}
+
 export const adminCategoryService = {
   getAll: async (): Promise<Category[]> => {
     return apiRequest<Category[]>('/api/categories/admin/all', {}, { auth: true });
@@ -51,5 +55,21 @@ export const adminCategoryService = {
     return apiRequest<void>(`/api/categories/admin/${id}`, {
       method: 'DELETE',
     }, { auth: true });
+  },
+
+  uploadImage: async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await apiRequest<BackendUploadImageResponse>('/api/categories/upload-image', {
+      method: 'POST',
+      body: formData,
+    }, { auth: true });
+
+    const nextUrl = String(response?.url || '').trim();
+    if (!nextUrl) {
+      throw new Error('Không nhận được URL ảnh danh mục sau khi tải lên.');
+    }
+    return nextUrl;
   },
 };

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640" fill="none">
+  <rect width="640" height="640" fill="#EFF6FF"/>
+  <rect x="80" y="132" width="480" height="408" rx="28" fill="#DBEAFE"/>
+  <rect x="120" y="172" width="400" height="90" rx="18" fill="#93C5FD"/>
+  <rect x="120" y="296" width="170" height="210" rx="16" fill="#BFDBFE"/>
+  <rect x="316" y="296" width="204" height="40" rx="12" fill="#BFDBFE"/>
+  <rect x="316" y="354" width="204" height="40" rx="12" fill="#BFDBFE"/>
+  <rect x="316" y="412" width="204" height="40" rx="12" fill="#BFDBFE"/>
+  <text x="320" y="594" text-anchor="middle" fill="#1D4ED8" font-family="Arial, sans-serif" font-size="30" font-weight="700">Store</text>
+</svg>

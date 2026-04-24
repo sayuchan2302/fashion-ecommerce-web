@@ -1,4 +1,5 @@
 import { apiRequest } from './apiClient';
+import { PLACEHOLDER_PRODUCT_IMAGE } from '../constants/placeholders';
 
 export interface StoreProfile {
   id: string;
@@ -274,7 +275,7 @@ const mapBackendProduct = (product: BackendProduct, store?: StoreProfile): Store
     name: product.name || 'San pham',
     price,
     originalPrice,
-    image: product.images?.[0]?.url || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=672&h=990&fit=crop',
+    image: product.images?.[0]?.url || PLACEHOLDER_PRODUCT_IMAGE,
     colors: Array.from(new Set(variantOptions.map((variant) => variant.color).filter(Boolean))),
     sizes: Array.from(new Set(variantOptions.map((variant) => variant.size).filter(Boolean))),
     variants: variantOptions

@@ -3,15 +3,18 @@ package vn.edu.hcmuaf.fit.marketplace.controller;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import vn.edu.hcmuaf.fit.marketplace.dto.request.CategoryRequest;
 import vn.edu.hcmuaf.fit.marketplace.dto.request.CategoryStatusUpdateRequest;
 import vn.edu.hcmuaf.fit.marketplace.dto.response.AdminCategoryResponse;
 import vn.edu.hcmuaf.fit.marketplace.dto.response.CategoryOptionResponse;
 import vn.edu.hcmuaf.fit.marketplace.dto.response.CategoryTreeResponse;
 import vn.edu.hcmuaf.fit.marketplace.entity.Category;
+import vn.edu.hcmuaf.fit.marketplace.service.CategoryImageStorageService;
 import vn.edu.hcmuaf.fit.marketplace.service.CategoryService;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -19,9 +22,14 @@ import java.util.UUID;
 public class CategoryController {
 
     private final CategoryService categoryService;
+    private final CategoryImageStorageService categoryImageStorageService;
 
-    public CategoryController(CategoryService categoryService) {
+    public CategoryController(
+            CategoryService categoryService,
+            CategoryImageStorageService categoryImageStorageService
+    ) {
         this.categoryService = categoryService;
+        this.categoryImageStorageService = categoryImageStorageService;
     }
 
     @GetMapping
@@ -62,6 +70,15 @@ public class CategoryController {
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Category> update(@PathVariable UUID id, @RequestBody CategoryRequest request) {
         return ResponseEntity.ok(categoryService.update(id, request));
+    }
+
+    @PostMapping("/upload-image")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<Map<String, String>> uploadCategoryImage(
+            @RequestParam("file") MultipartFile file
+    ) {
+        String imageUrl = categoryImageStorageService.storeCategoryImage(file);
+        return ResponseEntity.ok(Map.of("url", imageUrl));
     }
 
     @PatchMapping("/admin/{id}/status")

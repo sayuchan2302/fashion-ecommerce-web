@@ -36,6 +36,7 @@ const ReviewModal = ({ isOpen, onClose, product, existingReview }: ReviewModalPr
   const [content, setContent] = useState(existingReview?.content || '');
   const [images, setImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
 
   if (!isOpen) return null;
 
@@ -97,31 +98,47 @@ const ReviewModal = ({ isOpen, onClose, product, existingReview }: ReviewModalPr
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
+    const selectedFiles = Array.from(files);
 
-    Array.from(files).forEach((file) => {
+    const upload = async () => {
       if (images.length >= 5) {
         addToast('Tối đa 5 hình ảnh', 'error');
         return;
       }
 
-      if (!file.type.startsWith('image/')) {
-        addToast('Chỉ chấp nhận file hình ảnh', 'error');
-        return;
+      const remainingSlots = 5 - images.length;
+      const filesToUpload = selectedFiles.slice(0, remainingSlots);
+      if (filesToUpload.length < selectedFiles.length) {
+        addToast('Chỉ lấy 5 hình ảnh đầu tiên.', 'info');
       }
 
-      if (file.size > 5 * 1024 * 1024) {
-        addToast('Kích thước file không được vượt quá 5MB', 'error');
-        return;
+      for (const file of filesToUpload) {
+        if (!file.type.startsWith('image/')) {
+          addToast('Chỉ chấp nhận file hình ảnh', 'error');
+          return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+          addToast('Kích thước file không được vượt quá 5MB', 'error');
+          return;
+        }
       }
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result as string;
-        setImages((prev) => [...prev, result]);
-      };
-      reader.readAsDataURL(file);
-    });
+      setIsUploadingImages(true);
+      try {
+        const uploadedUrls = await Promise.all(filesToUpload.map((file) => reviewService.uploadReviewImage(file)));
+        setImages((prev) => Array.from(new Set([...prev, ...uploadedUrls])).slice(0, 5));
+      } catch (error: unknown) {
+        const message = error instanceof Error && error.message.trim()
+          ? error.message
+          : 'Tải ảnh review thất bại.';
+        addToast(message, 'error');
+      } finally {
+        setIsUploadingImages(false);
+      }
+    };
 
+    void upload();
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -220,9 +237,10 @@ const ReviewModal = ({ isOpen, onClose, product, existingReview }: ReviewModalPr
                     type="button" 
                     className="review-image-add"
                     onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingImages}
                   >
                     <Camera size={24} />
-                    <span>{t.addImage}</span>
+                    <span>{isUploadingImages ? 'Đang tải...' : t.addImage}</span>
                   </button>
                 )}
                 <input
@@ -246,7 +264,7 @@ const ReviewModal = ({ isOpen, onClose, product, existingReview }: ReviewModalPr
             type="button"
             className="review-btn-submit"
             onClick={handleSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isUploadingImages}
           >
             {isSubmitting ? t.submitting : existingReview ? t.update : t.submit}
           </button>

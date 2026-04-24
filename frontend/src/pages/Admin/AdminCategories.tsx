@@ -1,6 +1,6 @@
 import './Admin.css';
-import { useCallback, useMemo, useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Eye, EyeOff, FolderPlus, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
+import { ChevronDown, ChevronRight, Eye, EyeOff, FolderPlus, Pencil, Plus, Trash2, Upload } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import AdminLayout from './AdminLayout';
 import AdminConfirmDialog from './AdminConfirmDialog';
@@ -9,6 +9,7 @@ import { useAdminToast } from './useAdminToast';
 import { PanelStatsGrid, PanelTabs, PanelTableFooter } from '../../components/Panel/PanelPrimitives';
 
 import { adminCategoryService, type Category } from './adminCategoryService';
+import { PLACEHOLDER_CATEGORY_IMAGE } from '../../constants/placeholders';
 
 type CategoryFilter = 'all' | 'visible' | 'hidden' | 'leaf';
 
@@ -39,6 +40,7 @@ const emptyDraft: CategoryDraft = {
 };
 
 const validFilters = new Set<CategoryFilter>(['all', 'visible', 'hidden', 'leaf']);
+const CATEGORY_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 const toSlug = (value: string) =>
   value
@@ -63,6 +65,8 @@ const AdminCategories = () => {
   const [draftMode, setDraftMode] = useState<DraftMode>('view');
   const [draft, setDraft] = useState<CategoryDraft>(emptyDraft);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 12;
 
@@ -271,6 +275,37 @@ const AdminCategories = () => {
     setExpandedIds((prev) => new Set(prev).add(parentId));
   };
 
+  const handleUploadCategoryImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.toLowerCase().startsWith('image/')) {
+      pushToast('Chỉ chấp nhận file ảnh cho danh mục.');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > CATEGORY_IMAGE_MAX_BYTES) {
+      pushToast('Ảnh danh mục vượt quá 5MB.');
+      event.target.value = '';
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const imageUrl = await adminCategoryService.uploadImage(file);
+      setDraft((prev) => ({ ...prev, image: imageUrl }));
+      pushToast('Đã tải ảnh danh mục.');
+    } catch {
+      pushToast('Tải ảnh danh mục thất bại.');
+    } finally {
+      setUploadingImage(false);
+      event.target.value = '';
+    }
+  };
+
   const saveDraft = async () => {
     if (!draft.name.trim()) {
       pushToast('Tên danh mục không được để trống.');
@@ -298,7 +333,7 @@ const AdminCategories = () => {
               order: Math.max(1, draft.order),
               status: draft.status,
               showOnMenu: draft.status === 'hidden' ? false : draft.showOnMenu,
-              image: draft.image || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=600&q=80',
+              image: draft.image || PLACEHOLDER_CATEGORY_IMAGE,
               description: draft.description.trim(),
             });
             setCategories((prev) => [...prev, added]);
@@ -313,7 +348,7 @@ const AdminCategories = () => {
               order: Math.max(1, draft.order),
               status: draft.status,
               showOnMenu: draft.status === 'hidden' ? false : draft.showOnMenu,
-              image: draft.image || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=600&q=80',
+              image: draft.image || PLACEHOLDER_CATEGORY_IMAGE,
               description: draft.description.trim(),
             });
             setCategories((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
@@ -534,7 +569,7 @@ const AdminCategories = () => {
           {draftMode === 'view' && selectedCategory ? (
             <div className="category-detail-body">
               <div className="category-detail-hero">
-                <img src={selectedCategory.image} alt={selectedCategory.name} />
+                <img src={selectedCategory.image || PLACEHOLDER_CATEGORY_IMAGE} alt={selectedCategory.name} />
                 <div className="category-detail-headings">
                   <p className="drawer-eyebrow">Nút danh mục</p>
                   <h3>{selectedCategory.name}</h3>
@@ -572,7 +607,30 @@ const AdminCategories = () => {
                 <label className="form-field"><span>Danh mục cha</span><select value={draft.parentId || ''} onChange={(event) => setDraft((prev) => ({ ...prev, parentId: event.target.value || null }))}><option value="">Danh mục gốc</option>{categories.filter((item) => item.id !== draft.id).map((item) => <option key={item.id} value={item.id}>{buildPath(item.id, byId).join(' > ')}</option>)}</select></label>
                 <label className="form-field"><span>Thứ tự hiển thị</span><input type="number" min={1} value={draft.order} onChange={(event) => setDraft((prev) => ({ ...prev, order: Math.max(1, Number(event.target.value) || 1) }))} /></label>
                 <label className="form-field"><span>Trạng thái</span><select value={draft.status} onChange={(event) => setDraft((prev) => ({ ...prev, status: event.target.value as 'visible' | 'hidden' }))}><option value="visible">Đang hiện</option><option value="hidden">Đã ẩn</option></select></label>
-                <label className="form-field"><span>Ảnh đại diện</span><input value={draft.image} onChange={(event) => setDraft((prev) => ({ ...prev, image: event.target.value }))} placeholder="https://..." /></label>
+                <label className="form-field">
+                  <span>Ảnh đại diện</span>
+                  <div className="storefront-upload-actions">
+                    <button
+                      type="button"
+                      className="admin-ghost-btn small storefront-upload-btn"
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={uploadingImage}
+                    >
+                      <Upload size={14} />
+                      <span>{uploadingImage ? 'Đang tải ảnh...' : 'Tải ảnh từ máy'}</span>
+                    </button>
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      onChange={(event) => void handleUploadCategoryImage(event)}
+                      style={{ display: 'none' }}
+                    />
+                  </div>
+                  <div className="storefront-upload-preview is-logo">
+                    <img src={draft.image || PLACEHOLDER_CATEGORY_IMAGE} alt="Ảnh danh mục" />
+                  </div>
+                </label>
                 <label className="form-field full"><span>Mô tả ngắn</span><textarea rows={4} value={draft.description} onChange={(event) => setDraft((prev) => ({ ...prev, description: event.target.value }))} /></label>
               </div>
 

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480" fill="none">
+  <rect width="640" height="480" fill="#EEF2FF"/>
+  <rect x="72" y="72" width="496" height="336" rx="28" fill="#DBEAFE"/>
+  <path d="M162 174C162 159.641 173.641 148 188 148H274L312 186H452C466.359 186 478 197.641 478 212V294C478 308.359 466.359 320 452 320H188C173.641 320 162 308.359 162 294V174Z" fill="#93C5FD"/>
+  <text x="320" y="380" text-anchor="middle" fill="#1D4ED8" font-family="Arial, sans-serif" font-size="28" font-weight="700">Category</text>
+</svg>

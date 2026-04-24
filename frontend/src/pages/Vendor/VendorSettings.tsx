@@ -1,12 +1,14 @@
 import './Vendor.css';
-import { useEffect, useState } from 'react';
-import { Bell, CreditCard, MapPin, Save, ShieldCheck, Store, Truck } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Bell, CreditCard, MapPin, Save, ShieldCheck, Store, Truck, Upload } from 'lucide-react';
 import VendorLayout from './VendorLayout';
 import { PanelSectionHeader, PanelStatsGrid, PanelTabs } from '../../components/Panel/PanelPrimitives';
 import { vendorPortalService, type VendorSettingsData } from '../../services/vendorPortalService';
+import { storeService } from '../../services/storeService';
 import { useToast } from '../../contexts/ToastContext';
 import { getUiErrorMessage } from '../../utils/errorMessage';
 import { AdminStateBlock } from '../Admin/AdminStateBlocks';
+import { PLACEHOLDER_STORE_IMAGE } from '../../constants/placeholders';
 
 type SettingsTab = 'store' | 'bank' | 'notifications' | 'shipping';
 
@@ -24,6 +26,8 @@ const TABS: Array<{ id: SettingsTab; label: string }> = [
   { id: 'shipping', label: 'Vận chuyển' },
 ];
 
+const STORE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
 const VendorSettings = () => {
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState<SettingsTab>('store');
@@ -32,6 +36,8 @@ const VendorSettings = () => {
   const [loadError, setLoadError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -128,6 +134,37 @@ const VendorSettings = () => {
     }
   };
 
+  const handleUploadLogo = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.toLowerCase().startsWith('image/')) {
+      addToast('Chỉ chấp nhận file ảnh cho logo.', 'error');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > STORE_IMAGE_MAX_BYTES) {
+      addToast('Ảnh logo vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn.', 'error');
+      event.target.value = '';
+      return;
+    }
+
+    setUploadingLogo(true);
+    try {
+      const imageUrl = await storeService.uploadStoreImage(file);
+      updateStoreField('logo')(imageUrl);
+      addToast('Đã tải logo gian hàng.', 'success');
+    } catch (err: unknown) {
+      addToast(getUiErrorMessage(err, 'Tải logo thất bại'), 'error');
+    } finally {
+      setUploadingLogo(false);
+      event.target.value = '';
+    }
+  };
+
   return (
     <VendorLayout
       title="Cài đặt vận hành & gian hàng"
@@ -202,12 +239,28 @@ const VendorSettings = () => {
                     />
                   </label>
                   <label className="form-field">
-                    <span>Logo (URL)</span>
-                    <input
-                      value={settings.storeInfo.logo}
-                      onChange={(e) => updateStoreField('logo')(e.target.value)}
-                      placeholder="https://..."
-                    />
+                    <span>Logo gian hàng</span>
+                    <div className="storefront-upload-actions">
+                      <button
+                        type="button"
+                        className="admin-ghost-btn small storefront-upload-btn"
+                        onClick={() => logoInputRef.current?.click()}
+                        disabled={uploadingLogo}
+                      >
+                        <Upload size={14} />
+                        <span>{uploadingLogo ? 'Đang tải logo...' : 'Tải logo từ máy'}</span>
+                      </button>
+                      <input
+                        ref={logoInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        onChange={(event) => void handleUploadLogo(event)}
+                        style={{ display: 'none' }}
+                      />
+                    </div>
+                    <div className="storefront-upload-preview is-logo">
+                      <img src={settings.storeInfo.logo || PLACEHOLDER_STORE_IMAGE} alt="Logo gian hàng" />
+                    </div>
                   </label>
                   <label className="form-field full">
                     <span>Địa chỉ hiển thị công khai</span>

@@ -284,7 +284,7 @@ const VendorDashboard = () => {
           ) : data.recentOrders.length === 0 ? (
             <div className="vendor-state-block">
               <div className="vendor-state-icon"><Package size={20} /></div>
-              <h3>Chưa có đơn hàng con nào</h3>
+              <h3>Chưa có đơn hàng nào</h3>
               <p>Khi shop nhận được đơn mới, danh sách sẽ hiển thị tại đây để xử lý.</p>
             </div>
           ) : (

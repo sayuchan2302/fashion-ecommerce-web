@@ -84,6 +84,10 @@ interface ReturnListParams {
   size?: number;
 }
 
+interface BackendUploadImageResponse {
+  url?: string;
+}
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export const returnService = {
@@ -187,5 +191,25 @@ export const returnService = {
       method: 'PATCH',
       body: JSON.stringify({ action, adminNote }),
     }, { auth: true });
+  },
+
+  async uploadEvidence(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await apiRequest<BackendUploadImageResponse>(
+      '/api/returns/upload-evidence',
+      {
+        method: 'POST',
+        body: formData,
+      },
+      { auth: true },
+    );
+
+    const nextUrl = String(response?.url || '').trim();
+    if (!nextUrl) {
+      throw new Error('Không nhận được URL evidence sau khi tải lên.');
+    }
+    return nextUrl;
   },
 };

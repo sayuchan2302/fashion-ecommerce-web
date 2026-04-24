@@ -85,6 +85,10 @@ interface BackendPage<T> {
   number?: number;
 }
 
+interface BackendUploadImageResponse {
+  url?: string;
+}
+
 export interface VendorReviewsPage {
   items: Review[];
   totalElements: number;
@@ -286,6 +290,26 @@ export const reviewService = {
       { auth: true },
     );
     return mapBackendReview(response);
+  },
+
+  async uploadReviewImage(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await apiRequest<BackendUploadImageResponse>(
+      '/api/reviews/upload-image',
+      {
+        method: 'POST',
+        body: formData,
+      },
+      { auth: true },
+    );
+
+    const url = String(response?.url || '').trim();
+    if (!url) {
+      throw new Error('Không nhận được URL ảnh review sau khi tải lên.');
+    }
+    return url;
   },
 
   async hasReviewed(productId: string, orderId: string): Promise<boolean> {
