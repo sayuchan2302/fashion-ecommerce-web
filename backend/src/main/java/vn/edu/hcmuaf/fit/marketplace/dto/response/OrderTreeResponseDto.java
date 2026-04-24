@@ -85,6 +85,7 @@ public class OrderTreeResponseDto {
     public static class ItemNode {
         private UUID id;
         private UUID productId;
+        private String productSlug;
         private UUID variantId;
         private String name;
         private String sku;

@@ -788,6 +788,7 @@ public class OrderService {
                 .map(item -> OrderTreeResponseDto.ItemNode.builder()
                         .id(item.getId())
                         .productId(item.getProduct() != null ? item.getProduct().getId() : null)
+                        .productSlug(item.getProduct() != null ? item.getProduct().getSlug() : null)
                         .variantId(item.getVariant() != null ? item.getVariant().getId() : null)
                         .name(item.getProductName())
                         .sku(item.getVariant() != null ? item.getVariant().getSku() : null)

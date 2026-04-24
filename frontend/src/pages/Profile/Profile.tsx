@@ -813,7 +813,6 @@ const Profile = () => {
             </div>
             
             <div className="address-book-content">
-              <h3 className="address-book-subtitle">Sổ địa chỉ</h3>
               {addressesLoading ? <p className="account-meta">Đang tải danh sách địa chỉ...</p> : null}
               {addressesError ? <p className="account-meta">{addressesError}</p> : null}
               
@@ -1463,6 +1462,8 @@ const Profile = () => {
         onClose={handleCloseAddressModal}
         onSave={loadAddresses}
         editingAddress={editingAddress}
+        existingAddressCount={savedAddresses.length}
+        addressesLoading={addressesLoading}
       />
       {/* Review Modal */}
       {reviewProduct && (

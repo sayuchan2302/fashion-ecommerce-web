@@ -31,6 +31,7 @@ interface BackendAddressSummary {
 interface BackendOrderItemResponse {
   id?: string;
   productId?: string;
+  productSlug?: string;
   name?: string;
   sku?: string;
   image?: string;
@@ -74,6 +75,7 @@ interface BackendOrderResponse {
 interface BackendOrderTreeItem {
   id?: string;
   productId?: string;
+  productSlug?: string;
   name?: string;
   sku?: string;
   variant?: string;
@@ -210,6 +212,7 @@ const mapBackendOrderToShared = (order: BackendOrderResponse): SharedOrder => {
     items: (order.items || []).map((item, index) => ({
       id: item.id || `${order.id}-${index + 1}`,
       productId: item.productId,
+      productSlug: item.productSlug,
       name: item.name || item.productName || `Item ${index + 1}`,
       price: Number(item.price || item.unitPrice || 0),
       image: item.image || item.productImage || '',
@@ -240,6 +243,7 @@ const mapBackendOrderTreeToShared = (order: BackendOrderTreeResponse): SharedOrd
       (subOrder.items || []).map((item, itemIndex) => ({
         id: item.id || `${subOrder.id || order.id}-${itemIndex + 1}`,
         productId: item.productId,
+        productSlug: item.productSlug,
         name: item.name || `Item ${itemIndex + 1}`,
         price: Number(item.unitPrice || item.totalPrice || 0),
         image: item.image || '',
@@ -252,6 +256,7 @@ const mapBackendOrderTreeToShared = (order: BackendOrderTreeResponse): SharedOrd
     : rootItems.map((item, itemIndex) => ({
       id: item.id || `${order.id}-${itemIndex + 1}`,
       productId: item.productId,
+      productSlug: item.productSlug,
       name: item.name || `Item ${itemIndex + 1}`,
       price: Number(item.unitPrice || item.totalPrice || 0),
       image: item.image || '',
@@ -315,6 +320,7 @@ const toClientOrder = (o: SharedOrder): Order => ({
   items: o.items.map((item): OrderItem => ({
     id: item.id,
     productId: item.productId,
+    productSlug: item.productSlug,
     name: item.name,
     price: item.price,
     originalPrice: item.originalPrice,

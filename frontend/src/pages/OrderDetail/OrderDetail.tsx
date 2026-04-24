@@ -191,7 +191,7 @@ const OrderDetail = () => {
               <div className="od-items">
                 {order.items.map((item, idx) => {
                   const lineTotal = item.price * item.quantity;
-                  const productIdentifier = String(item.productId || item.id || '').trim();
+                  const productIdentifier = String(item.productSlug || item.productId || item.id || '').trim();
                   const productHref = productIdentifier ? `/product/${encodeURIComponent(productIdentifier)}` : '';
 
                   return (

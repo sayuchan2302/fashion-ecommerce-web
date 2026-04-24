@@ -5,6 +5,7 @@ import './Checkout.css';
 import { useCart } from '../../contexts/CartContext';
 import { useToast } from '../../contexts/ToastContext';
 import { formatPrice } from '../../utils/formatters';
+import { isValidVietnamesePhone, normalizeVietnamesePhone } from '../../utils/phone';
 import { CLIENT_TEXT } from '../../utils/texts';
 import { couponService, type Coupon } from '../../services/couponService';
 import { addressService } from '../../services/addressService';
@@ -392,7 +393,7 @@ const Checkout = () => {
     const errors: FormErrors = {};
     if (!formValues.name.trim()) errors.name = t.validation.requiredName;
     if (!formValues.phone.trim()) errors.phone = t.validation.requiredPhone;
-    else if (!/^(0[3|5|7|8|9])+([0-9]{8})$/.test(formValues.phone.trim())) errors.phone = t.validation.invalidPhone;
+    else if (!isValidVietnamesePhone(formValues.phone)) errors.phone = t.validation.invalidPhone;
     if (!formValues.address.trim()) errors.address = t.validation.requiredAddress;
     if (!formValues.province) errors.city = t.validation.requiredCity;
     if (!formValues.district) errors.district = t.validation.requiredDistrict;
@@ -410,11 +411,11 @@ const Checkout = () => {
     }
   };
 
-  const findOrCreateBackendAddress = async () => {
+  const findOrCreateBackendAddress = async (normalizedPhone: string) => {
     const addresses = await apiRequest<BackendAddressPayload[]>('/api/addresses', {}, { auth: true });
     const matching = addresses.find((address) =>
       (address.fullName || '').trim() === formValues.name.trim() &&
-      (address.phone || '').trim() === formValues.phone.trim() &&
+      normalizeVietnamesePhone(address.phone || '') === normalizedPhone &&
       (address.detail || '').trim() === formValues.address.trim() &&
       (address.ward || '').trim() === formValues.ward.trim() &&
       (address.district || '').trim() === formValues.district.trim() &&
@@ -429,7 +430,7 @@ const Checkout = () => {
       method: 'POST',
       body: JSON.stringify({
         fullName: formValues.name.trim(),
-        phone: formValues.phone.trim(),
+        phone: normalizedPhone,
         detail: formValues.address.trim(),
         ward: formValues.ward.trim(),
         district: formValues.district.trim(),
@@ -454,6 +455,7 @@ const Checkout = () => {
       if (!hasBackendJwt()) {
         throw new Error('Vui lòng đăng nhập để thanh toán.');
       }
+      const normalizedPhone = normalizeVietnamesePhone(formValues.phone);
 
       const orderItems = await Promise.all(
         checkoutItems.map(async (item) => {
@@ -509,7 +511,7 @@ const Checkout = () => {
         }),
       );
 
-      const backendAddress = await findOrCreateBackendAddress();
+      const backendAddress = await findOrCreateBackendAddress(normalizedPhone);
       const backendOrder = await orderService.createBackendOrder({
         addressId: backendAddress.id,
         paymentMethod: paymentMethod.toUpperCase(),
@@ -521,7 +523,7 @@ const Checkout = () => {
       if (saveAddressToBook && formValues.name && formValues.phone && formValues.address) {
         addressService.add({
           fullName: formValues.name,
-          phone: formValues.phone,
+          phone: normalizedPhone,
           detail: formValues.address,
           ward: formValues.ward,
           district: formValues.district,

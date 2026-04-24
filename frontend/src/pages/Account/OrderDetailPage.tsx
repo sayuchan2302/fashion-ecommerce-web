@@ -136,7 +136,7 @@ const OrderDetailPage = () => {
             </thead>
             <tbody>
               {order.items.map((item) => {
-                const productIdentifier = String(item.productId || item.id || '').trim();
+                const productIdentifier = String(item.productSlug || item.productId || item.id || '').trim();
                 const productHref = productIdentifier ? `/product/${encodeURIComponent(productIdentifier)}` : '';
 
                 return (

@@ -36,7 +36,10 @@ public class AddressService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (Boolean.TRUE.equals(request.getIsDefault())) {
+        boolean hasExistingAddresses = !addressRepository.findByUserIdOrderByIsDefaultDesc(userId).isEmpty();
+        boolean shouldSetDefault = !hasExistingAddresses || Boolean.TRUE.equals(request.getIsDefault());
+
+        if (shouldSetDefault && hasExistingAddresses) {
             clearDefaultAddresses(userId);
         }
 
@@ -48,7 +51,7 @@ public class AddressService {
                 .district(request.getDistrict())
                 .ward(request.getWard())
                 .detail(request.getDetail())
-                .isDefault(request.getIsDefault() != null ? request.getIsDefault() : false)
+                .isDefault(shouldSetDefault)
                 .label(request.getLabel())
                 .build();
 

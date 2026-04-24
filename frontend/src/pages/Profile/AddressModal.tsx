@@ -10,6 +10,8 @@ interface AddressModalProps {
   onClose: () => void;
   onSave?: () => void | Promise<void>;
   editingAddress?: Address | null;
+  existingAddressCount?: number;
+  addressesLoading?: boolean;
 }
 
 export interface AddressData {
@@ -22,18 +24,31 @@ export interface AddressData {
   isDefault: boolean;
 }
 
-const buildInitialDraft = (editingAddress?: Address | null): AddressData => ({
+const buildInitialDraft = (
+  editingAddress?: Address | null,
+  isFirstAddress = false,
+): AddressData => ({
   fullName: editingAddress?.fullName || '',
   phone: editingAddress?.phone || '',
   province: editingAddress?.province || '',
   district: editingAddress?.district || '',
   ward: editingAddress?.ward || '',
   detail: editingAddress?.detail || '',
-  isDefault: editingAddress?.isDefault || false,
+  isDefault: editingAddress?.isDefault || isFirstAddress,
 });
 
-const AddressModalForm = ({ onClose, onSave, editingAddress }: Omit<AddressModalProps, 'isOpen'>) => {
-  const initialDraft = useMemo(() => buildInitialDraft(editingAddress), [editingAddress]);
+const AddressModalForm = ({
+  onClose,
+  onSave,
+  editingAddress,
+  existingAddressCount = 0,
+  addressesLoading = false,
+}: Omit<AddressModalProps, 'isOpen'>) => {
+  const isFirstAddress = !editingAddress && !addressesLoading && existingAddressCount === 0;
+  const initialDraft = useMemo(
+    () => buildInitialDraft(editingAddress, isFirstAddress),
+    [editingAddress, isFirstAddress],
+  );
   const [draft, setDraft] = useState<AddressData>(initialDraft);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addToast } = useToast();
@@ -68,7 +83,7 @@ const AddressModalForm = ({ onClose, onSave, editingAddress }: Omit<AddressModal
       district: addressLocation.selectedDistrictName,
       ward: addressLocation.selectedWardName,
       detail: draft.detail,
-      isDefault: draft.isDefault,
+      isDefault: isFirstAddress ? true : draft.isDefault,
     };
 
     try {
@@ -211,11 +226,12 @@ const AddressModalForm = ({ onClose, onSave, editingAddress }: Omit<AddressModal
             <label className="address-default-check">
               <input
                 type="checkbox"
-                checked={draft.isDefault}
+                checked={isFirstAddress ? true : draft.isDefault}
+                disabled={isFirstAddress}
                 onChange={(e) => updateDraft('isDefault', e.target.checked)}
               />
               <span className="address-check-custom"></span>
-              Đặt làm địa chỉ mặc định
+              {isFirstAddress ? 'Địa chỉ đầu tiên sẽ được đặt mặc định' : 'Đặt làm địa chỉ mặc định'}
             </label>
 
             <button type="submit" className="modal-submit-btn">
@@ -228,7 +244,14 @@ const AddressModalForm = ({ onClose, onSave, editingAddress }: Omit<AddressModal
   );
 };
 
-const AddressModal = ({ isOpen, onClose, onSave, editingAddress }: AddressModalProps) => {
+const AddressModal = ({
+  isOpen,
+  onClose,
+  onSave,
+  editingAddress,
+  existingAddressCount = 0,
+  addressesLoading = false,
+}: AddressModalProps) => {
   if (!isOpen) return null;
 
   return (
@@ -237,6 +260,8 @@ const AddressModal = ({ isOpen, onClose, onSave, editingAddress }: AddressModalP
       onClose={onClose}
       onSave={onSave}
       editingAddress={editingAddress}
+      existingAddressCount={existingAddressCount}
+      addressesLoading={addressesLoading}
     />
   );
 };
