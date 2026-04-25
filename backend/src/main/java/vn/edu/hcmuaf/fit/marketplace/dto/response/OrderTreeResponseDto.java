@@ -32,6 +32,7 @@ public class OrderTreeResponseDto {
     private Address shippingAddress;
     private List<SubOrderNode> subOrders;
     private List<ItemNode> items;
+    private List<TimelineEntry> timeline;
 
     @Data
     @Builder
@@ -94,5 +95,15 @@ public class OrderTreeResponseDto {
         private BigDecimal unitPrice;
         private BigDecimal totalPrice;
         private String image;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TimelineEntry {
+        private LocalDateTime at;
+        private String text;
+        private String tone;
     }
 }

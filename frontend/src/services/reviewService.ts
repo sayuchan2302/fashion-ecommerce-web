@@ -14,8 +14,11 @@ export interface Review {
   productSlug?: string;
   productName: string;
   productImage: string;
+  customerName?: string;
+  customerEmail?: string;
   orderId: string;
   orderCode?: string;
+  variantName?: string;
   rating: number;
   title?: string;
   content: string;
@@ -62,6 +65,8 @@ interface BackendReviewResponse {
   productSlug?: string;
   productName?: string;
   productImage?: string;
+  customerName?: string;
+  customerEmail?: string;
   rating?: number;
   content?: string;
   images?: string[];
@@ -71,6 +76,7 @@ interface BackendReviewResponse {
   replyAt?: string | null;
   orderId?: string;
   orderCode?: string;
+  variantName?: string;
   version?: number;
 }
 
@@ -147,8 +153,11 @@ const mapBackendReview = (row: BackendReviewResponse): Review => {
     productSlug: row.productSlug || undefined,
     productName: row.productName || 'Sản phẩm',
     productImage: resolveImageUrl(row.productImage),
+    customerName: row.customerName || undefined,
+    customerEmail: row.customerEmail || undefined,
     orderId: row.orderId || '',
     orderCode: row.orderCode || undefined,
+    variantName: row.variantName || undefined,
     rating: Number(row.rating || 0),
     title: undefined,
     content: row.content || '',

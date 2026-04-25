@@ -99,6 +99,12 @@ interface BackendOrderTreeSubOrder {
   items?: BackendOrderTreeItem[];
 }
 
+interface BackendOrderTimelineEntry {
+  at?: string;
+  text?: string;
+  tone?: string;
+}
+
 interface BackendOrderTreeResponse {
   id: string;
   code?: string;
@@ -118,6 +124,7 @@ interface BackendOrderTreeResponse {
   shippingAddress?: BackendAddressSummary;
   items?: BackendOrderTreeItem[];
   subOrders?: BackendOrderTreeSubOrder[];
+  timeline?: BackendOrderTimelineEntry[];
 }
 
 export interface VnpayCreatePayUrlResponse {
@@ -189,6 +196,60 @@ const formatBackendAddress = (address?: BackendAddressSummary) =>
     .filter((part): part is string => Boolean(part && part.trim()))
     .join(', ');
 
+const normalizeTimelineTone = (tone?: string): 'success' | 'pending' | 'error' | 'neutral' | 'info' => {
+  const normalized = String(tone || '').trim().toLowerCase();
+  if (normalized === 'success' || normalized === 'pending' || normalized === 'error' || normalized === 'neutral' || normalized === 'info') {
+    return normalized;
+  }
+  return 'neutral';
+};
+
+const localizeTimelineText = (rawText?: string): string => {
+  const text = String(rawText || '').trim();
+  if (!text) return '';
+
+  return text
+    .replace(/Don hang da duoc tao\./g, 'Đơn hàng đã được tạo.')
+    .replace(/Don hang moi duoc tao\./g, 'Đơn hàng mới được tạo.')
+    .replace(/Don hang da duoc tiep nhan va cho nguoi ban xac nhan\./g, 'Đơn hàng đã được tiếp nhận và chờ người bán xác nhận.')
+    .replace(/Nguoi ban da xac nhan don hang\./g, 'Người bán đã xác nhận đơn hàng.')
+    .replace(/Don hang dang duoc chuan bi\./g, 'Đơn hàng đang được chuẩn bị.')
+    .replace(/Don hang da ban giao cho don vi van chuyen\./g, 'Đơn hàng đã bàn giao cho đơn vị vận chuyển.')
+    .replace(/Don hang da giao thanh cong\./g, 'Đơn hàng đã giao thành công.')
+    .replace(/Don hang da bi huy\./g, 'Đơn hàng đã bị hủy.')
+    .replace(/Da cap nhat thong tin van chuyen/gi, 'Đã cập nhật thông tin vận chuyển')
+    .replace(/Cap nhat don hang\./gi, 'Cập nhật đơn hàng.')
+    .replace(/Dang cho xu ly/gi, 'Đang chờ xử lý')
+    .replace(/Cho nguoi ban xac nhan/gi, 'Chờ người bán xác nhận')
+    .replace(/Nguoi ban da xac nhan/gi, 'Người bán đã xác nhận')
+    .replace(/Don hang dang duoc chuan bi/gi, 'Đơn hàng đang được chuẩn bị')
+    .replace(/Don hang dang duoc giao/gi, 'Đơn hàng đang được giao')
+    .replace(/Don hang da giao thanh cong/gi, 'Đơn hàng đã giao thành công')
+    .replace(/Don hang da bi huy/gi, 'Đơn hàng đã bị hủy')
+    .replace(/Don hang/gi, 'Đơn hàng')
+    .replace(/Nguoi ban/gi, 'Người bán')
+    .replace(/Ma van don/gi, 'Mã vận đơn')
+    .replace(/Don vi van chuyen/gi, 'Đơn vị vận chuyển')
+    .replace(/Ly do/gi, 'Lý do');
+};
+
+const mapBackendTimelineEntries = (timeline?: BackendOrderTimelineEntry[]) =>
+  (timeline || [])
+    .map((entry) => {
+      const text = localizeTimelineText(entry.text);
+      if (!text) return null;
+      const resolvedDate = entry.at ? new Date(entry.at) : new Date();
+      const time = Number.isNaN(resolvedDate.getTime())
+        ? String(entry.at || '')
+        : resolvedDate.toLocaleString('vi-VN');
+      return {
+        time: time || new Date().toLocaleString('vi-VN'),
+        text,
+        tone: normalizeTimelineTone(entry.tone),
+      };
+    })
+    .filter((entry): entry is { time: string; text: string; tone: 'success' | 'pending' | 'error' | 'neutral' | 'info' } => Boolean(entry));
+
 const mapBackendOrderToShared = (order: BackendOrderResponse): SharedOrder => {
   const clientStatus = backendStatusToClientStatus(order.status);
   return {
@@ -238,6 +299,7 @@ const mapBackendOrderTreeToShared = (order: BackendOrderTreeResponse): SharedOrd
   const customerName = order.shippingAddress?.fullName || order.customer?.name || 'Khách hàng';
   const subOrders = order.subOrders || [];
   const rootItems = order.items || [];
+  const backendTimeline = mapBackendTimelineEntries(order.timeline);
 
   const normalizedItems = subOrders.length > 0
     ? subOrders.flatMap((subOrder) =>
@@ -292,18 +354,20 @@ const mapBackendOrderTreeToShared = (order: BackendOrderTreeResponse): SharedOrd
     shippingFee: Number(order.shippingFee || 0),
     discount: Number(order.discount || 0),
     total: Number(order.totalAmount || 0),
-    timeline: [
-      {
-        time: new Date(order.createdAt || Date.now()).toLocaleString('vi-VN'),
-        text: 'Đơn hàng đã được tạo.',
-        tone: 'success',
-      },
-      ...subOrders.map((subOrder) => ({
-        time: new Date(subOrder.updatedAt || subOrder.createdAt || order.createdAt || Date.now()).toLocaleString('vi-VN'),
-        text: `${subOrder.vendorName || 'Vendor'} - ${subOrder.status || 'PENDING'}`,
-        tone: 'neutral' as const,
-      })),
-    ],
+    timeline: backendTimeline.length > 0
+      ? backendTimeline
+      : [
+        {
+          time: new Date(order.createdAt || Date.now()).toLocaleString('vi-VN'),
+          text: 'Đơn hàng đã được tạo.',
+          tone: 'success',
+        },
+        ...subOrders.map((subOrder) => ({
+          time: new Date(subOrder.updatedAt || subOrder.createdAt || order.createdAt || Date.now()).toLocaleString('vi-VN'),
+          text: `${subOrder.vendorName || 'Người bán'} - ${subOrder.status || 'PENDING'}`,
+          tone: 'neutral' as const,
+        })),
+      ],
   };
 };
 
@@ -333,7 +397,7 @@ const toClientOrder = (o: SharedOrder): Order => ({
   addressSummary: `${o.customerName}, ${o.customerPhone}, ${o.address}`,
   paymentMethod: o.paymentMethod,
   statusSteps: o.timeline.map((t): OrderStatusStep => ({
-    label: t.text,
+    label: localizeTimelineText(t.text),
     timestamp: t.time,
   })),
   cancelReason: o.cancelReason,

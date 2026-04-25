@@ -59,6 +59,7 @@ public class OrderService {
     private final ApplicationEventPublisher applicationEventPublisher;
     private final AdminAuditLogService adminAuditLogService;
     private final NotificationDomainService notificationDomainService;
+    private final OrderStatusLogRepository orderStatusLogRepository;
 
     @Autowired
     public OrderService(OrderRepository orderRepository, UserRepository userRepository,
@@ -68,7 +69,8 @@ public class OrderService {
                         VoucherRepository voucherRepository, PublicCodeService publicCodeService,
                         ApplicationEventPublisher applicationEventPublisher,
                         AdminAuditLogService adminAuditLogService,
-                        NotificationDomainService notificationDomainService) {
+                        NotificationDomainService notificationDomainService,
+                        OrderStatusLogRepository orderStatusLogRepository) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.addressRepository = addressRepository;
@@ -82,6 +84,7 @@ public class OrderService {
         this.applicationEventPublisher = applicationEventPublisher;
         this.adminAuditLogService = adminAuditLogService;
         this.notificationDomainService = notificationDomainService;
+        this.orderStatusLogRepository = orderStatusLogRepository;
     }
 
     public OrderService(OrderRepository orderRepository, UserRepository userRepository,
@@ -102,6 +105,7 @@ public class OrderService {
                 voucherRepository,
                 publicCodeService,
                 applicationEventPublisher,
+                null,
                 null,
                 null
         );
@@ -132,6 +136,9 @@ public class OrderService {
                     Order.OrderStatus.DELIVERED,
                     Order.OrderStatus.CANCELLED
             );
+    private static final String ORDER_LOG_EVENT_CREATED = "ORDER_CREATED";
+    private static final String ORDER_LOG_EVENT_STATUS_CHANGED = "STATUS_CHANGED";
+    private static final String ORDER_LOG_EVENT_TRACKING_UPDATED = "TRACKING_UPDATED";
 
     private record PreparedOrderItem(
             Product product,
@@ -563,6 +570,7 @@ public class OrderService {
                 .shippingAddress(toOrderTreeAddress(rootOrder))
                 .subOrders(subOrderNodes)
                 .items(rootItems)
+                .timeline(buildCustomerTimeline(rootOrder, normalizedSubOrders))
                 .build();
     }
 
@@ -803,6 +811,285 @@ public class OrderService {
 
     // ─── Create Order ──────────────────────────────────────────────────────────
 
+    private List<OrderTreeResponseDto.TimelineEntry> buildCustomerTimeline(Order rootOrder, List<Order> normalizedSubOrders) {
+        if (rootOrder == null || rootOrder.getId() == null) {
+            return List.of();
+        }
+
+        Map<UUID, Order> scopedOrders = new LinkedHashMap<>();
+        scopedOrders.put(rootOrder.getId(), rootOrder);
+        if (normalizedSubOrders != null) {
+            for (Order subOrder : normalizedSubOrders) {
+                if (subOrder != null && subOrder.getId() != null) {
+                    scopedOrders.putIfAbsent(subOrder.getId(), subOrder);
+                }
+            }
+        }
+
+        List<Order> scopedOrderList = new ArrayList<>(scopedOrders.values());
+        if (scopedOrderList.isEmpty()) {
+            return List.of();
+        }
+
+        if (orderStatusLogRepository == null) {
+            return buildFallbackTimeline(rootOrder, scopedOrderList);
+        }
+
+        List<OrderStatusLog> logs = orderStatusLogRepository.findByOrderIdInOrderByCreatedAtAsc(new ArrayList<>(scopedOrders.keySet()));
+        if (logs.isEmpty()) {
+            return buildFallbackTimeline(rootOrder, scopedOrderList);
+        }
+
+        Map<UUID, String> storeNames = buildStoreNameMap(scopedOrderList.stream()
+                .filter(order -> order != null && order.getStoreId() != null)
+                .toList());
+
+        List<OrderTreeResponseDto.TimelineEntry> timeline = logs.stream()
+                .sorted(Comparator.comparing(OrderStatusLog::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(log -> toTimelineEntry(log, rootOrder, scopedOrders, storeNames))
+                .filter(entry -> entry != null)
+                .toList();
+
+        return timeline.isEmpty() ? buildFallbackTimeline(rootOrder, scopedOrderList) : timeline;
+    }
+
+    private List<OrderTreeResponseDto.TimelineEntry> buildFallbackTimeline(Order rootOrder, List<Order> scopedOrders) {
+        List<OrderTreeResponseDto.TimelineEntry> fallback = new ArrayList<>();
+        fallback.add(OrderTreeResponseDto.TimelineEntry.builder()
+                .at(rootOrder.getCreatedAt())
+                .text("Đơn hàng đã được tạo.")
+                .tone("success")
+                .build());
+
+        Map<UUID, String> storeNames = buildStoreNameMap(scopedOrders.stream()
+                .filter(order -> order != null && order.getStoreId() != null)
+                .toList());
+
+        for (Order order : scopedOrders) {
+            if (order == null || order.getId() == null || order.getStatus() == null) {
+                continue;
+            }
+            if (rootOrder.getId().equals(order.getId())) {
+                continue;
+            }
+            String vendorName = order.getStoreId() == null
+                    ? "Người bán"
+                    : storeNames.getOrDefault(order.getStoreId(), "Người bán");
+            fallback.add(OrderTreeResponseDto.TimelineEntry.builder()
+                    .at(order.getUpdatedAt() != null ? order.getUpdatedAt() : order.getCreatedAt())
+                    .text(vendorName + " - " + orderStatusLabel(order.getStatus()))
+                    .tone(order.getStatus() == Order.OrderStatus.CANCELLED ? "error" : "neutral")
+                    .build());
+        }
+
+        return fallback.stream()
+                .sorted(Comparator.comparing(OrderTreeResponseDto.TimelineEntry::getAt, Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+    }
+
+    private OrderTreeResponseDto.TimelineEntry toTimelineEntry(
+            OrderStatusLog log,
+            Order rootOrder,
+            Map<UUID, Order> scopedOrders,
+            Map<UUID, String> storeNames
+    ) {
+        if (log == null) {
+            return null;
+        }
+
+        UUID ownerOrderId = log.getOrder() != null ? log.getOrder().getId() : null;
+        Order ownerOrder = ownerOrderId == null ? null : scopedOrders.get(ownerOrderId);
+        boolean isRootOrderLog = ownerOrderId != null && rootOrder.getId().equals(ownerOrderId);
+
+        String message = normalizeOptionalText(log.getMessage());
+        if (message.isEmpty()) {
+            message = orderStatusLabel(log.getStatusTo());
+        }
+        message = localizeTimelineMessage(message);
+
+        if (!isRootOrderLog && ownerOrder != null && ownerOrder.getStoreId() != null) {
+            String vendorName = storeNames.getOrDefault(ownerOrder.getStoreId(), "Người bán");
+            message = vendorName + " - " + message;
+        }
+
+        return OrderTreeResponseDto.TimelineEntry.builder()
+                .at(log.getCreatedAt() != null ? log.getCreatedAt() : log.getUpdatedAt())
+                .text(message)
+                .tone(normalizeTimelineTone(log.getTone()))
+                .build();
+    }
+
+    private String normalizeTimelineTone(String tone) {
+        String normalized = normalizeOptionalText(tone).toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "success", "pending", "error", "neutral", "info" -> normalized;
+            default -> "neutral";
+        };
+    }
+
+    private String orderStatusLabel(Order.OrderStatus status) {
+        if (status == null) {
+            return "Cập nhật đơn hàng";
+        }
+        return switch (status) {
+            case PENDING -> "Đang chờ xử lý";
+            case WAITING_FOR_VENDOR -> "Chờ người bán xác nhận";
+            case CONFIRMED -> "Người bán đã xác nhận";
+            case PROCESSING -> "Đơn hàng đang được chuẩn bị";
+            case SHIPPED -> "Đơn hàng đang được giao";
+            case DELIVERED -> "Đơn hàng đã giao thành công";
+            case CANCELLED -> "Đơn hàng đã bị hủy";
+        };
+    }
+
+    private void recordOrderCreated(Order order) {
+        if (order == null) {
+            return;
+        }
+        recordOrderStatusLog(
+                order,
+                ORDER_LOG_EVENT_CREATED,
+                "success",
+                null,
+                order.getStatus(),
+                "Đơn hàng đã được tạo."
+        );
+    }
+
+    private void recordStatusTransition(Order order, Order.OrderStatus fromStatus, Order.OrderStatus toStatus, String reason) {
+        if (order == null || fromStatus == toStatus) {
+            return;
+        }
+        String tone = switch (toStatus) {
+            case DELIVERED -> "success";
+            case CANCELLED -> "error";
+            default -> "pending";
+        };
+        recordOrderStatusLog(
+                order,
+                ORDER_LOG_EVENT_STATUS_CHANGED,
+                tone,
+                fromStatus,
+                toStatus,
+                buildStatusTransitionMessage(order, toStatus, reason)
+        );
+    }
+
+    private void recordTrackingUpdated(Order order) {
+        if (order == null) {
+            return;
+        }
+        String tracking = normalizeOptionalText(order.getTrackingNumber());
+        String carrier = normalizeOptionalText(order.getShippingCarrier());
+        String message = "Đã cập nhật thông tin vận chuyển";
+        if (!tracking.isEmpty()) {
+            message += ": " + tracking;
+            if (!carrier.isEmpty()) {
+                message += " (" + carrier + ")";
+            }
+            message += ".";
+        } else {
+            message += ".";
+        }
+        recordOrderStatusLog(
+                order,
+                ORDER_LOG_EVENT_TRACKING_UPDATED,
+                "info",
+                order.getStatus(),
+                order.getStatus(),
+                message
+        );
+    }
+
+    private String buildStatusTransitionMessage(Order order, Order.OrderStatus status, String reason) {
+        String base = switch (status) {
+            case PENDING -> "Đơn hàng mới được tạo.";
+            case WAITING_FOR_VENDOR -> "Đơn hàng đã được tiếp nhận và chờ người bán xác nhận.";
+            case CONFIRMED -> "Người bán đã xác nhận đơn hàng.";
+            case PROCESSING -> "Đơn hàng đang được chuẩn bị.";
+            case SHIPPED -> "Đơn hàng đã bàn giao cho đơn vị vận chuyển.";
+            case DELIVERED -> "Đơn hàng đã giao thành công.";
+            case CANCELLED -> "Đơn hàng đã bị hủy.";
+        };
+
+        if (status == Order.OrderStatus.SHIPPED && order != null) {
+            String tracking = normalizeOptionalText(order.getTrackingNumber());
+            String carrier = normalizeOptionalText(order.getShippingCarrier());
+            if (!tracking.isEmpty()) {
+                base += " Mã vận đơn: " + tracking + ".";
+            }
+            if (!carrier.isEmpty()) {
+                base += " Đơn vị vận chuyển: " + carrier + ".";
+            }
+        }
+
+        if (status == Order.OrderStatus.CANCELLED) {
+            String normalizedReason = normalizeOptionalText(reason);
+            if (!normalizedReason.isEmpty()) {
+                base += " Lý do: " + normalizedReason + ".";
+            }
+        }
+        return base;
+    }
+
+    private void recordOrderStatusLog(
+            Order order,
+            String eventType,
+            String tone,
+            Order.OrderStatus statusFrom,
+            Order.OrderStatus statusTo,
+            String message
+    ) {
+        if (orderStatusLogRepository == null || order == null || order.getId() == null) {
+            return;
+        }
+        String normalizedMessage = normalizeOptionalText(message);
+        if (normalizedMessage.isEmpty()) {
+            normalizedMessage = "Cập nhật đơn hàng.";
+        } else {
+            normalizedMessage = localizeTimelineMessage(normalizedMessage);
+        }
+        orderStatusLogRepository.save(OrderStatusLog.builder()
+                .order(order)
+                .eventType(eventType)
+                .tone(normalizeTimelineTone(tone))
+                .statusFrom(statusFrom)
+                .statusTo(statusTo)
+                .trackingNumber(normalizeOptionalText(order.getTrackingNumber()))
+                .carrier(normalizeOptionalText(order.getShippingCarrier()))
+                .message(normalizedMessage)
+                .build());
+    }
+
+    private String localizeTimelineMessage(String message) {
+        String localized = normalizeOptionalText(message);
+        if (localized.isEmpty()) {
+            return "";
+        }
+        return localized
+                .replace("Don hang da duoc tao.", "Đơn hàng đã được tạo.")
+                .replace("Don hang moi duoc tao.", "Đơn hàng mới được tạo.")
+                .replace("Don hang da duoc tiep nhan va cho nguoi ban xac nhan.", "Đơn hàng đã được tiếp nhận và chờ người bán xác nhận.")
+                .replace("Nguoi ban da xac nhan don hang.", "Người bán đã xác nhận đơn hàng.")
+                .replace("Don hang dang duoc chuan bi.", "Đơn hàng đang được chuẩn bị.")
+                .replace("Don hang da ban giao cho don vi van chuyen.", "Đơn hàng đã bàn giao cho đơn vị vận chuyển.")
+                .replace("Don hang da giao thanh cong.", "Đơn hàng đã giao thành công.")
+                .replace("Don hang da bi huy.", "Đơn hàng đã bị hủy.")
+                .replace("Da cap nhat thong tin van chuyen", "Đã cập nhật thông tin vận chuyển")
+                .replace("Cap nhat don hang.", "Cập nhật đơn hàng.")
+                .replace("Cap nhat don hang", "Cập nhật đơn hàng")
+                .replace("Dang cho xu ly", "Đang chờ xử lý")
+                .replace("Cho nguoi ban xac nhan", "Chờ người bán xác nhận")
+                .replace("Nguoi ban da xac nhan", "Người bán đã xác nhận")
+                .replace("Don hang dang duoc chuan bi", "Đơn hàng đang được chuẩn bị")
+                .replace("Don hang dang duoc giao", "Đơn hàng đang được giao")
+                .replace("Don hang da giao thanh cong", "Đơn hàng đã giao thành công")
+                .replace("Don hang da bi huy", "Đơn hàng đã bị hủy")
+                .replace("Ma van don", "Mã vận đơn")
+                .replace("Don vi van chuyen", "Đơn vị vận chuyển")
+                .replace("Ly do", "Lý do");
+    }
+
     @Transactional
     public AdminOrderResponse create(UUID userId, OrderRequest request) {
         if (request == null) {
@@ -976,6 +1263,8 @@ public class OrderService {
             boolean enforceVendorRules
     ) {
         Order.OrderStatus previousStatus = order.getStatus();
+        String previousTrackingNumber = normalizeOptionalText(order.getTrackingNumber());
+        String previousCarrier = normalizeOptionalText(order.getShippingCarrier());
         validateStatusTransition(previousStatus, status, enforceVendorRules);
 
         if (status == Order.OrderStatus.SHIPPED) {
@@ -1027,6 +1316,12 @@ public class OrderService {
         }
 
         Order savedOrder = orderRepository.save(order);
+        recordStatusTransition(savedOrder, previousStatus, savedOrder.getStatus(), reason);
+        String currentTrackingNumber = normalizeOptionalText(savedOrder.getTrackingNumber());
+        String currentCarrier = normalizeOptionalText(savedOrder.getShippingCarrier());
+        if (!previousTrackingNumber.equals(currentTrackingNumber) || !previousCarrier.equals(currentCarrier)) {
+            recordTrackingUpdated(savedOrder);
+        }
 
         if (savedOrder.isParentOrder()) {
             cascadeStatusToSubOrders(savedOrder, status, trackingNumber, carrier, reason);
@@ -1201,8 +1496,13 @@ public class OrderService {
                     "Tracking can only be updated when order is PROCESSING or SHIPPED"
             );
         }
+        String previousTracking = normalizeOptionalText(order.getTrackingNumber());
         order.setTrackingNumber(normalizeRequiredText(trackingNumber, "Tracking number is required"));
-        return orderRepository.save(order);
+        Order saved = orderRepository.save(order);
+        if (!previousTracking.equals(normalizeOptionalText(saved.getTrackingNumber()))) {
+            recordTrackingUpdated(saved);
+        }
+        return saved;
     }
 
     @Transactional
@@ -1221,8 +1521,12 @@ public class OrderService {
             );
         }
 
+        String previousTracking = normalizeOptionalText(order.getTrackingNumber());
         order.setTrackingNumber(normalizeRequiredText(trackingNumber, "Tracking number is required"));
         Order saved = orderRepository.save(order);
+        if (!previousTracking.equals(normalizeOptionalText(saved.getTrackingNumber()))) {
+            recordTrackingUpdated(saved);
+        }
         if (saved.isSubOrder()) {
             syncParentOrderStatus(saved.getParentOrder().getId());
         }
@@ -1744,6 +2048,7 @@ public class OrderService {
         parentOrder.calculateTotal();
 
         Order persistedParent = orderRepository.save(parentOrder);
+        recordOrderCreated(persistedParent);
 
         for (PreparedOrderItem item : preparedItems) {
             persistedParent.getItems().add(buildOrderItem(persistedParent, item));
@@ -1805,7 +2110,9 @@ public class OrderService {
         for (PreparedOrderItem item : group.items()) {
             savedOrder.getItems().add(buildOrderItem(savedOrder, item));
         }
-        return orderRepository.save(savedOrder);
+        Order persistedOrder = orderRepository.save(savedOrder);
+        recordOrderCreated(persistedOrder);
+        return persistedOrder;
     }
 
     private OrderItem buildOrderItem(Order order, PreparedOrderItem item) {
@@ -1863,17 +2170,21 @@ public class OrderService {
             List<Order> subOrders = orderRepository.findByParentOrderOrderByCreatedAtDesc(order);
             for (Order subOrder : subOrders) {
                 if (subOrder.getStatus() == Order.OrderStatus.PENDING) {
+                    Order.OrderStatus previousStatus = subOrder.getStatus();
                     subOrder.setStatus(Order.OrderStatus.WAITING_FOR_VENDOR);
-                    orderRepository.save(subOrder);
-                    publishVendorReadyNotification(subOrder);
+                    Order savedSubOrder = orderRepository.save(subOrder);
+                    recordStatusTransition(savedSubOrder, previousStatus, savedSubOrder.getStatus(), null);
+                    publishVendorReadyNotification(savedSubOrder);
                 }
             }
             return syncParentOrderStatus(order.getId());
         }
 
         if (order.getStatus() == Order.OrderStatus.PENDING) {
+            Order.OrderStatus previousStatus = order.getStatus();
             order.setStatus(Order.OrderStatus.WAITING_FOR_VENDOR);
             Order saved = orderRepository.save(order);
+            recordStatusTransition(saved, previousStatus, saved.getStatus(), null);
             publishVendorReadyNotification(saved);
             if (saved.isSubOrder()) {
                 return syncParentOrderStatus(saved.getParentOrder().getId());
@@ -1966,6 +2277,7 @@ public class OrderService {
         }
 
         Order savedParent = orderRepository.save(parentOrder);
+        recordStatusTransition(savedParent, previousStatus, savedParent.getStatus(), null);
         if (savedParent.getPaymentStatus() == Order.PaymentStatus.PAID) {
             consumeDiscountUsageIfEligible(savedParent);
         }

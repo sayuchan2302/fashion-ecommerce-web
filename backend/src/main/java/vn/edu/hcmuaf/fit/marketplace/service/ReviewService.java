@@ -90,8 +90,31 @@ public class ReviewService {
                 .replyAt(review.getShopReplyAt())
                 .orderId(review.getOrder() != null ? review.getOrder().getId().toString() : null)
                 .orderCode(review.getOrder() != null ? review.getOrder().getOrderCode() : null)
+                .variantName(resolvePurchasedVariantName(review))
                 .version(review.getVersion())
                 .build();
+    }
+
+    private String resolvePurchasedVariantName(Review review) {
+        if (review == null || review.getOrder() == null || review.getProduct() == null || review.getProduct().getId() == null) {
+            return null;
+        }
+
+        List<vn.edu.hcmuaf.fit.marketplace.entity.OrderItem> orderItems = review.getOrder().getItems();
+        if (orderItems == null || orderItems.isEmpty()) {
+            return null;
+        }
+
+        UUID productId = review.getProduct().getId();
+        return orderItems.stream()
+                .filter(item -> item != null
+                        && item.getProduct() != null
+                        && item.getProduct().getId() != null
+                        && productId.equals(item.getProduct().getId()))
+                .map(item -> normalizeOptionalText(item.getVariantName()))
+                .filter(value -> !value.isBlank())
+                .findFirst()
+                .orElse(null);
     }
 
     @Transactional(readOnly = true)

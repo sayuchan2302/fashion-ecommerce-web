@@ -26,5 +26,6 @@ public class ReviewResponse {
     private LocalDateTime replyAt;
     private String orderId;
     private String orderCode;
+    private String variantName;
     private Integer version;
 }

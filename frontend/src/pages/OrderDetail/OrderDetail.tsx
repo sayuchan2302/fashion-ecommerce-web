@@ -15,10 +15,9 @@ import {
   X,
   AlertTriangle,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useToast } from '../../contexts/ToastContext';
 import { orderService } from '../../services/orderService';
-import { authService } from '../../services/authService';
 import { reviewService, type EligibleReviewItem, type Review } from '../../services/reviewService';
 import ReviewModal from '../../components/ReviewModal/ReviewModal';
 import { formatPrice } from '../../utils/formatters';
@@ -27,7 +26,6 @@ import type { Order } from '../../types';
 import './OrderDetail.css';
 import '../../styles/orderDetailTheme.css';
 import { getOptimizedImageUrl } from '../../utils/getOptimizedImageUrl';
-import { resolveAvatarSrc } from '../../utils/avatar';
 
 const t = CLIENT_TEXT.common;
 
@@ -73,6 +71,11 @@ const mapEligibleToReviewProduct = (item: EligibleReviewItem): ReviewProduct => 
   };
 };
 
+const clampReviewRating = (value: number): number => {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(5, Math.round(value)));
+};
+
 const OrderDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -87,29 +90,6 @@ const OrderDetail = () => {
   const [reviewProduct, setReviewProduct] = useState<ReviewProduct | null>(null);
   const [orderReviews, setOrderReviews] = useState<Review[]>([]);
   const [isLoadingOrderReviews, setIsLoadingOrderReviews] = useState(false);
-
-  const sessionUser = authService.getSession()?.user;
-
-  const reviewerName: string = useMemo(
-    () => sessionUser?.name?.trim() || 'Khách hàng',
-    [sessionUser?.name],
-  );
-
-  const reviewerAvatarSrc = useMemo(
-    () => resolveAvatarSrc(sessionUser?.avatar),
-    [sessionUser?.avatar],
-  );
-
-  const reviewerInitial = useMemo(
-    () =>
-      reviewerName
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((part: string) => part.charAt(0).toUpperCase())
-        .join('') || 'U',
-    [reviewerName],
-  );
 
   const loadOrderReviews = useCallback(
     async (orderId: string, options?: { silent?: boolean }) => {
@@ -286,8 +266,6 @@ const OrderDetail = () => {
   const shippingPhone = addressParts[1]?.trim() || '';
   const shippingAddress = addressParts.slice(2).join(',').trim() || '';
   const totalProductQuantity = order.items.reduce((sum, item) => sum + item.quantity, 0);
-  const itemByProductId = new Map(order.items.map((item) => [String(item.productId || item.id), item]));
-
   return (
     <div className="od-page od-theme od-theme-client">
       <div className="od-container">
@@ -410,64 +388,26 @@ const OrderDetail = () => {
                 ) : (
                   <div className="od-reviews-list">
                     {orderReviews.map((review) => {
-                      const linkedItem = itemByProductId.get(String(review.productId || ''));
-                      const fallbackImage = linkedItem?.image || '';
-                      const reviewImage = review.productImage || fallbackImage;
-                      const reviewProductId = String(review.productSlug || review.productId || '').trim();
-                      const reviewProductHref = reviewProductId
-                        ? `/product/${encodeURIComponent(reviewProductId)}`
-                        : '';
+                      const reviewRating = clampReviewRating(review.rating);
+                      const reviewContent = review.content?.trim() || 'Bạn chưa thêm mô tả cho đánh giá này.';
 
                       return (
                         <article key={review.id} className="od-review-item">
-                          <div className="od-review-author">
-                            {reviewerAvatarSrc ? (
-                              <img
-                                src={reviewerAvatarSrc}
-                                alt={reviewerName}
-                                className="od-review-avatar"
-                              />
-                            ) : (
-                              <div className="od-review-avatar od-review-avatar-fallback" aria-hidden="true">
-                                {reviewerInitial}
-                              </div>
-                            )}
-                            <div className="od-review-author-meta">
-                              <p className="od-review-author-name">{reviewerName}</p>
-                              <p className="od-review-date">{new Date(review.createdAt).toLocaleString('vi-VN')}</p>
+                          <header className="od-review-head">
+                            <div className="od-review-stars" aria-label={`${reviewRating} sao`}>
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <span
+                                  key={`${review.id}-star-${star}`}
+                                  className={`od-review-star ${star <= reviewRating ? 'active' : ''}`}
+                                >
+                                  ★
+                                </span>
+                              ))}
                             </div>
-                          </div>
+                            <span className="od-review-rating-chip">{reviewRating}/5</span>
+                          </header>
 
-                          <div className="od-review-product">
-                            {reviewImage ? (
-                              <img
-                                src={getOptimizedImageUrl(reviewImage, { width: 180, format: 'webp' })}
-                                alt={review.productName}
-                                className="od-review-product-image"
-                              />
-                            ) : null}
-                            <div className="od-review-product-meta">
-                              {reviewProductHref ? (
-                                <Link to={reviewProductHref} className="od-review-product-name">
-                                  {review.productName}
-                                </Link>
-                              ) : (
-                                <p className="od-review-product-name">{review.productName}</p>
-                              )}
-                              <div className="od-review-stars" aria-label={`${review.rating} sao`}>
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                  <span
-                                    key={`${review.id}-star-${star}`}
-                                    className={`od-review-star ${star <= review.rating ? 'active' : ''}`}
-                                  >
-                                    ★
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-
-                          <p className="od-review-content">{review.content}</p>
+                          <p className="od-review-content">{reviewContent}</p>
 
                           {review.images && review.images.length > 0 ? (
                             <div className="od-review-images">
@@ -477,6 +417,7 @@ const OrderDetail = () => {
                                   src={getOptimizedImageUrl(imageUrl, { width: 220, format: 'webp' })}
                                   alt={`Ảnh đánh giá ${index + 1}`}
                                   className="od-review-image"
+                                  loading="lazy"
                                 />
                               ))}
                             </div>
@@ -539,13 +480,15 @@ const OrderDetail = () => {
             <div className="od-card od-actions-card">
               {order.status === 'delivered' && (
                 <>
-                  <button
-                    className="od-action-btn od-btn-primary"
-                    onClick={() => void handleReviewOrder()}
-                    disabled={isResolvingReview}
-                  >
-                    {isResolvingReview ? 'Đang tải...' : 'Đánh giá sản phẩm'}
-                  </button>
+                  {!isLoadingOrderReviews && orderReviews.length === 0 ? (
+                    <button
+                      className="od-action-btn od-btn-primary"
+                      onClick={() => void handleReviewOrder()}
+                      disabled={isResolvingReview}
+                    >
+                      {isResolvingReview ? 'Đang tải...' : 'Đánh giá sản phẩm'}
+                    </button>
+                  ) : null}
                   <button className="od-action-btn od-btn-outline"><RotateCcw size={16} /> Đổi / trả hàng</button>
                 </>
               )}

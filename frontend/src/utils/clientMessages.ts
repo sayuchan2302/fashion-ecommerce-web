@@ -40,7 +40,7 @@ export const CLIENT_TOAST_MESSAGES = {
     submitted: 'Đã gửi đánh giá',
     errorSelectStars: 'Vui lòng chọn số sao đánh giá',
     errorEmptyContent: 'Vui lòng nhập nội dung đánh giá',
-    pendingModeration: 'Đánh giá đã gửi và đang chờ duyệt',
+    pendingModeration: 'Đã đánh giá',
   },
   notifications: {
     markedAllRead: 'Đã đánh dấu tất cả đã đọc',

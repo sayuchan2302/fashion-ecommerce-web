@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronRight, Star, Store, MessageSquare } from 'lucide-react';
+import { ChevronRight, Star, MessageSquare, X } from 'lucide-react';
 import ProductGallery from '../../components/ProductGallery/ProductGallery';
 import ProductInfo from '../../components/ProductInfo/ProductInfo';
 import ProductActions from '../../components/ProductActions/ProductActions';
@@ -8,43 +8,88 @@ import ProductDescription from '../../components/ProductDescription/ProductDescr
 import ProductDetailSkeleton from '../../components/ProductDetailSkeleton/ProductDetailSkeleton';
 import StoreInfoCard from '../../components/StoreInfoCard/StoreInfoCard';
 import { productService } from '../../services/productService';
-import { reviewService } from '../../services/reviewService';
+import { reviewService, type Review } from '../../services/reviewService';
 import { CLIENT_TEXT } from '../../utils/texts';
 import { CLIENT_DICTIONARY } from '../../utils/clientDictionary';
 import type { Product } from '../../types';
 import { normalizeStoreSlug } from '../../utils/storeIdentity';
 import './ProductDetail.css';
 
-interface ClientReviewItem {
-  id: string;
-  rating: number;
-  content: string;
-  reply?: string;
-  createdAt: string;
-  status?: string;
-}
-
 const t = CLIENT_TEXT.productDetail;
 
-const renderRating = (value: number) => (
+const renderRating = (value: number, size = 16) => (
   <div className="pdp-review-stars" aria-label={`Rating ${value} out of 5`}>
     {[1, 2, 3, 4, 5].map((star) => (
       <Star
         key={star}
-        size={16}
-        fill={value >= star ? 'currentColor' : 'none'}
-        stroke={value >= star ? 'currentColor' : 'var(--co-gray-300)'}
+        size={size}
+        fill={value >= star ? '#f59e0b' : 'none'}
+        stroke={value >= star ? '#f59e0b' : '#cbd5e1'}
         className={value >= star ? 'pdp-review-star-active' : 'pdp-review-star'}
       />
     ))}
   </div>
 );
 
+const formatReviewDateTime = (value: string): string => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+};
+
+const getReviewerDisplayName = (review: Review): string => {
+  const normalized = review.customerName?.trim();
+  if (normalized) return normalized;
+  const fromEmail = review.customerEmail?.split('@')[0]?.trim();
+  if (fromEmail) return fromEmail;
+  return 'Khách hàng';
+};
+
+const getReviewerInitials = (name: string): string => {
+  const letters = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('');
+  return letters || 'KH';
+};
+
+const formatPurchasedVariant = (variantName?: string): string => {
+  const normalized = String(variantName || '').trim();
+  if (!normalized) {
+    return '';
+  }
+
+  const slashParts = normalized
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (slashParts.length === 2) {
+    return `Màu ${slashParts[0]}, Size ${slashParts[1]}`;
+  }
+
+  if (slashParts.length === 1) {
+    return slashParts[0];
+  }
+
+  return normalized;
+};
+
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [reviews, setReviews] = useState<ClientReviewItem[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [selectedReviewImage, setSelectedReviewImage] = useState<{ url: string; alt: string } | null>(null);
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
 
@@ -106,6 +151,28 @@ const ProductDetail = () => {
   }, [productId]);
   const averageRating =
     reviews.length > 0 ? Number((reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length).toFixed(1)) : null;
+
+  const reviewBreakdown = useMemo(() => {
+    const result = [5, 4, 3, 2, 1].map((star) => ({
+      star,
+      count: 0,
+      ratio: 0,
+    }));
+    if (reviews.length === 0) return result;
+
+    reviews.forEach((review) => {
+      const clamped = Math.max(1, Math.min(5, Math.round(review.rating)));
+      const target = result.find((entry) => entry.star === clamped);
+      if (target) {
+        target.count += 1;
+      }
+    });
+
+    return result.map((entry) => ({
+      ...entry,
+      ratio: entry.count / reviews.length,
+    }));
+  }, [reviews]);
 
   if (isLoading || !product) {
     return (
@@ -220,6 +287,34 @@ const ProductDetail = () => {
               </span>
             </div>
 
+            {reviews.length > 0 ? (
+              <div className="pdp-reviews-overview">
+                <div className="pdp-reviews-overview-score">
+                  <strong>{averageRating?.toFixed(1) || '0.0'}</strong>
+                  <span>trên 5</span>
+                  <div className="pdp-reviews-overview-stars">{renderRating(Math.round(averageRating || 0))}</div>
+                  <p className="pdp-reviews-overview-total">
+                    {reviews.length} {CLIENT_DICTIONARY.reviews.countLabel}
+                  </p>
+                </div>
+                <div className="pdp-reviews-overview-bars">
+                  {reviewBreakdown.map((entry) => {
+                    const ratioPercent = Math.round(entry.ratio * 100);
+                    return (
+                      <div key={entry.star} className="pdp-reviews-bar-row">
+                        <span className="pdp-reviews-bar-label">{entry.star} sao</span>
+                        <div className="pdp-reviews-bar-track">
+                          <span style={{ width: `${ratioPercent}%` }} />
+                        </div>
+                        <strong className="pdp-reviews-bar-count">{entry.count}</strong>
+                        <span className="pdp-reviews-bar-percent">{ratioPercent}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
             {reviews.length === 0 ? (
               <div className="pdp-reviews-empty">
                 <MessageSquare size={32} strokeWidth={1.5} />
@@ -227,27 +322,93 @@ const ProductDetail = () => {
               </div>
             ) : (
               <div className="pdp-reviews-list">
-                {reviews.map((review) => (
-                  <div key={review.id} className="pdp-review-card">
-                    <div className="pdp-review-top">
-                      {renderRating(review.rating)}
-                      <span className="pdp-review-date">{new Date(review.createdAt).toLocaleDateString('vi-VN')}</span>
-                    </div>
-                    <p className="pdp-review-content">{review.content}</p>
-                    {review.reply && (
-                      <div className="pdp-review-reply">
-                        <span className="pdp-review-reply-label">
-                          <Store size={11} />
-                          {CLIENT_DICTIONARY.reviews.replyBadge}
-                        </span>
-                        <p className="pdp-review-reply-text">{review.reply}</p>
+                {reviews.map((review) => {
+                  const purchasedVariant = formatPurchasedVariant(review.variantName);
+                  return (
+                    <article key={review.id} className="pdp-review-card">
+                      <div className="pdp-review-meta">
+                        <div className="pdp-review-author">
+                          <div className="pdp-review-avatar" aria-hidden="true">
+                            {getReviewerInitials(getReviewerDisplayName(review))}
+                          </div>
+                          <div className="pdp-review-author-copy">
+                            <p className="pdp-review-author-name">{getReviewerDisplayName(review)}</p>
+                            <div className="pdp-review-author-rating">
+                              {renderRating(review.rating, 14)}
+                              <span className="pdp-review-rating-score">{review.rating}/5</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="pdp-review-meta-side">
+                          {purchasedVariant ? (
+                            <span className="pdp-review-variant" title={purchasedVariant}>
+                              Phân loại: {purchasedVariant}
+                            </span>
+                          ) : null}
+                          <span className="pdp-review-date">{formatReviewDateTime(review.createdAt)}</span>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ))}
+                      <p className="pdp-review-content">{review.content}</p>
+                      {review.images && review.images.length > 0 ? (
+                        <div className="pdp-review-images">
+                          {review.images.map((imageUrl, index) => (
+                            <button
+                              key={`${review.id}-image-${index}`}
+                              type="button"
+                              className="pdp-review-image-link"
+                              onClick={() =>
+                                setSelectedReviewImage({
+                                  url: imageUrl,
+                                  alt: `Ảnh đánh giá ${index + 1}`,
+                                })
+                              }
+                            >
+                              <img src={imageUrl} alt={`Ảnh đánh giá ${index + 1}`} className="pdp-review-image" loading="lazy" />
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      {review.shopReply ? (
+                        <div className="pdp-review-reply">
+                          <div className="pdp-review-reply-head">
+                            <span className="pdp-review-reply-title">Phản hồi của Người Bán</span>
+                            <span className="pdp-review-reply-time">{formatReviewDateTime(review.shopReply.createdAt)}</span>
+                          </div>
+                          <p className="pdp-review-reply-text">{review.shopReply.content}</p>
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })}
               </div>
             )}
           </div>
+
+          {selectedReviewImage ? (
+            <div
+              className="pdp-review-lightbox"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Xem ảnh đánh giá"
+              onClick={() => setSelectedReviewImage(null)}
+            >
+              <div className="pdp-review-lightbox-content" onClick={(event) => event.stopPropagation()}>
+                <button
+                  type="button"
+                  className="pdp-review-lightbox-close"
+                  onClick={() => setSelectedReviewImage(null)}
+                  aria-label="Đóng xem ảnh"
+                >
+                  <X size={18} />
+                </button>
+                <img
+                  src={selectedReviewImage.url}
+                  alt={selectedReviewImage.alt}
+                  className="pdp-review-lightbox-image"
+                />
+              </div>
+            </div>
+          ) : null}
 
         </div>
       </div>
