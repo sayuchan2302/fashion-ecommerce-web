@@ -144,6 +144,17 @@
 
 .flash-card .product-info {
   padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.flash-card .product-name {
+  min-height: calc(1.4em * 2);
+}
+
+.flash-card .product-prices {
+  min-height: 22px;
+  margin-top: auto;
 }
 
 .flash-progress-wrap {
