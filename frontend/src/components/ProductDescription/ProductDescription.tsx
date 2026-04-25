@@ -6,78 +6,52 @@ interface ProductDescriptionProps {
   product: Product;
 }
 
-const DEFAULT_FEATURES = [
-  'Thiết kế tối giản, dễ phối cho nhiều hoàn cảnh sử dụng.',
-  'Gia công chắc chắn, giữ form tốt sau nhiều lần mặc.',
-  'Phù hợp đi làm, đi chơi và sinh hoạt hằng ngày.',
+type TabKey = 'details' | 'size-fit' | 'fabric-care';
+
+const DEFAULT_DETAILS = 'Nhà bán chưa cập nhật thông tin chi tiết cho sản phẩm này.';
+const DEFAULT_SIZE_FIT = [
+  'Phom dáng thoải mái, dễ mặc trong nhiều hoàn cảnh.',
+  'Bạn có thể tham khảo bảng kích cỡ để chọn size phù hợp.',
+];
+const DEFAULT_FABRIC_CARE = [
+  'Nhà bán chưa cập nhật thông tin chất liệu và bảo quản.',
 ];
 
-const DEFAULT_MATERIAL = 'Nhà bán chưa cập nhật thông tin chất liệu cho sản phẩm này.';
-
-const DEFAULT_CARE = [
-  'Giặt ở nhiệt độ thường, lộn trái sản phẩm trước khi giặt.',
-  'Không dùng chất tẩy mạnh để giữ màu và độ bền vải.',
-  'Phơi ở nơi thoáng mát, tránh ánh nắng gắt trực tiếp.',
-];
-
-const splitBulletLines = (value?: string) =>
+const splitLines = (value?: string) =>
   (value || '')
     .split(/\r?\n+/)
     .map((line) => line.trim())
     .filter(Boolean);
 
-const parseHighlightsFromDescription = (description?: string) => {
-  const source = (description || '').trim();
-  if (!source) {
-    return [] as string[];
-  }
-
-  const paragraphLines = splitBulletLines(source);
-  if (paragraphLines.length > 1) {
-    return paragraphLines.slice(0, 6);
-  }
-
-  return source
-    .split(/[.;•-]/)
-    .map((segment) => segment.trim())
-    .filter((segment) => segment.length > 8)
-    .slice(0, 6);
-};
-
 const ProductDescription = ({ product }: ProductDescriptionProps) => {
-  const [activeTab, setActiveTab] = useState<'details' | 'features' | 'material' | 'care'>('details');
+  const [activeTab, setActiveTab] = useState<TabKey>('details');
 
-  const featureItems = useMemo(() => {
-    const list: string[] = [];
-    
-    if (product.fit) list.push(`Kiểu dáng: ${product.fit}`);
+  const detailsText = (product.description || '').trim() || DEFAULT_DETAILS;
+
+  const sizeFitItems = useMemo(() => {
+    const source = product.sizeAndFit || product.highlights;
+    const lines = splitLines(source);
+    if (lines.length > 0) {
+      return lines;
+    }
+
+    const fallback: string[] = [];
+    if (product.fit) {
+      fallback.push(`Kiểu dáng: ${product.fit}`);
+    }
     if (product.gender) {
       const genderMap: Record<string, string> = { MALE: 'Nam', FEMALE: 'Nữ', UNISEX: 'Unisex' };
-      list.push(`Phù hợp cho: ${genderMap[product.gender.toUpperCase()] || product.gender}`);
+      fallback.push(`Phù hợp cho: ${genderMap[product.gender.toUpperCase()] || product.gender}`);
     }
+    return fallback.length > 0 ? fallback : DEFAULT_SIZE_FIT;
+  }, [product.fit, product.gender, product.highlights, product.sizeAndFit]);
 
-    const fromHighlights = splitBulletLines(product.highlights);
-    if (fromHighlights.length > 0) {
-      return [...list, ...fromHighlights];
-    }
-
-    const fromDescription = parseHighlightsFromDescription(product.description);
-    if (fromDescription.length > 0) {
-      return [...list, ...fromDescription];
-    }
-
-    return [...list, ...DEFAULT_FEATURES];
-  }, [product.description, product.highlights, product.fit, product.gender]);
-
-  const careItems = useMemo(() => {
-    const fromCare = splitBulletLines(product.careInstructions);
-    if (fromCare.length > 0) {
-      return fromCare;
-    }
-    return DEFAULT_CARE;
-  }, [product.careInstructions]);
-
-  const materialText = (product.material || '').trim() || DEFAULT_MATERIAL;
+  const fabricCareItems = useMemo(() => {
+    const source = product.fabricAndCare
+      || [product.material, product.careInstructions].filter(Boolean).join('\n');
+    const lines = splitLines(source);
+    return lines.length > 0 ? lines : DEFAULT_FABRIC_CARE;
+  }, [product.careInstructions, product.fabricAndCare, product.material]);
 
   return (
     <div className="product-description-container">
@@ -89,22 +63,16 @@ const ProductDescription = ({ product }: ProductDescriptionProps) => {
           Thông tin chi tiết
         </button>
         <button
-          className={`desc-tab-btn ${activeTab === 'features' ? 'active' : ''}`}
-          onClick={() => setActiveTab('features')}
+          className={`desc-tab-btn ${activeTab === 'size-fit' ? 'active' : ''}`}
+          onClick={() => setActiveTab('size-fit')}
         >
-          Đặc điểm nổi bật
+          Kích cỡ & kiểu dáng
         </button>
         <button
-          className={`desc-tab-btn ${activeTab === 'material' ? 'active' : ''}`}
-          onClick={() => setActiveTab('material')}
+          className={`desc-tab-btn ${activeTab === 'fabric-care' ? 'active' : ''}`}
+          onClick={() => setActiveTab('fabric-care')}
         >
-          Chất liệu
-        </button>
-        <button
-          className={`desc-tab-btn ${activeTab === 'care' ? 'active' : ''}`}
-          onClick={() => setActiveTab('care')}
-        >
-          Hướng dẫn bảo quản
+          Chất liệu & hướng dẫn bảo quản
         </button>
       </div>
 
@@ -112,40 +80,29 @@ const ProductDescription = ({ product }: ProductDescriptionProps) => {
         {activeTab === 'details' && (
           <div className="tab-pane active">
             <h3>Thông tin chi tiết</h3>
-            {product.description ? (
-              <div className="tab-text" style={{ whiteSpace: 'pre-line' }}>
-                {product.description}
-              </div>
-            ) : (
-              <p className="tab-text admin-muted">Nhà bán chưa cập nhật thông tin chi tiết cho sản phẩm này.</p>
-            )}
+            <div className="tab-text" style={{ whiteSpace: 'pre-line' }}>
+              {detailsText}
+            </div>
           </div>
         )}
 
-        {activeTab === 'features' && (
+        {activeTab === 'size-fit' && (
           <div className="tab-pane active">
-            <h3>Đặc điểm nổi bật</h3>
+            <h3>Kích cỡ & kiểu dáng</h3>
             <ul className="feature-list">
-              {featureItems.map((item, index) => (
-                <li key={`feature-${index}`}>{item}</li>
+              {sizeFitItems.map((item, index) => (
+                <li key={`size-fit-${index}`}>{item}</li>
               ))}
             </ul>
           </div>
         )}
 
-        {activeTab === 'material' && (
+        {activeTab === 'fabric-care' && (
           <div className="tab-pane active">
-            <h3>Chất liệu</h3>
-            <p className="tab-text">{materialText}</p>
-          </div>
-        )}
-
-        {activeTab === 'care' && (
-          <div className="tab-pane active">
-            <h3>Hướng dẫn bảo quản</h3>
+            <h3>Chất liệu & hướng dẫn bảo quản</h3>
             <ul className="feature-list">
-              {careItems.map((item, index) => (
-                <li key={`care-${index}`}>{item}</li>
+              {fabricCareItems.map((item, index) => (
+                <li key={`fabric-care-${index}`}>{item}</li>
               ))}
             </ul>
           </div>

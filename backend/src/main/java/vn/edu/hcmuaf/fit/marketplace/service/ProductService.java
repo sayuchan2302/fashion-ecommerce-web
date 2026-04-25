@@ -282,11 +282,13 @@ public class ProductService {
                 .slug(request.getSlug())
                 .storeId(storeId)  // Set store ownership
                 .description(request.getDescription())
-                .highlights(request.getHighlights())
-                .careInstructions(request.getCareInstructions())
+                .sizeAndFit(resolveSizeAndFit(request))
+                .fabricAndCare(resolveFabricAndCare(request))
+                .highlights(resolveSizeAndFit(request))
+                .careInstructions(resolveFabricAndCare(request))
                 .basePrice(request.getBasePrice())
                 .salePrice(request.getSalePrice())
-                .material(request.getMaterial())
+                .material(null)
                 .fit(request.getFit())
                 .status(status)
                 // Business rule: vendor products are published immediately.
@@ -358,11 +360,19 @@ public class ProductService {
         if (request.getName() != null) product.setName(request.getName());
         if (request.getSlug() != null) product.setSlug(request.getSlug());
         if (request.getDescription() != null) product.setDescription(request.getDescription());
-        if (request.getHighlights() != null) product.setHighlights(request.getHighlights());
-        if (request.getCareInstructions() != null) product.setCareInstructions(request.getCareInstructions());
+        if (request.getSizeAndFit() != null || request.getHighlights() != null) {
+            String sizeAndFit = resolveSizeAndFit(request);
+            product.setSizeAndFit(sizeAndFit);
+            product.setHighlights(sizeAndFit);
+        }
+        if (request.getFabricAndCare() != null || request.getMaterial() != null || request.getCareInstructions() != null) {
+            String fabricAndCare = resolveFabricAndCare(request);
+            product.setFabricAndCare(fabricAndCare);
+            product.setCareInstructions(fabricAndCare);
+            product.setMaterial(null);
+        }
         if (request.getBasePrice() != null) product.setBasePrice(request.getBasePrice());
         if (request.getSalePrice() != null) product.setSalePrice(request.getSalePrice());
-        if (request.getMaterial() != null) product.setMaterial(request.getMaterial());
         if (request.getFit() != null) product.setFit(request.getFit());
         if (request.getGender() != null) {
             product.setGender(Gender.valueOf(request.getGender().toUpperCase()));
@@ -479,6 +489,7 @@ public class ProductService {
                     .product(product)
                     .sku(normalizedSku)
                     .color(item.getColor() == null || item.getColor().isBlank() ? "Default" : item.getColor().trim())
+                    .colorHex(normalizeColorHex(item.getColorHex()))
                     .size(item.getSize() == null || item.getSize().isBlank() ? "Default" : item.getSize().trim())
                     .stockQuantity(Math.max(0, item.getStockQuantity() == null ? 0 : item.getStockQuantity()))
                     .priceAdjustment(item.getPriceAdjustment() == null ? BigDecimal.ZERO : item.getPriceAdjustment())
@@ -516,6 +527,7 @@ public class ProductService {
                     .product(product)
                     .sku(fallbackSku)
                     .color("Default")
+                    .colorHex(null)
                     .size("Default")
                     .stockQuantity(Math.max(0, stockQuantity == null ? 0 : stockQuantity))
                     .priceAdjustment(BigDecimal.ZERO)
@@ -535,6 +547,11 @@ public class ProductService {
         }
         if (variant.getColor() == null || variant.getColor().isBlank()) {
             variant.setColor("Default");
+        }
+        if (variant.getColorHex() == null || variant.getColorHex().isBlank()) {
+            variant.setColorHex(normalizeColorHex(variant.getColor()));
+        } else {
+            variant.setColorHex(normalizeColorHex(variant.getColorHex()));
         }
         if (variant.getSize() == null || variant.getSize().isBlank()) {
             variant.setSize("Default");
@@ -643,6 +660,7 @@ public class ProductService {
                         .id(variant.getId())
                         .sku(variant.getSku())
                         .color(variant.getColor())
+                        .colorHex(variant.getColorHex())
                         .size(variant.getSize())
                         .stockQuantity(variant.getStockQuantity())
                         .priceAdjustment(variant.getPriceAdjustment())
@@ -655,11 +673,13 @@ public class ProductService {
                 .name(product.getName())
                 .slug(product.getSlug())
                 .description(product.getDescription())
-                .highlights(product.getHighlights())
-                .material(product.getMaterial())
+                .sizeAndFit(firstNonBlank(product.getSizeAndFit(), product.getHighlights()))
+                .fabricAndCare(firstNonBlank(product.getFabricAndCare(), product.getCareInstructions(), product.getMaterial()))
+                .highlights(firstNonBlank(product.getSizeAndFit(), product.getHighlights()))
+                .material(null)
                 .fit(product.getFit())
                 .gender(product.getGender() == null ? null : product.getGender().name())
-                .careInstructions(product.getCareInstructions())
+                .careInstructions(firstNonBlank(product.getFabricAndCare(), product.getCareInstructions(), product.getMaterial()))
                 .status(product.getStatus() == null ? null : product.getStatus().name())
                 .visible(product.getStatus() == ProductStatus.ACTIVE)
                 .categoryId(product.getCategory() != null ? product.getCategory().getId() : null)
@@ -677,6 +697,51 @@ public class ProductService {
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();
+    }
+
+    private String resolveSizeAndFit(ProductRequest request) {
+        return firstNonBlank(request.getSizeAndFit(), request.getHighlights());
+    }
+
+    private String resolveFabricAndCare(ProductRequest request) {
+        String combined = firstNonBlank(request.getFabricAndCare());
+        if (combined != null) {
+            return combined;
+        }
+
+        String material = normalizeNullable(request.getMaterial());
+        String care = normalizeNullable(request.getCareInstructions());
+        if (material == null && care == null) {
+            return null;
+        }
+        if (material == null) {
+            return care;
+        }
+        if (care == null) {
+            return material;
+        }
+        return material + "\n" + care;
+    }
+
+    private String normalizeNullable(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isBlank() ? null : normalized;
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            String normalized = normalizeNullable(value);
+            if (normalized != null) {
+                return normalized;
+            }
+        }
+        return null;
     }
 
     private Map<UUID, ProductSalesSnapshot> loadDeliveredSalesByProduct(List<Product> products, UUID storeId) {
@@ -820,6 +885,30 @@ public class ProductService {
 
         String normalized = keyword.trim().toLowerCase(Locale.ROOT);
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String normalizeColorHex(String rawColorHex) {
+        if (rawColorHex == null) {
+            return null;
+        }
+
+        String normalized = rawColorHex.trim();
+        if (normalized.isBlank()) {
+            return null;
+        }
+        if (!normalized.startsWith("#")) {
+            normalized = "#" + normalized;
+        }
+        if (!normalized.matches("^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")) {
+            return null;
+        }
+        if (normalized.length() == 4) {
+            char r = normalized.charAt(1);
+            char g = normalized.charAt(2);
+            char b = normalized.charAt(3);
+            normalized = "#" + r + r + g + g + b + b;
+        }
+        return normalized.toLowerCase(Locale.ROOT);
     }
 
     private Category resolveLeafCategoryOrThrow(UUID categoryId) {

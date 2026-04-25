@@ -21,6 +21,7 @@ interface QuickViewProduct {
   sizes?: string[];
   variants?: Array<{
     color: string;
+    colorHex?: string;
     size: string;
     backendId?: string;
   }>;
@@ -58,6 +59,11 @@ const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
   const variantSizes = Array.from(new Set((product.variants || []).map((variant) => variant.size).filter(Boolean)));
   const availableSizes = variantSizes.length > 0 ? variantSizes : (product.sizes ?? DEFAULT_SIZES);
   const selectedColorValue = product.colors?.[selectedColorIdx] ?? '';
+  const colorHexByName = new Map(
+    (product.variants || [])
+      .map((variant) => [String(variant.color || '').trim(), String(variant.colorHex || '').trim()] as const)
+      .filter(([color, hex]) => Boolean(color && hex)),
+  );
 
   const handleAddToCart = async () => {
     const localVariantId = product.variants?.find((variant) => (
@@ -178,7 +184,7 @@ const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
                     <button
                       key={idx}
                       className={`qv-color-swatch ${selectedColorIdx === idx ? 'selected' : ''}`}
-                      style={{ backgroundColor: resolveColorSwatch(color) }}
+                      style={{ backgroundColor: resolveColorSwatch(colorHexByName.get(color) || color) }}
                       onClick={() => setSelectedColorIdx(idx)}
                       aria-label={`Màu ${idx + 1}`}
                     />

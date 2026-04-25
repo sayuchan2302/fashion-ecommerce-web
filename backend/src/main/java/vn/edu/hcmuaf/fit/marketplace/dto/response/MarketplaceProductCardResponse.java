@@ -45,6 +45,7 @@ public class MarketplaceProductCardResponse {
         private UUID id;
         private String sku;
         private String color;
+        private String colorHex;
         private String size;
         private Integer stockQuantity;
     }

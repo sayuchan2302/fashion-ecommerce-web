@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import { Star } from 'lucide-react';
 import { resolveColorSwatch } from '../../utils/colorSwatch';
 import './ProductInfo.css';
@@ -10,21 +10,49 @@ interface ProductInfoProps {
     originalPrice?: number;
     sold?: number;
     colors?: string[];
-    variants?: { size: string; color: string; price: number; stock: number }[];
+    variants?: { size: string; color: string; colorHex?: string; price: number; stock: number }[];
   };
   averageRating?: number | null;
   reviewCount?: number;
   onVariantChange?: (color: string, size: string) => void;
 }
 
+const ONE_SIZE_TOKENS = new Set(['free', 'f', 'one size', 'onesize', 'os']);
+
+const isOneSizeToken = (size: string) => ONE_SIZE_TOKENS.has(size.trim().toLowerCase());
+
 const ProductInfo = ({ product, averageRating = null, reviewCount = 0, onVariantChange }: ProductInfoProps) => {
-  const colorOptions = useMemo(() => product.colors || Array.from(new Set(product.variants?.map((v) => v.color) || [])), [product.colors, product.variants]);
-  const sizeOptions = useMemo(() => Array.from(new Set(product.variants?.map((v) => v.size) || [])), [product.variants]);
+  const colorOptions = useMemo(
+    () => product.colors || Array.from(new Set(product.variants?.map((variant) => variant.color) || [])),
+    [product.colors, product.variants],
+  );
+
+  const colorHexByName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const variant of product.variants || []) {
+      const color = String(variant.color || '').trim();
+      const hex = String(variant.colorHex || '').trim();
+      if (!color || !hex || map.has(color)) {
+        continue;
+      }
+      map.set(color, hex);
+    }
+    return map;
+  }, [product.variants]);
+
+  const sizeOptions = useMemo(
+    () => Array.from(new Set((product.variants?.map((variant) => String(variant.size || '').trim()) || []).filter(Boolean))),
+    [product.variants],
+  );
+
+  const isOneSizeOnly = sizeOptions.length === 1 && isOneSizeToken(sizeOptions[0]);
+  const showSizeSelector = sizeOptions.length > 0 && !isOneSizeOnly;
+
   const [selectedColor, setSelectedColor] = useState(colorOptions[0] || '');
   const [selectedSize, setSelectedSize] = useState(sizeOptions[0] || '');
 
   const activeVariant = useMemo(
-    () => product.variants?.find((v) => v.color === selectedColor && v.size === selectedSize),
+    () => product.variants?.find((variant) => variant.color === selectedColor && variant.size === selectedSize),
     [product.variants, selectedColor, selectedSize],
   );
 
@@ -43,8 +71,8 @@ const ProductInfo = ({ product, averageRating = null, reviewCount = 0, onVariant
 
   return (
     <div className="product-info-container">
-      {/* Title & Reviews */}
       <h1 className="pdp-title">{product.name}</h1>
+
       <div className="pdp-meta">
         {reviewCount > 0 ? (
           <div className="pdp-rating">
@@ -57,28 +85,25 @@ const ProductInfo = ({ product, averageRating = null, reviewCount = 0, onVariant
             <span className="rating-count">Chưa có đánh giá</span>
           </div>
         )}
-        {typeof product.sold === 'number' && (
+
+        {typeof product.sold === 'number' ? (
           <>
             <span className="separator">|</span>
-            <div className="pdp-sold">
-              Đã bán {product.sold > 1000 ? `${(product.sold / 1000).toFixed(1)}k` : product.sold}
-            </div>
+            <div className="pdp-sold">Đã bán {product.sold > 1000 ? `${(product.sold / 1000).toFixed(1)}k` : product.sold}</div>
           </>
-        )}
+        ) : null}
       </div>
 
-      {/* Price Block */}
       <div className="pdp-price-box">
         <span className="current-price">{price.toLocaleString('vi-VN')}đ</span>
-        {product.originalPrice && (
+        {product.originalPrice ? (
           <>
             <span className="original-price">{product.originalPrice.toLocaleString('vi-VN')}đ</span>
             <span className="discount-badge">-{discount}%</span>
           </>
-        )}
+        ) : null}
       </div>
 
-      {/* Color Selection */}
       <div className="pdp-variant-group">
         <div className="variant-header">
           <span className="variant-label">Màu sắc: <strong>{selectedColor}</strong></span>
@@ -92,31 +117,34 @@ const ProductInfo = ({ product, averageRating = null, reviewCount = 0, onVariant
               title={color}
               aria-label={`Select color ${color}`}
             >
-              <span className="color-swatch-inner" style={{ backgroundColor: resolveColorSwatch(color) }}></span>
+              <span
+                className="color-swatch-inner"
+                style={{ backgroundColor: resolveColorSwatch(colorHexByName.get(color) || color) }}
+              ></span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Size Selection */}
-      <div className="pdp-variant-group">
-        <div className="variant-header">
-          <span className="variant-label">Kích cỡ: <strong>{selectedSize}</strong></span>
-          <button className="size-guide-link">Bảng kích cỡ</button>
+      {showSizeSelector ? (
+        <div className="pdp-variant-group">
+          <div className="variant-header">
+            <span className="variant-label">Kích cỡ: <strong>{selectedSize}</strong></span>
+            <button className="size-guide-link">Bảng kích cỡ</button>
+          </div>
+          <div className="size-options">
+            {sizeOptions.map((size) => (
+              <button
+                key={size}
+                className={`size-btn ${selectedSize === size ? 'selected' : ''}`}
+                onClick={() => handleSizeChange(size)}
+              >
+                {size}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="size-options">
-          {sizeOptions.map((size) => (
-            <button
-              key={size}
-              className={`size-btn ${selectedSize === size ? 'selected' : ''}`}
-              onClick={() => handleSizeChange(size)}
-            >
-              {size}
-            </button>
-          ))}
-        </div>
-      </div>
-      
+      ) : null}
     </div>
   );
 };

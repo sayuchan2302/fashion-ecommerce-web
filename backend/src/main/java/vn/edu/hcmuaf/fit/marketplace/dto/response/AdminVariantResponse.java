@@ -9,6 +9,7 @@ public class AdminVariantResponse {
     private String id;
     private String size;
     private String color;
+    private String colorHex;
     private String sku;
     private Double price;
     private Integer stock;

@@ -16,6 +16,8 @@ interface BackendVendorProduct {
   name?: string;
   slug?: string;
   description?: string;
+  sizeAndFit?: string;
+  fabricAndCare?: string;
   highlights?: string;
   material?: string;
   careInstructions?: string;
@@ -41,6 +43,7 @@ interface BackendVendorVariant {
   id?: string;
   sku?: string;
   color?: string;
+  colorHex?: string;
   size?: string;
   stockQuantity?: number;
   priceAdjustment?: number;
@@ -66,6 +69,8 @@ interface BackendProductRequest {
   name?: string;
   slug?: string;
   description?: string;
+  sizeAndFit?: string;
+  fabricAndCare?: string;
   highlights?: string;
   material?: string;
   careInstructions?: string;
@@ -82,6 +87,7 @@ interface BackendProductRequest {
   variants?: Array<{
     sku?: string;
     color: string;
+    colorHex?: string;
     size: string;
     stockQuantity: number;
     priceAdjustment: number;
@@ -98,6 +104,8 @@ export interface VendorProductRecord {
   sku: string;
   category: string;
   categoryId?: string;
+  sizeAndFit: string;
+  fabricAndCare: string;
   material: string;
   highlights: string;
   careInstructions: string;
@@ -134,6 +142,8 @@ export interface VendorProductUpsertInput {
   salePrice?: number;
   stock: number;
   description?: string;
+  sizeAndFit?: string;
+  fabricAndCare?: string;
   highlights?: string;
   material?: string;
   careInstructions?: string;
@@ -154,6 +164,7 @@ export interface VendorProductVariant {
   id?: string;
   sku: string;
   color: string;
+  colorHex?: string;
   size: string;
   stockQuantity: number;
   priceAdjustment: number;
@@ -162,6 +173,7 @@ export interface VendorProductVariant {
 
 export interface VendorProductVariantInput {
   color: string;
+  colorHex?: string;
   size: string;
   stockQuantity: number;
   priceAdjustment?: number;
@@ -236,6 +248,7 @@ const mapBackendProduct = (product: BackendVendorProduct): VendorProductRecord =
         id: variant.id,
         sku,
         color: normalizeText(variant.color) || 'Default',
+        colorHex: normalizeText(variant.colorHex) || undefined,
         size: normalizeText(variant.size) || 'Default',
         stockQuantity: Math.max(0, Number(variant.stockQuantity || 0)),
         priceAdjustment: Number(variant.priceAdjustment || 0),
@@ -249,6 +262,7 @@ const mapBackendProduct = (product: BackendVendorProduct): VendorProductRecord =
     : [{
       sku: normalizeText(product.primarySku) || fallbackSku,
       color: 'Default',
+      colorHex: undefined,
       size: 'Default',
       stockQuantity: stock,
       priceAdjustment: 0,
@@ -276,6 +290,8 @@ const mapBackendProduct = (product: BackendVendorProduct): VendorProductRecord =
     sku: normalizeText(product.primarySku) || fallbackSku,
     category: normalizeText(product.categoryName) || 'Chưa phân loại',
     categoryId: product.categoryId,
+    sizeAndFit: normalizeText(product.sizeAndFit || product.highlights),
+    fabricAndCare: normalizeText(product.fabricAndCare || product.careInstructions || product.material),
     material: normalizeText(product.material),
     highlights: normalizeText(product.highlights),
     careInstructions: normalizeText(product.careInstructions),
@@ -330,6 +346,9 @@ const toRequestPayload = (
     name: normalizedName,
     slug: normalizedSlug,
     description: normalizeText(input.description),
+    sizeAndFit: normalizeText(input.sizeAndFit || input.highlights),
+    fabricAndCare: normalizeText(input.fabricAndCare)
+      || [normalizeText(input.material), normalizeText(input.careInstructions)].filter(Boolean).join('\n'),
     highlights: normalizeText(input.highlights),
     material: normalizeText(input.material),
     careInstructions: normalizeText(input.careInstructions),
@@ -345,6 +364,7 @@ const toRequestPayload = (
     variants: (input.variants || [])
       .map((variant) => ({
         color: normalizeText(variant.color) || 'Default',
+        colorHex: normalizeText(variant.colorHex) || undefined,
         size: normalizeText(variant.size) || 'Default',
         stockQuantity: Math.max(0, Number(variant.stockQuantity || 0)),
         priceAdjustment: Number(variant.priceAdjustment || 0),

@@ -562,8 +562,9 @@ const VendorProducts = () => {
     });
   };
 
-  const normalizeVariantRowsForSave = (rows: VariantRowFormState[]) => rows.map((row) => ({
+const normalizeVariantRowsForSave = (rows: VariantRowFormState[]) => rows.map((row) => ({
     color: normalizeVariantText(row.axis1),
+    colorHex: normalizeHexColor(row.colorHex, resolveColorSwatch(row.axis1, '#111827')),
     size: normalizeVariantText(row.axis2),
     stockQuantity: Math.max(0, Number(row.stockQuantity || 0)),
     priceAdjustment: Number(row.priceAdjustment || 0),
@@ -606,7 +607,7 @@ const VendorProducts = () => {
         key,
         axis1,
         axis2,
-        colorHex: resolveColorSwatch(axis1, '#111827'),
+        colorHex: normalizeHexColor(variant.colorHex || '', resolveColorSwatch(axis1, '#111827')),
         stockQuantity: Math.max(0, Number(variant.stockQuantity || 0)),
         priceAdjustment: Number(variant.priceAdjustment || 0),
         isActive: variant.isActive !== false,

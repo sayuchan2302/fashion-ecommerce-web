@@ -28,6 +28,9 @@ public class ProductVariant extends BaseEntity {
 
     private String color;
 
+    @Column(name = "color_hex")
+    private String colorHex;
+
     private String size;
 
     @Column(name = "stock_quantity")

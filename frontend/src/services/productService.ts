@@ -3,6 +3,7 @@ import { storeService } from './storeService';
 import type { Product, ProductVariant, ProductStatusType } from '../types';
 import { normalizeStoreSlug } from '../utils/storeIdentity';
 import { getOptimizedImageUrl } from '../utils/getOptimizedImageUrl';
+import { resolveColorSwatch } from '../utils/colorSwatch';
 import {
   listAdminProducts,
   listAdminProductsSnapshot,
@@ -44,6 +45,7 @@ interface BackendProductVariant {
   id?: string;
   sku?: string;
   color?: string;
+  colorHex?: string;
   size?: string;
   stockQuantity?: number;
   priceAdjustment?: number;
@@ -59,6 +61,8 @@ interface BackendProduct {
   slug?: string;
   name?: string;
   description?: string;
+  sizeAndFit?: string;
+  fabricAndCare?: string;
   highlights?: string;
   material?: string;
   fit?: string;
@@ -124,6 +128,24 @@ const mapStatusType = (statusType: string): ProductStatusType => {
 const optimizeProductImage = (rawUrl: string | null | undefined, width: number) =>
   getOptimizedImageUrl(rawUrl, { width, format: 'webp', quality: 74 });
 
+const dedupeColorsBySwatch = (variants: ProductVariant[]): string[] => {
+  const seenSwatches = new Set<string>();
+  const result: string[] = [];
+  for (const variant of variants) {
+    const colorName = String(variant.color || '').trim();
+    if (!colorName) {
+      continue;
+    }
+    const swatchKey = resolveColorSwatch(variant.colorHex || colorName).toLowerCase();
+    if (seenSwatches.has(swatchKey)) {
+      continue;
+    }
+    seenSwatches.add(swatchKey);
+    result.push(colorName);
+  }
+  return result;
+};
+
 const mapAdminProductToClient = (record: AdminProductRecord, index: number): Product => {
   const variantRows = Array.isArray(record.variantMatrix) ? record.variantMatrix : [];
   const variants: ProductVariant[] = variantRows.map((row) => ({
@@ -172,12 +194,13 @@ const mapBackendProduct = (product: BackendProduct): Product => {
     backendId: variant.id,
     size: variant.size || '',
     color: variant.color || '',
+    colorHex: (variant.colorHex || '').trim() || undefined,
     sku: variant.sku || '',
     price: (product.salePrice || product.basePrice || 0) + (variant.priceAdjustment || 0),
     stock: variant.stockQuantity || 0,
   }));
 
-  const colors = Array.from(new Set(variants.map((variant) => variant.color).filter(Boolean)));
+  const colors = dedupeColorsBySwatch(variants);
   const sizes = Array.from(new Set(variants.map((variant) => variant.size).filter(Boolean)));
   const sortedImages = sortImages(product.images);
   const imageUrls = sortedImages
@@ -200,6 +223,8 @@ const mapBackendProduct = (product: BackendProduct): Product => {
     sku: product.slug || product.id,
     name: product.name || 'Unnamed product',
     description: product.description,
+    sizeAndFit: product.sizeAndFit || product.highlights,
+    fabricAndCare: product.fabricAndCare || product.careInstructions || product.material,
     highlights: product.highlights,
     material: product.material,
     fit: product.fit,

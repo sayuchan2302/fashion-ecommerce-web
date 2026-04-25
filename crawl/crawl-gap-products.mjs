@@ -9,29 +9,33 @@ const __dirname = path.dirname(__filename);
 
 const DEFAULTS = {
   categoriesPath: path.join(__dirname, 'default-categories.json'),
-  outputDir: path.resolve(__dirname, '..', '..', 'backend', 'src', 'main', 'resources', 'seeder', 'gap'),
+  outputDir: path.resolve(__dirname, '..', 'backend', 'src', 'main', 'resources', 'product'),
   targetCount: 1000,
+  maxColorsPerProduct: 4,
+  maxSizesPerProduct: 6,
   maxPerCategory: 120,
   delayMs: 1200,
   timeoutMs: 45_000,
   headless: true,
   maxStableRounds: 5,
 };
-const MAX_IMAGES_PER_PRODUCT = 4;
+const MAX_IMAGES_PER_PRODUCT = 6;
 
 const HELP_TEXT = `
 Gap product crawler (safe-mode) -> exports GAP importer-compatible CSV
 
 Usage:
-  node crawl/gap/crawl-gap-products.mjs [options]
+  node crawl/crawl-gap-products.mjs [options]
 
 Options:
   --target-count <n>       Total products to collect (default: 1000)
+  --max-colors <n>         Max colors captured per product (default: 4)
+  --max-sizes <n>          Max sizes captured per product (default: 6)
   --max-per-category <n>   Max product links collected per category URL (default: 120)
   --delay-ms <n>           Delay between requests in ms (default: 1200)
   --timeout-ms <n>         Navigation timeout in ms (default: 45000)
   --categories <path>      Path to category config JSON
-  --output-dir <path>      Directory for output files (default: backend/src/main/resources/seeder/gap)
+  --output-dir <path>      Directory for output files (default: backend/src/main/resources/product)
   --headless <true|false>  Run browser headless (default: true)
   --help                   Show this help
 
@@ -98,12 +102,233 @@ function extractPidFromUrl(productUrl) {
 }
 
 function normalizeSpace(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
+  return String(value || '')
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F\u2033]/g, '"')
+    .replace(/[\u2032]/g, "'")
+    .replace(/[\u2012\u2013\u2014\u2015]/g, '-')
+    .replace(/\u2022/g, '-')
+    .replace(/\u200B/g, '')
+    .replace(/\u00A0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function normalizeCase(value) {
   const normalized = normalizeSpace(value);
   return normalized ? normalized[0].toUpperCase() + normalized.slice(1) : '';
+}
+
+function normalizeColorLabel(value) {
+  const normalized = normalizeSpace(value)
+    .replace(/^color\s*:?/i, '')
+    .replace(/^mau\s*:?/i, '');
+  return normalizeCase(normalized);
+}
+
+function normalizeSizeLabel(value) {
+  const normalized = normalizeSpace(value).replace(/[_-]+/g, '/');
+  if (!normalized) return '';
+  const upper = normalized.toUpperCase();
+
+  // GAP often returns waist sizes as 28W, 29W... keep digits only.
+  const waistOnlyMatch = upper.match(/^(\d{2,3})\s*W$/);
+  if (waistOnlyMatch) {
+    return waistOnlyMatch[1];
+  }
+
+  return upper;
+}
+
+function normalizeHexColor(value) {
+  const raw = normalizeSpace(value).toLowerCase();
+  const match = raw.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!match) {
+    return '';
+  }
+  if (match[1].length === 3) {
+    const [r, g, b] = match[1];
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return `#${match[1].toLowerCase()}`;
+}
+
+function isDarkColorName(colorName) {
+  const token = normalizeSpace(colorName).toLowerCase();
+  if (!token) return false;
+  return [
+    'black',
+    'night',
+    'midnight',
+    'moonless',
+    'charcoal',
+    'jet',
+    'onyx',
+    'ink',
+    'navy',
+    'washed black',
+  ].some((keyword) => token.includes(keyword));
+}
+
+function inferHexFromColorName(colorName) {
+  const token = normalizeSpace(colorName).toLowerCase();
+  if (!token) return '';
+
+  const keywordPalette = [
+    { keys: ['white', 'ivory', 'cream', 'off white'], hex: '#f3f4f6' },
+    { keys: ['black', 'charcoal', 'jet', 'onyx', 'midnight', 'moonless', 'washed black'], hex: '#111827' },
+    { keys: ['navy', 'indigo', 'blue', 'denim', 'wash', 'cornflower', 'rinsed', 'resin'], hex: '#4b6b9b' },
+    { keys: ['grey', 'gray', 'ash', 'silver', 'heather'], hex: '#9ca3af' },
+    { keys: ['olive', 'green', 'sage', 'mint'], hex: '#6b8f71' },
+    { keys: ['khaki', 'tan', 'beige', 'camel', 'cashew', 'cognac', 'brown', 'chocolate'], hex: '#b08968' },
+    { keys: ['red', 'crimson', 'burgundy', 'wine'], hex: '#b91c1c' },
+    { keys: ['pink', 'rose', 'blush'], hex: '#db89a8' },
+    { keys: ['purple', 'violet', 'lavender'], hex: '#8b5fbf' },
+    { keys: ['yellow', 'gold', 'mustard'], hex: '#ca8a04' },
+    { keys: ['orange', 'peach', 'coral'], hex: '#ea580c' },
+  ];
+
+  for (const entry of keywordPalette) {
+    if (entry.keys.some((key) => token.includes(key))) {
+      return entry.hex;
+    }
+  }
+  return '';
+}
+
+function normalizeHexForColorName(rawHex, colorName) {
+  const normalized = normalizeHexColor(rawHex);
+  if (!normalized) {
+    return inferHexFromColorName(colorName);
+  }
+
+  const isBlackish = normalized === '#000000' || normalized === '#010101' || normalized === '#111111';
+  if (isBlackish && !isDarkColorName(colorName)) {
+    return inferHexFromColorName(colorName);
+  }
+
+  const isNeutralGray = normalized === '#9ca3af' || normalized === '#d1d5db' || normalized === '#6b7280';
+  const isGrayName = /grey|gray|ash|silver|heather/i.test(normalizeSpace(colorName));
+  if (isNeutralGray && !isGrayName) {
+    const inferred = inferHexFromColorName(colorName);
+    if (inferred) {
+      return inferred;
+    }
+  }
+
+  return normalized;
+}
+
+function splitTextLines(value) {
+  return String(value || '')
+    .split(/\r?\n+/)
+    .map((line) => normalizeSpace(line))
+    .filter(Boolean);
+}
+
+function sanitizeSectionLine(value) {
+  return normalizeSpace(value).replace(/[|]+/g, ' ');
+}
+
+function toInlineSectionText(lines) {
+  const normalized = Array.from(new Set((lines || [])
+    .map((line) => sanitizeSectionLine(line))
+    .filter(Boolean)));
+  return normalized.join(' | ');
+}
+
+function parseGapInfoSections(detailsText) {
+  const lines = splitTextLines(detailsText);
+  if (lines.length === 0) {
+    return {
+      productDetails: '',
+      sizeFitDetails: '',
+      fabricDetails: '',
+      careDetails: '',
+    };
+  }
+
+  const sections = {
+    productDetails: [],
+    sizeFitDetails: [],
+    fabricCare: [],
+  };
+  let currentSection = null;
+
+  for (const rawLine of lines) {
+    const line = sanitizeSectionLine(rawLine);
+    const lowered = line.toLowerCase();
+
+    if (/^product\s+details?$/.test(lowered)) {
+      currentSection = 'productDetails';
+      continue;
+    }
+    if (/^size\s*&?\s*fit$/.test(lowered)) {
+      currentSection = 'sizeFitDetails';
+      continue;
+    }
+    if (/^fabric\s*&?\s*care$/.test(lowered)) {
+      currentSection = 'fabricCare';
+      continue;
+    }
+
+    if (currentSection) {
+      sections[currentSection].push(line);
+    }
+  }
+
+  const hasStructuredSections =
+    sections.productDetails.length > 0
+    || sections.sizeFitDetails.length > 0
+    || sections.fabricCare.length > 0;
+  if (!hasStructuredSections) {
+    return {
+      productDetails: toInlineSectionText(lines),
+      sizeFitDetails: '',
+      fabricDetails: '',
+      careDetails: '',
+    };
+  }
+
+  const careKeywords = [
+    'wash', 'dry', 'bleach', 'iron', 'tumble', 'clean',
+    'do not', 'machine', 'hand wash', 'line dry', 'lay flat', 'rinse',
+  ];
+  const materialKeywords = [
+    'cotton', 'polyester', 'spandex', 'elastane', 'nylon', 'wool', 'linen',
+    'denim', 'rayon', 'viscose', 'acrylic', 'modal', 'silk', 'leather', 'blend', 'recycled',
+  ];
+
+  const fabricLines = [];
+  const careLines = [];
+  for (const line of sections.fabricCare) {
+    const lowered = line.toLowerCase();
+    if (careKeywords.some((keyword) => lowered.includes(keyword))) {
+      careLines.push(line);
+      continue;
+    }
+    fabricLines.push(line);
+  }
+
+  if (fabricLines.length === 0 && sections.fabricCare.length > 0) {
+    const firstMaterial = sections.fabricCare.find((line) =>
+      materialKeywords.some((keyword) => line.toLowerCase().includes(keyword)),
+    );
+    if (firstMaterial) {
+      fabricLines.push(firstMaterial);
+    }
+  }
+
+  if (careLines.length === 0 && sections.fabricCare.length > 1) {
+    careLines.push(...sections.fabricCare.slice(1));
+  }
+
+  return {
+    productDetails: toInlineSectionText(sections.productDetails),
+    sizeFitDetails: toInlineSectionText(sections.sizeFitDetails),
+    fabricDetails: toInlineSectionText(fabricLines),
+    careDetails: toInlineSectionText(careLines),
+  };
 }
 
 function parseDollarValues(text) {
@@ -305,6 +530,92 @@ async function scrapeProductPage(page, productUrl, seedCategory, options) {
   await page.waitForTimeout(options.delayMs);
 
   const snapshot = await page.evaluate(() => {
+    const HEX_PATTERN = /#([0-9a-f]{3}|[0-9a-f]{6})/i;
+    const RGB_PATTERN = /rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i;
+
+    const toHex = (r, g, b) => `#${[r, g, b].map((value) => {
+      const normalized = Math.max(0, Math.min(255, Number(value) || 0));
+      return normalized.toString(16).padStart(2, '0');
+    }).join('')}`;
+
+    const normalizeHex = (raw) => {
+      const text = String(raw || '').trim();
+      if (!text) {
+        return '';
+      }
+      const hexMatch = text.match(HEX_PATTERN);
+      if (hexMatch) {
+        const token = hexMatch[0];
+        if (token.length === 4) {
+          const [hash, r, g, b] = token;
+          return `${hash}${r}${r}${g}${g}${b}${b}`.toLowerCase();
+        }
+        return token.toLowerCase();
+      }
+      const rgbMatch = text.match(RGB_PATTERN);
+      if (rgbMatch) {
+        return toHex(rgbMatch[1], rgbMatch[2], rgbMatch[3]);
+      }
+      return '';
+    };
+
+    const inspectNodeForHex = (node) => {
+      if (!node) {
+        return '';
+      }
+      const style = window.getComputedStyle(node);
+      const values = [
+        style.backgroundColor,
+        style.getPropertyValue('--swatch-color'),
+        style.getPropertyValue('--color'),
+        style.getPropertyValue('--bg-color'),
+        style.getPropertyValue('--chip-color'),
+        node.getAttribute('data-color'),
+        node.getAttribute('data-hex'),
+        node.getAttribute('data-swatch-color'),
+        node.getAttribute('style'),
+      ];
+      for (const value of values) {
+        const hex = normalizeHex(value);
+        if (hex) {
+          return hex;
+        }
+      }
+      return '';
+    };
+
+    const findSwatchHex = (input) => {
+      if (!input) {
+        return '';
+      }
+
+      const id = input.getAttribute('id') || '';
+      let label = null;
+      if (id) {
+        label = document.querySelector(`label[for="${id.replace(/"/g, '\\"')}"]`);
+      }
+      if (!label) {
+        label = input.closest('label');
+      }
+
+      const probeNodes = [
+        label,
+        label?.querySelector('[data-testid*="swatch"]'),
+        label?.querySelector('[class*="swatch"]'),
+        label?.querySelector('[style]'),
+        input.parentElement,
+        input,
+      ];
+
+      for (const node of probeNodes) {
+        const hex = inspectNodeForHex(node);
+        if (hex) {
+          return hex;
+        }
+      }
+      return '';
+    };
+
     const absolute = (input) => {
       if (!input) return '';
       try {
@@ -336,6 +647,7 @@ async function scrapeProductPage(page, productUrl, seedCategory, options) {
       label: input.getAttribute('aria-label') || '',
       checked: input.checked,
       disabled: input.disabled,
+      hex: findSwatchHex(input),
     }));
 
     const sizes = Array.from(
@@ -350,14 +662,36 @@ async function scrapeProductPage(page, productUrl, seedCategory, options) {
       };
     }).filter((item) => item.label);
 
-    const images = Array.from(
-      document.querySelectorAll('[data-testid="pdp-photo-brick-image"] img'),
-    )
-      .map((img) => absolute(img.getAttribute('src') || img.getAttribute('data-src') || img.currentSrc || ''))
-      .filter(Boolean);
+    const isLikelyProductImage = (link) => {
+      const value = String(link || '').toLowerCase();
+      if (!value) {
+        return false;
+      }
+      if (value.includes('appsflyer.com') || value.includes('doubleclick.net') || value.includes('/pixel')) {
+        return false;
+      }
+      if (value.includes('/webcontent/')) {
+        return true;
+      }
+      return /\\.(jpg|jpeg|png|webp)(\\?|$)/i.test(value);
+    };
 
+    const imageNodes = [
+      ...document.querySelectorAll('[data-testid="pdp-photo-brick-image"] img'),
+      ...document.querySelectorAll('[data-testid*="pdp"] img'),
+      ...document.querySelectorAll('[class*="pdp"] img'),
+      ...document.querySelectorAll('[class*="gallery"] img'),
+      ...document.querySelectorAll('[class*="thumb"] img'),
+      ...document.querySelectorAll('img[alt*="showing"]'),
+    ];
+    const images = imageNodes
+      .map((img) => absolute(img.getAttribute('src') || img.getAttribute('data-src') || img.currentSrc || ''))
+      .filter((link) => isLikelyProductImage(link));
+
+    const detailsContainer = document.querySelector('[data-testid="pdp-product-info-container"]');
     const detailsText =
-      document.querySelector('[data-testid="pdp-product-info-container"]')?.textContent?.trim()
+      detailsContainer?.innerText?.trim()
+      || detailsContainer?.textContent?.trim()
       || '';
 
     return {
@@ -381,12 +715,59 @@ async function scrapeProductPage(page, productUrl, seedCategory, options) {
   const allPrices = parseDollarValues(snapshot.priceBlock);
   const originalPrice = allPrices[0] || 0;
   const salePrice = allPrices[1] || originalPrice;
-  const selectedColor = normalizeCase(
+  const selectedColor = normalizeColorLabel(
     snapshot.colorValue
     || snapshot.colorOptions.find((option) => option.checked)?.label
     || snapshot.colorOptions[0]?.label
     || '',
   );
+  const dedupedColors = new Set();
+  const colorHexByName = new Map();
+  const availableColors = [
+    selectedColor,
+    ...snapshot.colorOptions
+      .map((option) => normalizeColorLabel(option.label))
+      .filter(Boolean),
+  ];
+  for (const color of availableColors) {
+    if (!dedupedColors.has(color)) {
+      dedupedColors.add(color);
+    }
+    const sourceOption = snapshot.colorOptions.find((option) => normalizeColorLabel(option.label) === color);
+    const normalizedHex = normalizeHexForColorName(sourceOption?.hex || '', color);
+    if (normalizedHex && !colorHexByName.has(color)) {
+      colorHexByName.set(color, normalizedHex);
+    }
+    if (dedupedColors.size >= options.maxColorsPerProduct) {
+      break;
+    }
+  }
+
+  const dedupedSizes = new Set();
+  for (const size of snapshot.sizes || []) {
+    if (!size?.inStock) {
+      continue;
+    }
+    const normalizedSize = normalizeSizeLabel(size.label);
+    if (!normalizedSize) {
+      continue;
+    }
+    dedupedSizes.add(normalizedSize);
+    if (dedupedSizes.size >= options.maxSizesPerProduct) {
+      break;
+    }
+  }
+  if (dedupedSizes.size === 0) {
+    for (const size of snapshot.sizes || []) {
+      const normalizedSize = normalizeSizeLabel(size?.label);
+      if (normalizedSize) {
+        dedupedSizes.add(normalizedSize);
+        if (dedupedSizes.size >= options.maxSizesPerProduct) {
+          break;
+        }
+      }
+    }
+  }
 
   const productName = normalizeSpace(snapshot.title);
   if (!productName) {
@@ -399,6 +780,7 @@ async function scrapeProductPage(page, productUrl, seedCategory, options) {
   const usage = inferUsage(seedCategory, snapshot.breadcrumb, productName);
   const gender = seedCategory.gender || normalizeCase(snapshot.breadcrumb[0] || 'Unisex') || 'Unisex';
   const year = new Date().getFullYear();
+  const sections = parseGapInfoSections(snapshot.detailsText);
 
   return {
     id: pid,
@@ -409,6 +791,9 @@ async function scrapeProductPage(page, productUrl, seedCategory, options) {
     subCategory,
     articleType,
     baseColour: selectedColor || 'Unknown',
+    colorOptions: Array.from(dedupedColors),
+    colorHexOptions: Object.fromEntries(colorHexByName.entries()),
+    sizeOptions: Array.from(dedupedSizes),
     season: 'All',
     year,
     usage,
@@ -419,6 +804,10 @@ async function scrapeProductPage(page, productUrl, seedCategory, options) {
     sizes: snapshot.sizes,
     images: snapshot.images,
     detailsText: normalizeSpace(snapshot.detailsText),
+    productDetails: sections.productDetails,
+    sizeFitDetails: sections.sizeFitDetails,
+    fabricDetails: sections.fabricDetails,
+    careDetails: sections.careDetails,
   };
 }
 
@@ -430,10 +819,19 @@ function buildStylesRows(products) {
     subCategory: item.subCategory,
     articleType: item.articleType,
     baseColour: item.baseColour,
+    colorOptions: (item.colorOptions || []).join('|'),
+    colorHexOptions: Object.entries(item.colorHexOptions || {})
+      .map(([colorName, hex]) => `${colorName}=${hex}`)
+      .join('|'),
+    sizeOptions: (item.sizeOptions || []).join('|'),
     season: item.season,
     year: item.year,
     usage: item.usage,
     productDisplayName: item.productDisplayName,
+    productDetails: item.productDetails || '',
+    sizeFitDetails: item.sizeFitDetails || '',
+    fabricDetails: item.fabricDetails || '',
+    careDetails: item.careDetails || '',
   }));
 }
 
@@ -462,6 +860,8 @@ async function main() {
     categoriesPath: path.resolve(args.categories || DEFAULTS.categoriesPath),
     outputDir: path.resolve(args['output-dir'] || DEFAULTS.outputDir),
     targetCount: parseNumber(args['target-count'], DEFAULTS.targetCount),
+    maxColorsPerProduct: Math.max(1, Math.min(4, parseNumber(args['max-colors'], DEFAULTS.maxColorsPerProduct))),
+    maxSizesPerProduct: Math.max(1, Math.min(6, parseNumber(args['max-sizes'], DEFAULTS.maxSizesPerProduct))),
     maxPerCategory: parseNumber(args['max-per-category'], DEFAULTS.maxPerCategory),
     delayMs: parseNumber(args['delay-ms'], DEFAULTS.delayMs),
     timeoutMs: parseNumber(args['timeout-ms'], DEFAULTS.timeoutMs),
@@ -553,10 +953,17 @@ async function main() {
         'subCategory',
         'articleType',
         'baseColour',
+        'colorOptions',
+        'colorHexOptions',
+        'sizeOptions',
         'season',
         'year',
         'usage',
         'productDisplayName',
+        'productDetails',
+        'sizeFitDetails',
+        'fabricDetails',
+        'careDetails',
       ],
       stylesRows,
     );

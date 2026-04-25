@@ -367,12 +367,26 @@ public class MarketplacePublicService {
             return List.of();
         }
 
-        return variants.stream()
-                .filter(variant -> !Boolean.FALSE.equals(variant.getIsActive()))
-                .map(ProductVariant::getColor)
-                .filter(this::hasText)
-                .distinct()
-                .toList();
+        LinkedHashMap<String, String> colorsBySwatchKey = new LinkedHashMap<>();
+        for (ProductVariant variant : variants) {
+            if (Boolean.FALSE.equals(variant.getIsActive())) {
+                continue;
+            }
+            String color = variant.getColor();
+            if (!hasText(color)) {
+                continue;
+            }
+            String normalizedColor = color.trim();
+            String colorHex = hasText(variant.getColorHex())
+                    ? variant.getColorHex().trim().toLowerCase(Locale.ROOT)
+                    : "";
+            String swatchKey = !colorHex.isBlank()
+                    ? "hex:" + colorHex
+                    : "name:" + normalizedColor.toLowerCase(Locale.ROOT);
+            colorsBySwatchKey.putIfAbsent(swatchKey, normalizedColor);
+        }
+
+        return List.copyOf(colorsBySwatchKey.values());
     }
 
     private List<String> resolveSizes(Product product) {
@@ -403,6 +417,7 @@ public class MarketplacePublicService {
                         .id(variant.getId())
                         .sku(variant.getSku())
                         .color(hasText(variant.getColor()) ? variant.getColor().trim() : "")
+                        .colorHex(hasText(variant.getColorHex()) ? variant.getColorHex().trim().toLowerCase(Locale.ROOT) : null)
                         .size(variant.getSize().trim())
                         .stockQuantity(variant.getStockQuantity() == null ? 0 : Math.max(0, variant.getStockQuantity()))
                         .build())

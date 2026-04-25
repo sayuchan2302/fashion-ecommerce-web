@@ -19,6 +19,8 @@ public class VendorProductSummaryResponse {
     private String name;
     private String slug;
     private String description;
+    private String sizeAndFit;
+    private String fabricAndCare;
     private String highlights;
     private String material;
     private String fit;
@@ -49,6 +51,7 @@ public class VendorProductSummaryResponse {
         private UUID id;
         private String sku;
         private String color;
+        private String colorHex;
         private String size;
         private Integer stockQuantity;
         private BigDecimal priceAdjustment;

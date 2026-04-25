@@ -17,6 +17,8 @@ public class ProductRequest {
     private String name;
     private String slug;
     private String description;
+    private String sizeAndFit;
+    private String fabricAndCare;
     private String highlights;
     private String careInstructions;
     private UUID categoryId;
@@ -39,6 +41,7 @@ public class ProductRequest {
     public static class VariantRequest {
         private String sku;
         private String color;
+        private String colorHex;
         private String size;
         private Integer stockQuantity;
         private BigDecimal priceAdjustment;

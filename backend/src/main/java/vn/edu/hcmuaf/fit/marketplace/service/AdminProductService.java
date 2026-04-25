@@ -300,6 +300,7 @@ public class AdminProductService {
                         .id(v.getId().toString())
                         .size(v.getSize())
                         .color(v.getColor())
+                        .colorHex(v.getColorHex())
                         .sku(v.getSku())
                         .price(v.getPrice().doubleValue())
                         .stock(v.getStockQuantity())

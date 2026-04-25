@@ -46,3 +46,6 @@ Thumbs.db
 skills-lock.json
 AGENTS.md
 .m2
+
+# Local CI runtime files
+.ci-logs-local/*.pid

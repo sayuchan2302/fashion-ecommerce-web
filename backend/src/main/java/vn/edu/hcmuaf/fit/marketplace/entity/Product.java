@@ -42,6 +42,12 @@ public class Product extends BaseEntity {
     @Column(columnDefinition = "text")
     private String description;
 
+    @Column(name = "size_and_fit", columnDefinition = "text")
+    private String sizeAndFit;
+
+    @Column(name = "fabric_and_care", columnDefinition = "text")
+    private String fabricAndCare;
+
     @Column(columnDefinition = "text")
     private String highlights;
 

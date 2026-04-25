@@ -47,7 +47,9 @@ public class GapProductImportRunner {
     private static final Logger log = LoggerFactory.getLogger(GapProductImportRunner.class);
     private static final Set<String> ALLOWED_MASTER_CATEGORIES = Set.of("apparel", "accessories");
     private static final Set<String> ALLOWED_ROOTS = Set.of("men", "women", "accessories");
-    private static final int MAX_IMAGES_PER_PRODUCT = 4;
+    private static final int MAX_IMAGES_PER_PRODUCT = 6;
+    private static final int MAX_COLORS_PER_PRODUCT = 4;
+    private static final int MAX_SIZES_PER_PRODUCT = 6;
     private static final String DEFAULT_IMAGE =
             "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=672&h=990&fit=crop&fm=webp&q=80&auto=format";
     private static final AtomicBoolean EXECUTED = new AtomicBoolean(false);
@@ -368,16 +370,23 @@ public class GapProductImportRunner {
                 }
 
                 if (picked == null) {
-                    picked = pollCandidate(global, usedStyleIds);
-                }
-
-                if (picked == null) {
                     break;
                 }
 
                 usedStyleIds.add(picked.row().styleId());
                 assigned.add(new AssignedCandidate(picked, leaf));
             }
+        }
+
+        // Keep taxonomy semantics stable: never force cross-root assignments.
+        // If we still need more items to reach target, assign remaining candidates to their preferred leaf.
+        while (assigned.size() < effectiveTarget) {
+            Candidate fallback = pollCandidate(global, usedStyleIds);
+            if (fallback == null) {
+                break;
+            }
+            usedStyleIds.add(fallback.row().styleId());
+            assigned.add(new AssignedCandidate(fallback, fallback.preferredLeaf()));
         }
 
         return assigned;
@@ -432,19 +441,25 @@ public class GapProductImportRunner {
             normalizedName = "GAP Item " + row.styleId();
         }
 
-        List<ProductRequest.VariantRequest> variants = buildVariants(leaf, row.styleId(), color);
+        List<ProductRequest.VariantRequest> variants = buildVariants(
+                leaf,
+                row.styleId(),
+                color,
+                row.colorOptions(),
+                row.colorHexOptions(),
+                row.sizeOptions()
+        );
 
         return ProductRequest.builder()
                 .name(normalizedName)
                 .slug(slugForStyle(row.styleId()))
                 .description(buildDescription(row, usage, season))
-                .highlights("GAP import | " + articleType + " | " + usage)
-                .careInstructions("Machine wash cold. Do not bleach. Imported dataset product.")
+                .sizeAndFit(buildSizeAndFit(row, articleType, usage))
+                .fabricAndCare(buildFabricAndCare(row))
                 .categoryId(leaf.id())
                 .basePrice(pricePlan.basePrice())
                 .salePrice(pricePlan.salePrice())
-                .material(selectMaterial(row.styleId()))
-                .fit(selectFit(row.styleId()))
+                .fit(selectFit(row))
                 .gender(resolveGender(row.gender()))
                 .status(Product.ProductStatus.ACTIVE.name())
                 .imageUrl(fallbackText(assigned.candidate().imageUrls().stream().findFirst().orElse(""), DEFAULT_IMAGE))
@@ -452,46 +467,122 @@ public class GapProductImportRunner {
                 .build();
     }
 
-    private List<ProductRequest.VariantRequest> buildVariants(LeafCategory leaf, long styleId, String color) {
+    private List<ProductRequest.VariantRequest> buildVariants(
+            LeafCategory leaf,
+            long styleId,
+            String color,
+            List<String> crawledColors,
+            Map<String, String> crawledColorHexes,
+            List<String> crawledSizes
+    ) {
         int baseStock = 12 + (int) Math.floorMod(styleId, 48);
-        String stockColor = fallbackText(color, "Mixed");
+        List<VariantColor> colors = resolveVariantColors(crawledColors, crawledColorHexes, color);
+        List<String> sizes = resolveVariantSizes(crawledSizes, leaf.rootSlug());
 
-        if ("accessories".equals(leaf.rootSlug())) {
-            ProductRequest.VariantRequest variant = ProductRequest.VariantRequest.builder()
-                    .color(stockColor)
-                    .size("Free")
-                    .stockQuantity(baseStock)
-                    .priceAdjustment(BigDecimal.ZERO)
-                    .isActive(true)
-                    .build();
-            return List.of(variant);
+        List<ProductRequest.VariantRequest> variants = new ArrayList<>(colors.size() * sizes.size());
+        int variantIndex = 0;
+        for (VariantColor variantColor : colors) {
+            for (String size : sizes) {
+                int stock = Math.max(1, baseStock - (variantIndex % 6) * 2);
+                variants.add(ProductRequest.VariantRequest.builder()
+                        .color(variantColor.name())
+                        .colorHex(variantColor.hex())
+                        .size(size)
+                        .stockQuantity(stock)
+                        .priceAdjustment(BigDecimal.ZERO)
+                        .isActive(true)
+                        .build());
+                variantIndex++;
+            }
+        }
+        return variants;
+    }
+
+    private List<VariantColor> resolveVariantColors(
+            List<String> crawledColors,
+            Map<String, String> crawledColorHexes,
+            String fallbackColor
+    ) {
+        LinkedHashMap<String, String> unique = new LinkedHashMap<>();
+        Map<String, String> safeColorHexes = crawledColorHexes == null ? Map.of() : crawledColorHexes;
+        for (String candidate : crawledColors == null ? List.<String>of() : crawledColors) {
+            String normalized = normalizedColor(candidate);
+            if (!normalized.isBlank()) {
+                unique.putIfAbsent(normalized, normalizeColorHex(safeColorHexes.get(normalized)));
+            }
+            if (unique.size() >= MAX_COLORS_PER_PRODUCT) {
+                break;
+            }
         }
 
-        String firstSize;
-        String secondSize;
-        if ("women".equals(leaf.rootSlug())) {
-            firstSize = "S";
-            secondSize = "M";
-        } else {
-            firstSize = "M";
-            secondSize = "L";
+        if (unique.isEmpty()) {
+            String fallback = normalizedColor(fallbackColor);
+            unique.put(fallback, normalizeColorHex(safeColorHexes.get(fallback)));
         }
 
-        ProductRequest.VariantRequest first = ProductRequest.VariantRequest.builder()
-                .color(stockColor)
-                .size(firstSize)
-                .stockQuantity(baseStock)
-                .priceAdjustment(BigDecimal.ZERO)
-                .isActive(true)
-                .build();
-        ProductRequest.VariantRequest second = ProductRequest.VariantRequest.builder()
-                .color(stockColor)
-                .size(secondSize)
-                .stockQuantity(Math.max(1, baseStock - 4))
-                .priceAdjustment(BigDecimal.ZERO)
-                .isActive(true)
-                .build();
-        return List.of(first, second);
+        List<VariantColor> deduplicated = new ArrayList<>();
+        Set<String> usedHex = new LinkedHashSet<>();
+        for (Map.Entry<String, String> entry : unique.entrySet()) {
+            String name = entry.getKey();
+            String hex = entry.getValue();
+            if (name == null || name.isBlank()) {
+                continue;
+            }
+            if (hex != null && !hex.isBlank() && !usedHex.add(hex)) {
+                continue;
+            }
+            deduplicated.add(new VariantColor(name, hex));
+            if (deduplicated.size() >= MAX_COLORS_PER_PRODUCT) {
+                break;
+            }
+        }
+
+        if (deduplicated.isEmpty()) {
+            String fallback = normalizedColor(fallbackColor);
+            deduplicated.add(new VariantColor(fallback, normalizeColorHex(safeColorHexes.get(fallback))));
+        }
+        return List.copyOf(deduplicated);
+    }
+
+    private List<String> resolveVariantSizes(List<String> crawledSizes, String rootSlug) {
+        LinkedHashSet<String> unique = new LinkedHashSet<>();
+        for (String raw : crawledSizes == null ? List.<String>of() : crawledSizes) {
+            String normalized = normalizeVariantSize(raw);
+            if (normalized.isBlank()) {
+                continue;
+            }
+            unique.add(normalized);
+            if (unique.size() >= MAX_SIZES_PER_PRODUCT) {
+                break;
+            }
+        }
+
+        if (!unique.isEmpty()) {
+            return List.copyOf(unique);
+        }
+
+        if ("accessories".equals(rootSlug)) {
+            return List.of("Free");
+        }
+        if ("women".equals(rootSlug)) {
+            return List.of("S", "M");
+        }
+        return List.of("M", "L");
+    }
+
+    private String normalizeVariantSize(String raw) {
+        String normalized = normalizeText(raw).toUpperCase(Locale.ROOT);
+        if (normalized.isBlank()) {
+            return "";
+        }
+        String compact = normalized.replaceAll("\\s+", " ").trim();
+        if (compact.equals("ONESIZE") || compact.equals("ONE SIZE")) {
+            return "Free";
+        }
+        if (compact.equals("F")) {
+            return "Free";
+        }
+        return compact;
     }
 
     private PricePlan planPrice(String leafSlug, long styleId) {
@@ -543,6 +634,11 @@ public class GapProductImportRunner {
     }
 
     private String buildDescription(StyleRow row, String usage, String season) {
+        List<String> gapDetails = parseSectionList(row.productDetails());
+        if (!gapDetails.isEmpty()) {
+            return String.join("\n", gapDetails);
+        }
+
         String article = fallbackText(row.articleType(), "Fashion");
         String subCategory = fallbackText(row.subCategory(), "General");
         String master = fallbackText(row.masterCategory(), "Apparel");
@@ -554,12 +650,62 @@ public class GapProductImportRunner {
                 + "Season: " + season + ".";
     }
 
+    private String buildSizeAndFit(StyleRow row, String articleType, String usage) {
+        List<String> sizeFitLines = parseSectionList(row.sizeFitDetails());
+        if (!sizeFitLines.isEmpty()) {
+            return String.join("\n", sizeFitLines);
+        }
+        return "GAP import\nArticle type: " + articleType + "\nUsage: " + usage;
+    }
+
+    private String buildCareInstructions(StyleRow row) {
+        List<String> careLines = parseSectionList(row.careDetails());
+        if (!careLines.isEmpty()) {
+            return String.join("\n", careLines);
+        }
+        return "Machine wash cold. Do not bleach. Imported dataset product.";
+    }
+
+    private String buildMaterial(StyleRow row) {
+        List<String> materialLines = parseSectionList(row.fabricDetails());
+        if (!materialLines.isEmpty()) {
+            return String.join(" - ", materialLines);
+        }
+        return selectMaterial(row.styleId());
+    }
+
+    private String buildFabricAndCare(StyleRow row) {
+        String material = buildMaterial(row);
+        String care = buildCareInstructions(row);
+        if (material.isBlank() && care.isBlank()) {
+            return "";
+        }
+        if (material.isBlank()) {
+            return care;
+        }
+        if (care.isBlank()) {
+            return material;
+        }
+        return material + "\n" + care;
+    }
+
     private String selectMaterial(long styleId) {
         String[] options = {"Cotton", "Polyester Blend", "Linen Blend", "Denim", "Knitted"};
         return options[(int) Math.floorMod(styleId, options.length)];
     }
 
-    private String selectFit(long styleId) {
+    private String selectFit(StyleRow row) {
+        String sizeFit = normalizedToken(row.sizeFitDetails());
+        if (sizeFit.contains("slim")) return "Slim";
+        if (sizeFit.contains("relaxed")) return "Relaxed";
+        if (sizeFit.contains("regular")) return "Regular";
+        if (sizeFit.contains("classic")) return "Regular";
+        if (sizeFit.contains("loose")) return "Relaxed";
+        if (sizeFit.contains("straight")) return "Regular";
+        return selectFitByStyleId(row.styleId());
+    }
+
+    private String selectFitByStyleId(long styleId) {
         String[] options = {"Regular", "Slim", "Relaxed", "Comfort"};
         return options[(int) Math.floorMod(styleId, options.length)];
     }
@@ -791,10 +937,17 @@ public class GapProductImportRunner {
                     normalizeText(row.get("subCategory")),
                     normalizeText(row.get("articleType")),
                     normalizeText(row.get("baseColour")),
+                    parseOptionList(fallbackText(row.get("colorOptions"), row.get("colors"))),
+                    parseColorHexMap(fallbackText(row.get("colorHexOptions"), row.get("colorHexes"))),
+                    parseOptionList(fallbackText(row.get("sizeOptions"), row.get("sizes"))),
                     normalizeText(row.get("season")),
                     normalizeText(row.get("year")),
                     normalizeText(row.get("usage")),
-                    normalizeText(row.get("productDisplayName"))
+                    normalizeText(row.get("productDisplayName")),
+                    normalizeText(fallbackText(row.get("productDetails"), row.get("detailsText"))),
+                    normalizeText(row.get("sizeFitDetails")),
+                    normalizeText(row.get("fabricDetails")),
+                    normalizeText(row.get("careDetails"))
             ));
         }
         return styles;
@@ -956,6 +1109,102 @@ public class GapProductImportRunner {
         return normalized.isBlank() ? fallback : normalized;
     }
 
+    private List<String> parseOptionList(String raw) {
+        String normalized = normalizeText(raw);
+        if (normalized.isBlank()) {
+            return List.of();
+        }
+        LinkedHashSet<String> values = new LinkedHashSet<>();
+        String[] parts = normalized.split("[|;,]");
+        for (String part : parts) {
+            String token = normalizeText(part);
+            if (!token.isBlank()) {
+                values.add(token);
+            }
+        }
+        if (values.isEmpty()) {
+            return List.of();
+        }
+        return List.copyOf(values);
+    }
+
+    private List<String> parseSectionList(String raw) {
+        String normalized = normalizeText(raw);
+        if (normalized.isBlank()) {
+            return List.of();
+        }
+
+        LinkedHashSet<String> values = new LinkedHashSet<>();
+        String[] parts = normalized.split("\\|");
+        for (String part : parts) {
+            String token = normalizeText(part);
+            if (!token.isBlank()) {
+                values.add(token);
+            }
+        }
+
+        if (values.isEmpty()) {
+            return List.of();
+        }
+        return List.copyOf(values);
+    }
+
+    private Map<String, String> parseColorHexMap(String raw) {
+        String normalized = normalizeText(raw);
+        if (normalized.isBlank()) {
+            return Map.of();
+        }
+
+        LinkedHashMap<String, String> map = new LinkedHashMap<>();
+        String[] entries = normalized.split("[|;,]");
+        for (String entry : entries) {
+            String token = normalizeText(entry);
+            if (token.isBlank()) {
+                continue;
+            }
+
+            int separator = token.indexOf('=');
+            if (separator < 0) {
+                separator = token.indexOf(':');
+            }
+            if (separator <= 0) {
+                continue;
+            }
+
+            String colorName = normalizedColor(token.substring(0, separator));
+            String colorHex = normalizeColorHex(token.substring(separator + 1));
+            if (colorName.isBlank() || colorHex == null) {
+                continue;
+            }
+            map.putIfAbsent(colorName, colorHex);
+        }
+
+        if (map.isEmpty()) {
+            return Map.of();
+        }
+        return Map.copyOf(map);
+    }
+
+    private String normalizeColorHex(String rawColorHex) {
+        String normalized = normalizeText(rawColorHex);
+        if (normalized.isBlank()) {
+            return null;
+        }
+        if (!normalized.startsWith("#")) {
+            normalized = "#" + normalized;
+        }
+        if (!normalized.matches("^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")) {
+            return null;
+        }
+        if (normalized.length() == 4) {
+            char r = normalized.charAt(1);
+            char g = normalized.charAt(2);
+            char b = normalized.charAt(3);
+            normalized = "#" + r + r + g + g + b + b;
+        }
+        return normalized.toLowerCase(Locale.ROOT);
+    }
+
     private List<String> resolveCandidateImageUrls(List<String> links) {
         if (links == null || links.isEmpty()) {
             return List.of();
@@ -1004,11 +1253,20 @@ public class GapProductImportRunner {
             String subCategory,
             String articleType,
             String baseColour,
+            List<String> colorOptions,
+            Map<String, String> colorHexOptions,
+            List<String> sizeOptions,
             String season,
             String year,
             String usage,
-            String productDisplayName
+            String productDisplayName,
+            String productDetails,
+            String sizeFitDetails,
+            String fabricDetails,
+            String careDetails
     ) {}
+
+    private record VariantColor(String name, String hex) {}
 
     private record Candidate(StyleRow row, LeafCategory preferredLeaf, List<String> imageUrls) {}
 

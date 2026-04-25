@@ -56,6 +56,7 @@ export interface StoreProduct {
   sizes?: string[];
   variants?: Array<{
     color: string;
+    colorHex?: string;
     size: string;
     backendId?: string;
   }>;
@@ -199,7 +200,7 @@ interface BackendProduct {
   status?: string;
   category?: { name?: string; slug?: string };
   images?: Array<{ url?: string }>;
-  variants?: Array<{ id?: string; sku?: string; color?: string; size?: string; stockQuantity?: number }>;
+  variants?: Array<{ id?: string; sku?: string; color?: string; colorHex?: string; size?: string; stockQuantity?: number }>;
 }
 
 const buildRegistrationDescription = (payload: StoreRegistrationRequest) =>
@@ -258,6 +259,7 @@ const mapBackendProduct = (product: BackendProduct, store?: StoreProfile): Store
   const variantOptions = variants
     .map((variant) => ({
       color: String(variant.color || '').trim(),
+      colorHex: String(variant.colorHex || '').trim() || undefined,
       size: String(variant.size || '').trim(),
       backendId: variant.id,
     }))
@@ -282,6 +284,7 @@ const mapBackendProduct = (product: BackendProduct, store?: StoreProfile): Store
       .filter((variant) => Boolean(variant.color && variant.size))
       .map((variant) => ({
         color: variant.color,
+        colorHex: variant.colorHex,
         size: variant.size,
         backendId: variant.backendId,
       })),

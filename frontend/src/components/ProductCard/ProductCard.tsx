@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, memo } from 'react';
+﻿import { useEffect, useMemo, useRef, useState, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Heart, Eye, Store, ShoppingBag } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
@@ -23,6 +23,7 @@ interface ProductCardProps {
   sizes?: string[];
   variants?: Array<{
     color: string;
+    colorHex?: string;
     size: string;
     backendId?: string;
   }>;
@@ -60,10 +61,15 @@ const areStringArraysEqual = (left?: string[], right?: string[]) => {
 const normalizeSizeList = (rows?: string[]) =>
   Array.from(new Set((rows || []).map((size) => String(size || '').trim()).filter(Boolean)));
 
-const normalizeVariantList = (rows?: Array<{ color: string; size: string; backendId?: string }>) =>
+const ONE_SIZE_TOKENS = new Set(['free', 'f', 'one size', 'onesize', 'os']);
+
+const isOneSizeToken = (size: string) => ONE_SIZE_TOKENS.has(String(size || '').trim().toLowerCase());
+
+const normalizeVariantList = (rows?: Array<{ color: string; colorHex?: string; size: string; backendId?: string }>) =>
   (rows || [])
     .map((variant) => ({
       color: String(variant.color || '').trim(),
+      colorHex: String(variant.colorHex || '').trim(),
       size: String(variant.size || '').trim(),
       backendId: variant.backendId,
     }))
@@ -113,8 +119,21 @@ const ProductCardInteractive = ({
 
   const variantSizes = Array.from(new Set((resolvedVariants || []).map((variant) => variant.size).filter(Boolean)));
   const availableSizes = variantSizes.length > 0 ? variantSizes : resolvedSizes;
+  const oneSizeValue = availableSizes.length === 1 && isOneSizeToken(availableSizes[0]) ? availableSizes[0] : null;
   const selectedColorValue = colors?.[selectedColorIdx] ?? '';
   const hasStoreSlug = isCanonicalStoreSlug(storeSlug);
+  const colorHexByName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const variant of resolvedVariants || []) {
+      const color = String(variant.color || '').trim();
+      const hex = String(variant.colorHex || '').trim();
+      if (!color || !hex || map.has(color)) {
+        continue;
+      }
+      map.set(color, hex);
+    }
+    return map;
+  }, [resolvedVariants]);
 
   const hydrateVariantMetadata = async () => {
     if (didHydrateVariants || isHydratingVariants || availableSizes.length > 0) {
@@ -306,7 +325,15 @@ const ProductCardInteractive = ({
               Thêm nhanh vào giỏ hàng <Plus size={14} strokeWidth={2.5} />
             </p>
             <div className="quick-add-sizes">
-              {availableSizes.length > 0 ? (
+              {oneSizeValue ? (
+                <button
+                  className={`quick-size-btn ${addedSize === oneSizeValue ? 'added' : ''}`}
+                  onClick={(e) => handleSizeClick(e, oneSizeValue)}
+                  title="Thêm nhanh"
+                >
+                  {addedSize === oneSizeValue ? '✓' : 'Thêm nhanh'}
+                </button>
+              ) : availableSizes.length > 0 ? (
                 availableSizes.map((size) => (
                   <button
                     key={size}
@@ -338,7 +365,10 @@ const ProductCardInteractive = ({
                 onClick={(e) => handleColorClick(e, idx)}
                 aria-label={`Chọn màu ${idx + 1}`}
               >
-                <span className="swatch-inner" style={{ backgroundColor: resolveColorSwatch(color) }}></span>
+                <span
+                  className="swatch-inner"
+                  style={{ backgroundColor: resolveColorSwatch(colorHexByName.get(color) || color) }}
+                ></span>
               </button>
             ))}
           </div>
@@ -532,3 +562,5 @@ function arePropsEqual(prev: ProductCardProps, next: ProductCardProps) {
 const ProductCardMemo = memo(ProductCard, arePropsEqual);
 
 export default ProductCardMemo;
+
+

@@ -77,6 +77,7 @@ interface MarketplaceProductCardPayload {
     id?: string;
     sku?: string;
     color?: string;
+    colorHex?: string;
     size?: string;
     stockQuantity?: number;
   }>;
@@ -144,6 +145,7 @@ const mapProductCard = (row: MarketplaceProductCardPayload): Product => {
       backendId: (variant.id || '').trim() || undefined,
       size: (variant.size || '').trim(),
       color: (variant.color || '').trim(),
+      colorHex: (variant.colorHex || '').trim() || undefined,
       sku: (variant.sku || '').trim(),
       price,
       stock: Math.max(0, Number(variant.stockQuantity || 0)),

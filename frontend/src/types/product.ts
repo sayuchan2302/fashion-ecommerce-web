@@ -2,6 +2,7 @@ export interface ProductVariant {
   id: string;
   size: string;
   color: string;
+  colorHex?: string;
   sku: string;
   price: number;
   stock: number;
@@ -15,6 +16,8 @@ export interface Product {
   sku: string;
   name: string;
   description?: string;
+  sizeAndFit?: string;
+  fabricAndCare?: string;
   highlights?: string;
   material?: string;
   fit?: string;
