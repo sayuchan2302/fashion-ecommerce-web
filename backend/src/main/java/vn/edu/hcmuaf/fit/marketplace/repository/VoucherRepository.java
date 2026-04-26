@@ -55,6 +55,14 @@ public interface VoucherRepository extends JpaRepository<Voucher, UUID> {
 
     Optional<Voucher> findByIdAndStoreId(UUID id, UUID storeId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT v
+            FROM Voucher v
+            WHERE v.id = :id
+            """)
+    Optional<Voucher> findByIdForUpdate(@Param("id") UUID id);
+
     Optional<Voucher> findByStoreIdAndCode(UUID storeId, String code);
 
     @Query("""

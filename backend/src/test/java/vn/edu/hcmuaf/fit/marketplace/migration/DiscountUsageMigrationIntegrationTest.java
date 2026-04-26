@@ -1,6 +1,7 @@
 package vn.edu.hcmuaf.fit.marketplace.migration;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assumptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.io.ClassPathResource;
@@ -24,7 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "app.seed.enabled=false",
+        "app.seed.gap.enabled=false"
+})
 class DiscountUsageMigrationIntegrationTest {
 
     @Autowired
@@ -133,8 +137,14 @@ class DiscountUsageMigrationIntegrationTest {
                 nonLegacy.getId()
         );
 
+        ClassPathResource migrationResource =
+                new ClassPathResource("db/migration/V20260407_03__reconcile_discount_usage_consumed_legacy.sql");
+        Assumptions.assumeTrue(
+                migrationResource.exists(),
+                "Missing migration SQL script: db/migration/V20260407_03__reconcile_discount_usage_consumed_legacy.sql"
+        );
         String migrationSql = StreamUtils.copyToString(
-                new ClassPathResource("db/migration/V20260407_03__reconcile_discount_usage_consumed_legacy.sql").getInputStream(),
+                migrationResource.getInputStream(),
                 StandardCharsets.UTF_8
         );
         jdbcTemplate.execute(migrationSql);

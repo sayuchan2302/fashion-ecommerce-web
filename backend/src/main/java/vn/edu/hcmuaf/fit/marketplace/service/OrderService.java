@@ -55,6 +55,7 @@ public class OrderService {
     private final StoreRepository storeRepository;
     private final CouponRepository couponRepository;
     private final VoucherRepository voucherRepository;
+    private final CustomerVoucherRepository customerVoucherRepository;
     private final PublicCodeService publicCodeService;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final AdminAuditLogService adminAuditLogService;
@@ -66,7 +67,8 @@ public class OrderService {
                         AddressRepository addressRepository, ProductRepository productRepository,
                         ProductVariantRepository productVariantRepository, WalletService walletService,
                         StoreRepository storeRepository, CouponRepository couponRepository,
-                        VoucherRepository voucherRepository, PublicCodeService publicCodeService,
+                        VoucherRepository voucherRepository, CustomerVoucherRepository customerVoucherRepository,
+                        PublicCodeService publicCodeService,
                         ApplicationEventPublisher applicationEventPublisher,
                         AdminAuditLogService adminAuditLogService,
                         NotificationDomainService notificationDomainService,
@@ -80,11 +82,40 @@ public class OrderService {
         this.storeRepository = storeRepository;
         this.couponRepository = couponRepository;
         this.voucherRepository = voucherRepository;
+        this.customerVoucherRepository = customerVoucherRepository;
         this.publicCodeService = publicCodeService;
         this.applicationEventPublisher = applicationEventPublisher;
         this.adminAuditLogService = adminAuditLogService;
         this.notificationDomainService = notificationDomainService;
         this.orderStatusLogRepository = orderStatusLogRepository;
+    }
+
+    public OrderService(OrderRepository orderRepository, UserRepository userRepository,
+                        AddressRepository addressRepository, ProductRepository productRepository,
+                        ProductVariantRepository productVariantRepository, WalletService walletService,
+                        StoreRepository storeRepository, CouponRepository couponRepository,
+                        VoucherRepository voucherRepository, PublicCodeService publicCodeService,
+                        ApplicationEventPublisher applicationEventPublisher,
+                        AdminAuditLogService adminAuditLogService,
+                        NotificationDomainService notificationDomainService,
+                        OrderStatusLogRepository orderStatusLogRepository) {
+        this(
+                orderRepository,
+                userRepository,
+                addressRepository,
+                productRepository,
+                productVariantRepository,
+                walletService,
+                storeRepository,
+                couponRepository,
+                voucherRepository,
+                null,
+                publicCodeService,
+                applicationEventPublisher,
+                adminAuditLogService,
+                notificationDomainService,
+                orderStatusLogRepository
+        );
     }
 
     public OrderService(OrderRepository orderRepository, UserRepository userRepository,
@@ -103,6 +134,30 @@ public class OrderService {
                 storeRepository,
                 couponRepository,
                 voucherRepository,
+                null,
+                publicCodeService,
+                applicationEventPublisher
+        );
+    }
+
+    public OrderService(OrderRepository orderRepository, UserRepository userRepository,
+                        AddressRepository addressRepository, ProductRepository productRepository,
+                        ProductVariantRepository productVariantRepository, WalletService walletService,
+                        StoreRepository storeRepository, CouponRepository couponRepository,
+                        VoucherRepository voucherRepository, CustomerVoucherRepository customerVoucherRepository,
+                        PublicCodeService publicCodeService,
+                        ApplicationEventPublisher applicationEventPublisher) {
+        this(
+                orderRepository,
+                userRepository,
+                addressRepository,
+                productRepository,
+                productVariantRepository,
+                walletService,
+                storeRepository,
+                couponRepository,
+                voucherRepository,
+                customerVoucherRepository,
                 publicCodeService,
                 applicationEventPublisher,
                 null,
@@ -162,11 +217,12 @@ public class OrderService {
             String code,
             BigDecimal totalDiscount,
             Map<UUID, BigDecimal> storeDiscounts,
+            UUID customerVoucherId,
             Coupon coupon,
             Voucher voucher
     ) {
         static DiscountApplication none() {
-            return new DiscountApplication(null, BigDecimal.ZERO, Map.of(), null, null);
+            return new DiscountApplication(null, BigDecimal.ZERO, Map.of(), null, null, null);
         }
 
         BigDecimal discountForStore(UUID storeId) {
@@ -1123,7 +1179,20 @@ public class OrderService {
         }
         List<PreparedOrderItem> preparedItems = prepareOrderItems(request.getItems());
         Map<UUID, StoreOrderGroup> groupedByStore = groupItemsByStore(preparedItems);
-        DiscountApplication discountApplication = resolveDiscountApplication(request.getCouponCode(), groupedByStore);
+        if (request.getCustomerVoucherId() != null
+                && request.getCouponCode() != null
+                && !request.getCouponCode().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Please apply either customerVoucherId or couponCode, not both"
+            );
+        }
+        DiscountApplication discountApplication = resolveDiscountApplication(
+                userId,
+                request.getCustomerVoucherId(),
+                request.getCouponCode(),
+                groupedByStore
+        );
 
         if (groupedByStore.size() <= 1) {
             StoreOrderGroup onlyGroup = groupedByStore.values().stream().findFirst()
@@ -1729,9 +1798,15 @@ public class OrderService {
     }
 
     private DiscountApplication resolveDiscountApplication(
+            UUID userId,
+            UUID customerVoucherId,
             String rawCode,
             Map<UUID, StoreOrderGroup> groupedByStore
     ) {
+        if (customerVoucherId != null) {
+            return resolveCustomerWalletVoucherDiscount(userId, customerVoucherId, groupedByStore);
+        }
+
         String normalizedCode = normalizeDiscountCode(rawCode);
         if (normalizedCode == null) {
             return DiscountApplication.none();
@@ -1748,6 +1823,49 @@ public class OrderService {
         }
 
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid coupon code");
+    }
+
+    private DiscountApplication resolveCustomerWalletVoucherDiscount(
+            UUID userId,
+            UUID customerVoucherId,
+            Map<UUID, StoreOrderGroup> groupedByStore
+    ) {
+        if (customerVoucherRepository == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Customer voucher wallet is not available");
+        }
+        if (groupedByStore.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order must contain at least one item");
+        }
+
+        CustomerVoucher walletVoucher = customerVoucherRepository.findByIdAndUserIdForUpdate(customerVoucherId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Customer voucher not found in wallet"));
+
+        if (walletVoucher.getWalletStatus() != CustomerVoucher.WalletStatus.AVAILABLE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Customer voucher is no longer available");
+        }
+
+        Voucher voucher = walletVoucher.getVoucher();
+        StoreOrderGroup targetGroup = voucher == null ? null : groupedByStore.get(voucher.getStoreId());
+        if (targetGroup == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Voucher does not match cart stores");
+        }
+
+        validateVoucherForCheckout(voucher, targetGroup.subtotal());
+        BigDecimal discount = calculateVoucherDiscount(voucher, targetGroup.subtotal());
+        if (discount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Voucher is not applicable for current order");
+        }
+
+        Map<UUID, BigDecimal> byStore = new LinkedHashMap<>();
+        byStore.put(targetGroup.storeId(), discount);
+        return new DiscountApplication(
+                voucher.getCode(),
+                discount,
+                byStore,
+                walletVoucher.getId(),
+                null,
+                voucher
+        );
     }
 
     private DiscountApplication resolveVoucherDiscount(
@@ -1786,7 +1904,7 @@ public class OrderService {
 
         Map<UUID, BigDecimal> byStore = new LinkedHashMap<>();
         byStore.put(targetGroup.storeId(), discount);
-        return new DiscountApplication(voucher.getCode(), discount, byStore, null, voucher);
+        return new DiscountApplication(voucher.getCode(), discount, byStore, null, null, voucher);
     }
 
     private DiscountApplication resolveLegacyCouponDiscount(
@@ -1812,7 +1930,7 @@ public class OrderService {
         }
 
         Map<UUID, BigDecimal> byStore = allocateDiscountByStore(groupedByStore, discount);
-        return new DiscountApplication(coupon.getCode(), discount, byStore, coupon, null);
+        return new DiscountApplication(coupon.getCode(), discount, byStore, null, coupon, null);
     }
 
     private void validateVoucherForCheckout(Voucher voucher, BigDecimal storeSubtotal) {
@@ -1899,8 +2017,9 @@ public class OrderService {
         if (Boolean.TRUE.equals(rootCandidate.getDiscountUsageConsumed())) {
             return;
         }
+        UUID candidateCustomerVoucherId = rootCandidate.getCustomerVoucherId();
         String candidateCode = normalizeDiscountCode(rootCandidate.getCouponCode());
-        if (candidateCode == null) {
+        if (candidateCustomerVoucherId == null && candidateCode == null) {
             return;
         }
         if (!isDiscountEligibleForConsumption(rootCandidate)) {
@@ -1917,16 +2036,20 @@ public class OrderService {
             return;
         }
 
+        UUID customerVoucherId = lockedRoot.getCustomerVoucherId();
         String normalizedCode = normalizeDiscountCode(lockedRoot.getCouponCode());
-        if (normalizedCode == null) {
+        if (customerVoucherId == null && normalizedCode == null) {
             return;
         }
         if (!isDiscountEligibleForConsumption(lockedRoot)) {
             return;
         }
 
-        boolean consumed = incrementVoucherUsageIfMatched(lockedRoot, normalizedCode);
-        if (!consumed) {
+        boolean consumed = consumeCustomerVoucherUsageIfMatched(lockedRoot);
+        if (!consumed && normalizedCode != null) {
+            consumed = incrementVoucherUsageIfMatched(lockedRoot, normalizedCode);
+        }
+        if (!consumed && normalizedCode != null) {
             consumed = incrementCouponUsageIfMatched(normalizedCode);
         }
         if (!consumed) {
@@ -1935,6 +2058,55 @@ public class OrderService {
 
         lockedRoot.setDiscountUsageConsumed(true);
         orderRepository.save(lockedRoot);
+    }
+
+    private boolean consumeCustomerVoucherUsageIfMatched(Order rootOrder) {
+        if (rootOrder == null || rootOrder.getCustomerVoucherId() == null || customerVoucherRepository == null) {
+            return false;
+        }
+        UUID userId = rootOrder.getUser() == null ? null : rootOrder.getUser().getId();
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Customer voucher owner is invalid");
+        }
+
+        CustomerVoucher walletVoucher = customerVoucherRepository.findByIdAndUserIdForUpdate(
+                        rootOrder.getCustomerVoucherId(),
+                        userId
+                )
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Customer voucher not found in wallet"));
+
+        if (walletVoucher.getWalletStatus() == CustomerVoucher.WalletStatus.USED) {
+            if (rootOrder.getId() != null && rootOrder.getId().equals(walletVoucher.getUsedOrderId())) {
+                return true;
+            }
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Customer voucher has already been used");
+        }
+        if (walletVoucher.getWalletStatus() != CustomerVoucher.WalletStatus.AVAILABLE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Customer voucher is not available");
+        }
+
+        Voucher attachedVoucher = walletVoucher.getVoucher();
+        if (attachedVoucher == null || attachedVoucher.getId() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Voucher is no longer valid");
+        }
+
+        Voucher lockedVoucher = voucherRepository.findByIdForUpdate(attachedVoucher.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Voucher not found"));
+
+        int totalIssued = safeInt(lockedVoucher.getTotalIssued());
+        int usedCount = safeInt(lockedVoucher.getUsedCount());
+        if (totalIssued <= 0 || usedCount >= totalIssued) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Voucher usage limit has been reached");
+        }
+
+        lockedVoucher.setUsedCount(usedCount + 1);
+        voucherRepository.save(lockedVoucher);
+
+        walletVoucher.setWalletStatus(CustomerVoucher.WalletStatus.USED);
+        walletVoucher.setUsedAt(LocalDateTime.now());
+        walletVoucher.setUsedOrderId(rootOrder.getId());
+        customerVoucherRepository.save(walletVoucher);
+        return true;
     }
 
     private boolean isDiscountEligibleForConsumption(Order order) {
@@ -2041,6 +2213,7 @@ public class OrderService {
                 .shippingFee(shippingFee)
                 .discount(discount)
                 .couponCode(discountApplication.code())
+                .customerVoucherId(discountApplication.customerVoucherId())
                 .note(buildParentOrderNote(request.getNote(), groupedByStore.size()))
                 .commissionFee(commissionFee)
                 .vendorPayout(vendorPayout)
@@ -2098,6 +2271,7 @@ public class OrderService {
                 .shippingFee(shippingFee)
                 .discount(discount)
                 .couponCode(discountApplication.code())
+                .customerVoucherId(discountApplication.customerVoucherId())
                 .note(request.getNote())
                 .storeId(group.storeId())
                 .parentOrder(parentOrder)

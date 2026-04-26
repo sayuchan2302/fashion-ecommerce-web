@@ -420,6 +420,7 @@ export const orderService = {
   async createBackendOrder(input: {
     addressId: string;
     paymentMethod: string;
+    customerVoucherId?: string;
     couponCode?: string;
     note?: string;
     items: BackendOrderRequestItem[];

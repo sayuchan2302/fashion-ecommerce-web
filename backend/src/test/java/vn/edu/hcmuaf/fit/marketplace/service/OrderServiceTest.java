@@ -12,6 +12,7 @@ import vn.edu.hcmuaf.fit.marketplace.dto.request.OrderRequest;
 import vn.edu.hcmuaf.fit.marketplace.dto.response.AdminOrderResponse;
 import vn.edu.hcmuaf.fit.marketplace.entity.Address;
 import vn.edu.hcmuaf.fit.marketplace.entity.Coupon;
+import vn.edu.hcmuaf.fit.marketplace.entity.CustomerVoucher;
 import vn.edu.hcmuaf.fit.marketplace.entity.Order;
 import vn.edu.hcmuaf.fit.marketplace.entity.OrderItem;
 import vn.edu.hcmuaf.fit.marketplace.entity.Product;
@@ -22,6 +23,7 @@ import vn.edu.hcmuaf.fit.marketplace.entity.User;
 import vn.edu.hcmuaf.fit.marketplace.entity.Voucher;
 import vn.edu.hcmuaf.fit.marketplace.repository.AddressRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.CouponRepository;
+import vn.edu.hcmuaf.fit.marketplace.repository.CustomerVoucherRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.OrderRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.ProductRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.ProductVariantRepository;
@@ -36,6 +38,7 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.UUID;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -74,6 +77,9 @@ class OrderServiceTest {
     private VoucherRepository voucherRepository;
 
     @Mock
+    private CustomerVoucherRepository customerVoucherRepository;
+
+    @Mock
     private ApplicationEventPublisher eventPublisher;
 
     private OrderService orderService;
@@ -99,6 +105,7 @@ class OrderServiceTest {
                 storeRepository,
                 couponRepository,
                 voucherRepository,
+                customerVoucherRepository,
                 publicCodeService,
                 eventPublisher
         );
@@ -736,6 +743,115 @@ class OrderServiceTest {
         assertEquals("Voucher usage limit has been reached", ex.getReason());
         assertEquals(1, safeInt(voucher.getUsedCount()));
         assertTrue(!Boolean.TRUE.equals(order.getDiscountUsageConsumed()));
+    }
+
+    @Test
+    void createCodOrderConsumesCustomerVoucherFromWallet() {
+        UUID userId = UUID.randomUUID();
+        UUID addressId = UUID.randomUUID();
+        UUID productId = UUID.randomUUID();
+        UUID variantId = UUID.randomUUID();
+        UUID customerVoucherId = UUID.randomUUID();
+        UUID voucherId = UUID.randomUUID();
+
+        User user = User.builder()
+                .id(userId)
+                .email("buyer@example.com")
+                .password("secret")
+                .role(User.Role.CUSTOMER)
+                .isActive(true)
+                .build();
+        Address address = Address.builder()
+                .id(addressId)
+                .user(user)
+                .fullName("Buyer")
+                .phone("0900000000")
+                .province("HCM")
+                .district("Q1")
+                .ward("Ben Nghe")
+                .detail("1 Test Street")
+                .build();
+        Product product = Product.builder()
+                .id(productId)
+                .name("T-Shirt")
+                .storeId(storeId)
+                .basePrice(new BigDecimal("100000"))
+                .salePrice(new BigDecimal("80000"))
+                .stockQuantity(5)
+                .build();
+        ProductVariant variant = ProductVariant.builder()
+                .id(variantId)
+                .product(product)
+                .sku("TS-RED-M")
+                .isActive(true)
+                .stockQuantity(5)
+                .priceAdjustment(BigDecimal.ZERO)
+                .build();
+        Store store = Store.builder()
+                .id(storeId)
+                .name("Store A")
+                .commissionRate(new BigDecimal("10.0"))
+                .build();
+        Voucher voucher = Voucher.builder()
+                .id(voucherId)
+                .storeId(storeId)
+                .code("WALLET10")
+                .name("Wallet Voucher")
+                .discountType(Voucher.DiscountType.PERCENT)
+                .discountValue(new BigDecimal("10"))
+                .minOrderValue(BigDecimal.ZERO)
+                .totalIssued(100)
+                .usedCount(0)
+                .startDate(LocalDate.now().minusDays(1))
+                .endDate(LocalDate.now().plusDays(5))
+                .status(Voucher.VoucherStatus.RUNNING)
+                .build();
+        CustomerVoucher walletVoucher = CustomerVoucher.builder()
+                .id(customerVoucherId)
+                .user(user)
+                .voucher(voucher)
+                .walletStatus(CustomerVoucher.WalletStatus.AVAILABLE)
+                .claimSource(CustomerVoucher.ClaimSource.STORE_CLAIM)
+                .build();
+        OrderRequest request = OrderRequest.builder()
+                .addressId(addressId)
+                .paymentMethod("COD")
+                .customerVoucherId(customerVoucherId)
+                .items(List.of(
+                        OrderRequest.OrderItemRequest.builder()
+                                .productId(productId)
+                                .variantId(variantId)
+                                .quantity(1)
+                                .build()
+                ))
+                .build();
+
+        final Order[] persisted = new Order[1];
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(addressRepository.findById(addressId)).thenReturn(Optional.of(address));
+        when(productRepository.findPublicByIdForUpdate(productId)).thenReturn(Optional.of(product));
+        when(productVariantRepository.findByIdForUpdate(variantId)).thenReturn(Optional.of(variant));
+        when(productVariantRepository.sumActiveStockByProductId(productId)).thenReturn(4L);
+        when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+        when(customerVoucherRepository.findByIdAndUserIdForUpdate(customerVoucherId, userId))
+                .thenReturn(Optional.of(walletVoucher));
+        when(voucherRepository.findByIdForUpdate(voucherId)).thenReturn(Optional.of(voucher));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+            Order saved = invocation.getArgument(0);
+            if (saved.getId() == null) {
+                saved.setId(orderId);
+            }
+            persisted[0] = saved;
+            return saved;
+        });
+        when(orderRepository.findByIdForUpdate(orderId)).thenAnswer(invocation -> Optional.ofNullable(persisted[0]));
+
+        orderService.create(userId, request);
+
+        assertEquals(1, safeInt(voucher.getUsedCount()));
+        assertEquals(CustomerVoucher.WalletStatus.USED, walletVoucher.getWalletStatus());
+        assertEquals(orderId, walletVoucher.getUsedOrderId());
+        assertTrue(Boolean.TRUE.equals(persisted[0].getDiscountUsageConsumed()));
     }
 
     private int safeInt(Integer value) {

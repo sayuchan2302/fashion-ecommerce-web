@@ -1,4 +1,4 @@
-package vn.edu.hcmuaf.fit.marketplace.chatbot.service;
+﻿package vn.edu.hcmuaf.fit.marketplace.chatbot.service;
 
 import org.junit.jupiter.api.Test;
 import vn.edu.hcmuaf.fit.marketplace.entity.Address;
@@ -26,7 +26,7 @@ class CustomerSupportChatServiceImplTest {
 
         assertTrue(result.ok(), result.message());
         assertTrue(result.message().contains("DH-260412-000037"));
-        assertTrue(result.message().contains("Don dang giao"));
+        assertTrue(result.message().contains("Đơn đang giao"));
     }
 
     @Test
@@ -38,7 +38,7 @@ class CustomerSupportChatServiceImplTest {
         CustomerSupportChatService.OrderLookupResult result = service.lookupOrderStatus("DH-260412-000037", "9999");
 
         assertFalse(result.ok());
-        assertTrue(result.message().contains("Khong xac minh duoc"));
+        assertTrue(result.message().contains("Không xác minh được"));
     }
 
     @Test
@@ -50,7 +50,7 @@ class CustomerSupportChatServiceImplTest {
         CustomerSupportChatService.OrderLookupResult result = service.lookupOrderStatus("DH-NOT-FOUND", "1234");
 
         assertFalse(result.ok());
-        assertTrue(result.message().contains("Khong tim thay don hang"));
+        assertTrue(result.message().contains("Không tìm thấy đơn hàng"));
     }
 
     @Test
@@ -103,4 +103,3 @@ class CustomerSupportChatServiceImplTest {
         }
     }
 }
-

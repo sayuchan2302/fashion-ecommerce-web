@@ -37,7 +37,7 @@ import { notificationService } from '../../services/notificationService';
 import { addressService } from '../../services/addressService';
 import { orderService } from '../../services/orderService';
 import { reviewService, type EligibleReviewItem, type Review as CustomerReview } from '../../services/reviewService';
-import { couponService, type Coupon } from '../../services/couponService';
+import { customerVoucherService, type CustomerWalletVoucher } from '../../services/customerVoucherService';
 import { profileService, type UserProfileRecord } from '../../services/profileService';
 import { authService } from '../../services/authService';
 import { storeFollowService, type FollowedStoreItem } from '../../services/storeFollowService';
@@ -85,6 +85,88 @@ const GENDER_LABEL: Record<'MALE' | 'FEMALE' | 'OTHER', string> = {
   MALE: 'Nam',
   FEMALE: 'Nữ',
   OTHER: 'Khác',
+};
+
+const getVoucherMeta = (voucher: CustomerWalletVoucher) => {
+  if (voucher.displayStatus === 'USED') {
+    return { text: 'Đã sử dụng', tone: 'used' as const };
+  }
+  if (voucher.displayStatus === 'EXPIRED') {
+    return { text: 'Đã hết hạn', tone: 'expired' as const };
+  }
+  if (voucher.displayStatus === 'REVOKED') {
+    return { text: 'Không khả dụng', tone: 'revoked' as const };
+  }
+  return { text: `Còn ${voucher.remaining}`, tone: 'available' as const };
+};
+
+const isMarketplaceVoucher = (voucher: CustomerWalletVoucher) =>
+  voucher.claimSource === 'ADMIN_AUTO';
+
+const marketplaceVoucherGroupKey = (voucher: CustomerWalletVoucher) =>
+  [
+    voucher.code,
+    voucher.type,
+    String(voucher.value ?? ''),
+    String(voucher.minOrderValue ?? ''),
+    voucher.expiresAt || '',
+  ].join('|');
+
+const voucherStatusRank = (voucher: CustomerWalletVoucher) => {
+  switch (voucher.displayStatus) {
+    case 'AVAILABLE':
+      return 0;
+    case 'USED':
+      return 1;
+    case 'EXPIRED':
+      return 2;
+    case 'REVOKED':
+      return 3;
+    default:
+      return 4;
+  }
+};
+
+const pickBetterMarketplaceVoucher = (
+  current: CustomerWalletVoucher,
+  candidate: CustomerWalletVoucher,
+) => {
+  const currentRank = voucherStatusRank(current);
+  const candidateRank = voucherStatusRank(candidate);
+  if (candidateRank < currentRank) return candidate;
+  if (candidateRank > currentRank) return current;
+
+  if ((candidate.remaining || 0) > (current.remaining || 0)) return candidate;
+  if ((candidate.remaining || 0) < (current.remaining || 0)) return current;
+
+  const candidateTime = new Date(candidate.claimedAt || 0).getTime();
+  const currentTime = new Date(current.claimedAt || 0).getTime();
+  if (candidateTime > currentTime) return candidate;
+  return current;
+};
+
+const dedupeMarketplaceVouchers = (vouchers: CustomerWalletVoucher[]) => {
+  const bestByKey = new Map<string, CustomerWalletVoucher>();
+  vouchers.forEach((voucher) => {
+    if (!isMarketplaceVoucher(voucher)) return;
+    const key = marketplaceVoucherGroupKey(voucher);
+    const current = bestByKey.get(key);
+    bestByKey.set(key, current ? pickBetterMarketplaceVoucher(current, voucher) : voucher);
+  });
+
+  const emitted = new Set<string>();
+  const result: CustomerWalletVoucher[] = [];
+  vouchers.forEach((voucher) => {
+    if (!isMarketplaceVoucher(voucher)) {
+      result.push(voucher);
+      return;
+    }
+    const key = marketplaceVoucherGroupKey(voucher);
+    if (emitted.has(key)) return;
+    emitted.add(key);
+    result.push(bestByKey.get(key) || voucher);
+  });
+  return result;
 };
 
 const Profile = () => {
@@ -145,8 +227,13 @@ const Profile = () => {
   const [pendingCancelOrderId, setPendingCancelOrderId] = useState<string | null>(null);
   const [isDeletingAddress, setIsDeletingAddress] = useState(false);
   const [isCancellingOrder, setIsCancellingOrder] = useState(false);
-  const [voucherWallet, setVoucherWallet] = useState<Coupon[]>([]);
+  const [voucherWallet, setVoucherWallet] = useState<CustomerWalletVoucher[]>([]);
   const [voucherPage, setVoucherPage] = useState(1);
+
+  const displayVoucherWallet = useMemo(
+    () => dedupeMarketplaceVouchers(voucherWallet),
+    [voucherWallet],
+  );
 
   const handleEditAddress = (address: Address) => {
     setEditingAddress(address);
@@ -164,18 +251,18 @@ const Profile = () => {
   };
 
   const orders = activeTab === 'orders' ? allOrders : [];
-  const vouchers = activeTab === 'vouchers' ? voucherWallet : [];
+  const vouchers = activeTab === 'vouchers' ? displayVoucherWallet : [];
   const totalVoucherPages = useMemo(
-    () => Math.max(1, Math.ceil(voucherWallet.length / VOUCHERS_PER_PAGE)),
-    [voucherWallet.length],
+    () => Math.max(1, Math.ceil(vouchers.length / VOUCHERS_PER_PAGE)),
+    [vouchers.length],
   );
   const pagedVouchers = useMemo(() => {
     if (activeTab !== 'vouchers') {
       return [];
     }
     const start = (voucherPage - 1) * VOUCHERS_PER_PAGE;
-    return voucherWallet.slice(start, start + VOUCHERS_PER_PAGE);
-  }, [activeTab, voucherPage, voucherWallet]);
+    return vouchers.slice(start, start + VOUCHERS_PER_PAGE);
+  }, [activeTab, voucherPage, vouchers]);
   const orderCodeMap = useMemo(() => {
     const map = new Map<string, string>();
     allOrders.forEach((order) => {
@@ -431,10 +518,10 @@ const Profile = () => {
     }
 
     let cancelled = false;
-    couponService.getAvailableCoupons()
-      .then((coupons) => {
+    customerVoucherService.listAllWallet()
+      .then((walletVouchers) => {
         if (!cancelled) {
-          setVoucherWallet(coupons);
+          setVoucherWallet(walletVouchers);
         }
       })
       .catch(() => {
@@ -828,7 +915,7 @@ const Profile = () => {
             <div className="profile-content-header">
               <h2 className="profile-content-title">Ví voucher của tôi</h2>
             </div>
-            <div className="voucher-list">
+            <div className={`voucher-list ${vouchers.length === 0 ? 'voucher-list-empty' : ''}`}>
               {vouchers.length === 0 ? (
                 <EmptyState 
                   icon={<Ticket size={80} strokeWidth={1} />}
@@ -838,25 +925,33 @@ const Profile = () => {
                   actionLink="/"
                 />
               ) : (
-                pagedVouchers.map((voucher, index) => (
-                  <div
-                    key={voucher.id ?? `${voucher.code}-${voucher.storeId ?? 'global'}-${voucher.expiresAt ?? 'na'}-${(voucherPage - 1) * VOUCHERS_PER_PAGE + index}`}
-                    className="voucher-card"
-                  >
-                    <div className="voucher-stripe"></div>
-                    <div className="voucher-body">
-                      <div className="voucher-top">
-                        <span className="voucher-code">{voucher.code}</span>
-                        <span className="voucher-remain">(Còn {voucher.remaining})</span>
-                      </div>
-                      <p className="voucher-desc">{voucher.description}</p>
-                      <div className="voucher-bottom">
-                        <span className="voucher-expiry">HSD: {new Date(voucher.expiresAt).toLocaleDateString('vi-VN')}</span>
-                        <button className="voucher-condition-btn">Điều kiện</button>
+                pagedVouchers.map((voucher, index) => {
+                  const voucherMeta = getVoucherMeta(voucher);
+                  const isMarketplaceOwner = isMarketplaceVoucher(voucher);
+                  const ownerLabel = isMarketplaceOwner ? 'Toàn sàn' : (voucher.storeName || 'Nhà bán hàng');
+                  return (
+                    <div
+                      key={voucher.customerVoucherId || `${voucher.code}-${voucher.storeId ?? 'global'}-${voucher.expiresAt ?? 'na'}-${(voucherPage - 1) * VOUCHERS_PER_PAGE + index}`}
+                      className="voucher-card"
+                    >
+                      <span className={`voucher-owner-badge ${isMarketplaceOwner ? 'marketplace' : 'vendor'}`}>
+                        {ownerLabel}
+                      </span>
+                      <div className="voucher-stripe"></div>
+                      <div className="voucher-body">
+                        <div className="voucher-top">
+                          <span className="voucher-code">{voucher.code}</span>
+                          <span className={`voucher-remain voucher-remain-${voucherMeta.tone}`}>{voucherMeta.text}</span>
+                        </div>
+                        <p className="voucher-desc">{voucher.description}</p>
+                        <div className="voucher-bottom">
+                          <span className="voucher-expiry">HSD: {new Date(voucher.expiresAt).toLocaleDateString('vi-VN')}</span>
+                          <button className="voucher-condition-btn">Điều kiện</button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
             {vouchers.length > VOUCHERS_PER_PAGE ? (

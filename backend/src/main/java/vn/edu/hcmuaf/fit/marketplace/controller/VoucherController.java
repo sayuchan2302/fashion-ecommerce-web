@@ -20,12 +20,16 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.edu.hcmuaf.fit.marketplace.dto.request.MarketplaceCampaignRequest;
 import vn.edu.hcmuaf.fit.marketplace.dto.request.VoucherRequest;
 import vn.edu.hcmuaf.fit.marketplace.dto.request.VoucherStatusUpdateRequest;
+import vn.edu.hcmuaf.fit.marketplace.dto.response.CustomerVoucherListResponse;
+import vn.edu.hcmuaf.fit.marketplace.dto.response.CustomerVoucherResponse;
 import vn.edu.hcmuaf.fit.marketplace.dto.response.MarketplaceCampaignResponse;
 import vn.edu.hcmuaf.fit.marketplace.dto.response.VoucherListResponse;
 import vn.edu.hcmuaf.fit.marketplace.dto.response.VoucherResponse;
+import vn.edu.hcmuaf.fit.marketplace.entity.CustomerVoucher;
 import vn.edu.hcmuaf.fit.marketplace.entity.Voucher;
 import vn.edu.hcmuaf.fit.marketplace.security.AuthContext;
 import vn.edu.hcmuaf.fit.marketplace.security.AuthContext.UserContext;
+import vn.edu.hcmuaf.fit.marketplace.service.CustomerVoucherService;
 import vn.edu.hcmuaf.fit.marketplace.service.VoucherService;
 
 import java.util.List;
@@ -36,10 +40,16 @@ import java.util.UUID;
 public class VoucherController {
 
     private final VoucherService voucherService;
+    private final CustomerVoucherService customerVoucherService;
     private final AuthContext authContext;
 
-    public VoucherController(VoucherService voucherService, AuthContext authContext) {
+    public VoucherController(
+            VoucherService voucherService,
+            CustomerVoucherService customerVoucherService,
+            AuthContext authContext
+    ) {
         this.voucherService = voucherService;
+        this.customerVoucherService = customerVoucherService;
         this.authContext = authContext;
     }
 
@@ -47,6 +57,28 @@ public class VoucherController {
     public ResponseEntity<List<VoucherResponse>> listPublicVouchers(
             @RequestParam(value = "storeId", required = false) List<UUID> storeIds) {
         return ResponseEntity.ok(voucherService.listPublic(storeIds));
+    }
+
+    @GetMapping("/my-wallet")
+    public ResponseEntity<CustomerVoucherListResponse> listMyWalletVouchers(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam(value = "status", required = false) CustomerVoucher.WalletStatus status,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size
+    ) {
+        UserContext ctx = authContext.requireCustomer(authHeader);
+        Pageable pageable = PageRequest.of(Math.max(page - 1, 0), Math.max(size, 1));
+        return ResponseEntity.ok(customerVoucherService.listMyWallet(ctx.getUserId(), status, pageable));
+    }
+
+    @PostMapping("/{id}/claim")
+    public ResponseEntity<CustomerVoucherResponse> claimVoucherToMyWallet(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable UUID id
+    ) {
+        UserContext ctx = authContext.requireCustomer(authHeader);
+        CustomerVoucherResponse response = customerVoucherService.claimVoucher(ctx.getUserId(), id);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/my-store")

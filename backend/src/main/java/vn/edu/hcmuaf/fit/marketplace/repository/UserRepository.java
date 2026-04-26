@@ -26,6 +26,14 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     long countByRole(User.Role role);
 
     @Query("""
+            SELECT u.id
+            FROM User u
+            WHERE u.role = :role
+              AND u.isActive = true
+            """)
+    List<UUID> findIdsByRoleAndIsActiveTrue(@Param("role") User.Role role);
+
+    @Query("""
             SELECT DISTINCT u.id
             FROM User u
             WHERE u.role = :role

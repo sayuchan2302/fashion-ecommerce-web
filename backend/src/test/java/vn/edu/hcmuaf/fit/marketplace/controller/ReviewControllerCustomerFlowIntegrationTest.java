@@ -1,10 +1,8 @@
-package vn.edu.hcmuaf.fit.marketplace.controller;
+﻿package vn.edu.hcmuaf.fit.marketplace.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -14,17 +12,26 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import vn.edu.hcmuaf.fit.marketplace.entity.Address;
+import vn.edu.hcmuaf.fit.marketplace.entity.Order;
+import vn.edu.hcmuaf.fit.marketplace.entity.OrderItem;
 import vn.edu.hcmuaf.fit.marketplace.entity.Product;
-import vn.edu.hcmuaf.fit.marketplace.entity.Review;
+import vn.edu.hcmuaf.fit.marketplace.entity.ProductVariant;
+import vn.edu.hcmuaf.fit.marketplace.entity.Store;
 import vn.edu.hcmuaf.fit.marketplace.entity.User;
+import vn.edu.hcmuaf.fit.marketplace.repository.AddressRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.OrderRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.ProductRepository;
-import vn.edu.hcmuaf.fit.marketplace.repository.ReviewRepository;
+import vn.edu.hcmuaf.fit.marketplace.repository.ProductVariantRepository;
+import vn.edu.hcmuaf.fit.marketplace.repository.StoreRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.UserRepository;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,7 +40,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class ReviewControllerCustomerFlowIntegrationTest {
 
     private static final String TEST_PASSWORD = "Test@123";
@@ -50,18 +56,25 @@ class ReviewControllerCustomerFlowIntegrationTest {
     private UserRepository userRepository;
 
     @Autowired
+    private StoreRepository storeRepository;
+
+    @Autowired
+    private AddressRepository addressRepository;
+
+    @Autowired
     private ProductRepository productRepository;
+
+    @Autowired
+    private ProductVariantRepository productVariantRepository;
 
     @Autowired
     private OrderRepository orderRepository;
 
-    @Autowired
-    private ReviewRepository reviewRepository;
-
     @Test
-    @org.junit.jupiter.api.Order(1)
     void customerCanReadEligibleReviewItems() throws Exception {
+        FixtureOrder fixtureOrder = createDeliveredOrderFixture(VENDOR_EMAIL, CUSTOMER_EMAIL);
         String customerToken = loginAndExtractToken(CUSTOMER_EMAIL, TEST_PASSWORD);
+
         ResponseEntity<String> response = restTemplate.exchange(
                 "/api/reviews/my/eligible",
                 HttpMethod.GET,
@@ -72,11 +85,19 @@ class ReviewControllerCustomerFlowIntegrationTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         JsonNode body = objectMapper.readTree(response.getBody());
         assertTrue(body.isArray());
-        assertTrue(body.size() > 0, "Expected at least one eligible item from seed data");
+
+        boolean foundFixture = false;
+        for (JsonNode item : body) {
+            if (fixtureOrder.orderId().toString().equals(item.path("orderId").asText())
+                    && fixtureOrder.productId().toString().equals(item.path("productId").asText())) {
+                foundFixture = true;
+                break;
+            }
+        }
+        assertTrue(foundFixture, "Expected eligible list to include delivered fixture order item");
     }
 
     @Test
-    @org.junit.jupiter.api.Order(2)
     void vendorCanReadEligibleReviewItems() throws Exception {
         String vendorToken = loginAndExtractToken(VENDOR_EMAIL, TEST_PASSWORD);
         ResponseEntity<String> response = restTemplate.exchange(
@@ -92,8 +113,8 @@ class ReviewControllerCustomerFlowIntegrationTest {
     }
 
     @Test
-    @org.junit.jupiter.api.Order(3)
     void customerCanSubmitReviewAndCannotDuplicateSameOrderItem() throws Exception {
+        FixtureOrder fixtureOrder = createDeliveredOrderFixture(VENDOR_EMAIL, CUSTOMER_EMAIL);
         String customerToken = loginAndExtractToken(CUSTOMER_EMAIL, TEST_PASSWORD);
 
         ResponseEntity<String> eligibleResponse = restTemplate.exchange(
@@ -104,16 +125,20 @@ class ReviewControllerCustomerFlowIntegrationTest {
         );
         assertEquals(HttpStatus.OK, eligibleResponse.getStatusCode());
         JsonNode eligible = objectMapper.readTree(eligibleResponse.getBody());
-        assertTrue(eligible.isArray());
-        assertTrue(eligible.size() > 0, "Expected at least one eligible item before submit");
 
-        JsonNode firstItem = eligible.get(0);
-        String orderId = firstItem.get("orderId").asText();
-        String productId = firstItem.get("productId").asText();
+        boolean foundFixture = false;
+        for (JsonNode item : eligible) {
+            if (fixtureOrder.orderId().toString().equals(item.path("orderId").asText())
+                    && fixtureOrder.productId().toString().equals(item.path("productId").asText())) {
+                foundFixture = true;
+                break;
+            }
+        }
+        assertTrue(foundFixture, "Expected eligible item before submit");
 
         Map<String, Object> payload = new HashMap<>();
-        payload.put("orderId", orderId);
-        payload.put("productId", productId);
+        payload.put("orderId", fixtureOrder.orderId().toString());
+        payload.put("productId", fixtureOrder.productId().toString());
         payload.put("rating", 5);
         payload.put("title", "Integration test review");
         payload.put("content", "Flow works end to end.");
@@ -127,9 +152,9 @@ class ReviewControllerCustomerFlowIntegrationTest {
         );
         assertEquals(HttpStatus.OK, createResponse.getStatusCode());
         JsonNode createdBody = objectMapper.readTree(createResponse.getBody());
-        assertEquals(orderId, createdBody.get("orderId").asText());
-        assertEquals(productId, createdBody.get("productId").asText());
-        assertEquals("PENDING", createdBody.get("status").asText());
+        assertEquals(fixtureOrder.orderId().toString(), createdBody.get("orderId").asText());
+        assertEquals(fixtureOrder.productId().toString(), createdBody.get("productId").asText());
+        assertEquals("APPROVED", createdBody.get("status").asText());
 
         ResponseEntity<String> duplicateResponse = restTemplate.exchange(
                 "/api/reviews",
@@ -149,7 +174,8 @@ class ReviewControllerCustomerFlowIntegrationTest {
         JsonNode eligibleAfterBody = objectMapper.readTree(eligibleAfter.getBody());
         boolean stillContainsSameItem = false;
         for (JsonNode item : eligibleAfterBody) {
-            if (orderId.equals(item.get("orderId").asText()) && productId.equals(item.get("productId").asText())) {
+            if (fixtureOrder.orderId().toString().equals(item.path("orderId").asText())
+                    && fixtureOrder.productId().toString().equals(item.path("productId").asText())) {
                 stillContainsSameItem = true;
                 break;
             }
@@ -158,20 +184,26 @@ class ReviewControllerCustomerFlowIntegrationTest {
     }
 
     @Test
-    @org.junit.jupiter.api.Order(4)
     void customerCannotSubmitReviewForUnpurchasedProduct() {
         String customerToken = loginAndExtractToken(CUSTOMER_EMAIL, TEST_PASSWORD);
-        User customer = userRepository.findByEmail(CUSTOMER_EMAIL).orElseThrow();
-        UUID customerId = customer.getId();
+        User vendor = userRepository.findByEmail(VENDOR_EMAIL).orElseThrow();
+        Store store = storeRepository.findByOwnerId(vendor.getId()).orElseThrow();
 
-        Optional<Product> unpurchasedProduct = productRepository.findAll()
-                .stream()
-                .filter(product -> !orderRepository.existsDeliveredOrderItemByUserAndProduct(customerId, product.getId()))
-                .findFirst();
-        assertTrue(unpurchasedProduct.isPresent(), "Expected at least one unpurchased product in seed data");
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase(Locale.ROOT);
+        Product unpurchasedProduct = productRepository.save(Product.builder()
+                .name("Unpurchased " + suffix)
+                .slug("unpurchased-" + suffix.toLowerCase(Locale.ROOT))
+                .sku("UNPUR-" + suffix)
+                .stockQuantity(5)
+                .storeId(store.getId())
+                .basePrice(new BigDecimal("119000"))
+                .salePrice(new BigDecimal("99000"))
+                .status(Product.ProductStatus.ACTIVE)
+                .approvalStatus(Product.ApprovalStatus.APPROVED)
+                .build());
 
         Map<String, Object> payload = new HashMap<>();
-        payload.put("productId", unpurchasedProduct.get().getId());
+        payload.put("productId", unpurchasedProduct.getId());
         payload.put("rating", 4);
         payload.put("title", "Should be rejected");
         payload.put("content", "Trying to review unpurchased product");
@@ -187,20 +219,29 @@ class ReviewControllerCustomerFlowIntegrationTest {
     }
 
     @Test
-    @org.junit.jupiter.api.Order(5)
     void vendorReplyCreatesRealtimeReviewNotificationForCustomer() throws Exception {
+        FixtureOrder fixtureOrder = createDeliveredOrderFixture(VENDOR_EMAIL, CUSTOMER_EMAIL);
         String customerToken = loginAndExtractToken(CUSTOMER_EMAIL, TEST_PASSWORD);
         String vendorToken = loginAndExtractToken(VENDOR_EMAIL, TEST_PASSWORD);
 
-        User vendor = userRepository.findByEmail(VENDOR_EMAIL).orElseThrow();
-        User customer = userRepository.findByEmail(CUSTOMER_EMAIL).orElseThrow();
-        assertNotNull(vendor.getStoreId(), "Vendor must have a storeId in seed data");
-        Optional<Review> targetReview = reviewRepository.findByUserIdOrderByCreatedAtDesc(customer.getId())
-                .stream()
-                .filter(review -> vendor.getStoreId().equals(review.getStoreId()))
-                .findFirst();
-        assertTrue(targetReview.isPresent(), "Expected at least one review of customer for vendor store");
-        String reviewId = targetReview.get().getId().toString();
+        Map<String, Object> createPayload = new HashMap<>();
+        createPayload.put("orderId", fixtureOrder.orderId().toString());
+        createPayload.put("productId", fixtureOrder.productId().toString());
+        createPayload.put("rating", 5);
+        createPayload.put("title", "Fixture review");
+        createPayload.put("content", "Customer feedback fixture");
+        createPayload.put("images", new String[0]);
+
+        ResponseEntity<String> createResponse = restTemplate.exchange(
+                "/api/reviews",
+                HttpMethod.POST,
+                authorizedJsonEntity(customerToken, createPayload),
+                String.class
+        );
+        assertEquals(HttpStatus.OK, createResponse.getStatusCode());
+        JsonNode created = objectMapper.readTree(createResponse.getBody());
+        String reviewId = created.path("id").asText();
+        assertFalse(reviewId.isBlank());
 
         Map<String, Object> replyPayload = new HashMap<>();
         replyPayload.put("reply", "Shop đã phản hồi đánh giá của bạn (" + System.currentTimeMillis() + ").");
@@ -235,6 +276,85 @@ class ReviewControllerCustomerFlowIntegrationTest {
         assertTrue(foundReviewNotification, "Expected a review notification with deeplink /profile?tab=reviews");
     }
 
+    private FixtureOrder createDeliveredOrderFixture(String vendorEmail, String customerEmail) {
+        User vendor = userRepository.findByEmail(vendorEmail)
+                .orElseThrow(() -> new IllegalStateException("Missing vendor fixture user: " + vendorEmail));
+        Store store = storeRepository.findByOwnerId(vendor.getId())
+                .orElseThrow(() -> new IllegalStateException("Missing fixture store for vendor: " + vendorEmail));
+        User customer = userRepository.findByEmail(customerEmail)
+                .orElseThrow(() -> new IllegalStateException("Missing customer fixture user: " + customerEmail));
+        Address address = getOrCreateDefaultAddress(customer);
+
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase(Locale.ROOT);
+        Product product = productRepository.save(Product.builder()
+                .name("Review Fixture " + suffix)
+                .slug("review-fixture-" + suffix.toLowerCase(Locale.ROOT))
+                .sku("RV-P-" + suffix)
+                .stockQuantity(8)
+                .storeId(store.getId())
+                .basePrice(new BigDecimal("199000"))
+                .salePrice(new BigDecimal("159000"))
+                .status(Product.ProductStatus.ACTIVE)
+                .approvalStatus(Product.ApprovalStatus.APPROVED)
+                .build());
+        ProductVariant variant = productVariantRepository.save(ProductVariant.builder()
+                .product(product)
+                .sku("RV-V-" + suffix)
+                .color("Blue")
+                .size("M")
+                .stockQuantity(8)
+                .priceAdjustment(BigDecimal.ZERO)
+                .isActive(true)
+                .build());
+
+        Order order = Order.builder()
+                .orderCode("ORD-RV-" + suffix)
+                .user(customer)
+                .shippingAddress(address)
+                .storeId(store.getId())
+                .status(Order.OrderStatus.DELIVERED)
+                .paymentMethod(Order.PaymentMethod.COD)
+                .paymentStatus(Order.PaymentStatus.PAID)
+                .subtotal(new BigDecimal("159000"))
+                .shippingFee(BigDecimal.ZERO)
+                .discount(BigDecimal.ZERO)
+                .items(new ArrayList<>())
+                .build();
+        order.calculateTotal();
+        Order savedOrder = orderRepository.save(order);
+
+        OrderItem item = OrderItem.builder()
+                .order(savedOrder)
+                .product(product)
+                .variant(variant)
+                .productName(product.getName())
+                .variantName(variant.getColor() + " / " + variant.getSize())
+                .quantity(1)
+                .unitPrice(new BigDecimal("159000"))
+                .totalPrice(new BigDecimal("159000"))
+                .storeId(store.getId())
+                .build();
+        savedOrder.setItems(new ArrayList<>(List.of(item)));
+        Order persisted = orderRepository.save(savedOrder);
+        return new FixtureOrder(persisted.getId(), product.getId());
+    }
+
+    private Address getOrCreateDefaultAddress(User user) {
+        return addressRepository.findByUserIdOrderByIsDefaultDesc(user.getId())
+                .stream()
+                .findFirst()
+                .orElseGet(() -> addressRepository.save(Address.builder()
+                        .user(user)
+                        .fullName(user.getName() == null || user.getName().isBlank() ? "Test User" : user.getName())
+                        .phone(user.getPhone() == null || user.getPhone().isBlank() ? "0900000000" : user.getPhone())
+                        .province("TP. Hồ Chí Minh")
+                        .district("Quận 1")
+                        .ward("Bến Nghé")
+                        .detail("1 Test Street")
+                        .isDefault(true)
+                        .build()));
+    }
+
     @SuppressWarnings("unchecked")
     private String loginAndExtractToken(String email, String password) {
         Map<String, String> payload = Map.of(
@@ -262,4 +382,6 @@ class ReviewControllerCustomerFlowIntegrationTest {
         headers.setContentType(MediaType.APPLICATION_JSON);
         return new HttpEntity<>(body, headers);
     }
+
+    private record FixtureOrder(UUID orderId, UUID productId) {}
 }

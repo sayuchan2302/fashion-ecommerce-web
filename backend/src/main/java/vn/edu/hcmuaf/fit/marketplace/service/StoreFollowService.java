@@ -20,15 +20,18 @@ public class StoreFollowService {
     private final StoreRepository storeRepository;
     private final UserRepository userRepository;
     private final StoreFollowRepository storeFollowRepository;
+    private final CustomerVoucherService customerVoucherService;
 
     public StoreFollowService(
             StoreRepository storeRepository,
             UserRepository userRepository,
-            StoreFollowRepository storeFollowRepository
+            StoreFollowRepository storeFollowRepository,
+            CustomerVoucherService customerVoucherService
     ) {
         this.storeRepository = storeRepository;
         this.userRepository = userRepository;
         this.storeFollowRepository = storeFollowRepository;
+        this.customerVoucherService = customerVoucherService;
     }
 
     @Transactional(readOnly = true)
@@ -63,6 +66,7 @@ public class StoreFollowService {
                     .build();
             storeFollowRepository.save(follow);
         }
+        customerVoucherService.assignRunningVouchersToFollower(storeId, userId);
 
         return getFollowState(storeId, userId);
     }
@@ -83,4 +87,3 @@ public class StoreFollowService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Store not found"));
     }
 }
-

@@ -32,15 +32,18 @@ public class VoucherService {
     private final VoucherRepository voucherRepository;
     private final StoreRepository storeRepository;
     private final PromotionNotificationService promotionNotificationService;
+    private final CustomerVoucherService customerVoucherService;
 
     public VoucherService(
             VoucherRepository voucherRepository,
             StoreRepository storeRepository,
-            PromotionNotificationService promotionNotificationService
+            PromotionNotificationService promotionNotificationService,
+            CustomerVoucherService customerVoucherService
     ) {
         this.voucherRepository = voucherRepository;
         this.storeRepository = storeRepository;
         this.promotionNotificationService = promotionNotificationService;
+        this.customerVoucherService = customerVoucherService;
     }
 
     @Transactional(readOnly = true)
@@ -139,7 +142,7 @@ public class VoucherService {
 
         try {
             Voucher saved = voucherRepository.save(voucher);
-            notifyStoreFollowersIfRunningTransition(null, saved);
+            handleRunningTransitionForVendor(null, saved);
             return toResponse(saved);
         } catch (DataIntegrityViolationException ex) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Voucher code already exists in this store");
@@ -169,7 +172,7 @@ public class VoucherService {
 
         try {
             Voucher saved = voucherRepository.save(voucher);
-            notifyStoreFollowersIfRunningTransition(null, saved);
+            handleRunningTransitionForAdmin(null, saved);
             return toResponse(saved);
         } catch (DataIntegrityViolationException ex) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Voucher code already exists in this store");
@@ -203,7 +206,7 @@ public class VoucherService {
 
         try {
             Voucher saved = voucherRepository.save(voucher);
-            notifyStoreFollowersIfRunningTransition(previousStatus, saved);
+            handleRunningTransitionForVendor(previousStatus, saved);
             return toResponse(saved);
         } catch (DataIntegrityViolationException ex) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Voucher code already exists in this store");
@@ -243,7 +246,7 @@ public class VoucherService {
 
         try {
             Voucher saved = voucherRepository.save(voucher);
-            notifyStoreFollowersIfRunningTransition(previousStatus, saved);
+            handleRunningTransitionForAdmin(previousStatus, saved);
             return toResponse(saved);
         } catch (DataIntegrityViolationException ex) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Voucher code already exists in this store");
@@ -257,7 +260,7 @@ public class VoucherService {
         voucher.setStatus(request.getStatus());
         voucher.setUpdatedBy(actor);
         Voucher saved = voucherRepository.save(voucher);
-        notifyStoreFollowersIfRunningTransition(previousStatus, saved);
+        handleRunningTransitionForVendor(previousStatus, saved);
         return toResponse(saved);
     }
 
@@ -268,7 +271,7 @@ public class VoucherService {
         voucher.setStatus(request.getStatus());
         voucher.setUpdatedBy(actor);
         Voucher saved = voucherRepository.save(voucher);
-        notifyStoreFollowersIfRunningTransition(previousStatus, saved);
+        handleRunningTransitionForAdmin(previousStatus, saved);
         return toResponse(saved);
     }
 
@@ -327,7 +330,8 @@ public class VoucherService {
                     request.getStatus(),
                     actor
             );
-            voucherRepository.save(voucher);
+            Voucher saved = voucherRepository.save(voucher);
+            assignVoucherToAllCustomersIfRunningTransition(null, saved);
             createdCount++;
         }
 
@@ -389,6 +393,42 @@ public class VoucherService {
             return;
         }
         promotionNotificationService.notifyStoreFollowersForRunningVoucher(savedVoucher);
+    }
+
+    private void handleRunningTransitionForVendor(Voucher.VoucherStatus previousStatus, Voucher savedVoucher) {
+        notifyStoreFollowersIfRunningTransition(previousStatus, savedVoucher);
+        assignVoucherToFollowersIfRunningTransition(previousStatus, savedVoucher);
+    }
+
+    private void handleRunningTransitionForAdmin(Voucher.VoucherStatus previousStatus, Voucher savedVoucher) {
+        notifyStoreFollowersIfRunningTransition(previousStatus, savedVoucher);
+        assignVoucherToAllCustomersIfRunningTransition(previousStatus, savedVoucher);
+    }
+
+    private void assignVoucherToFollowersIfRunningTransition(Voucher.VoucherStatus previousStatus, Voucher savedVoucher) {
+        if (customerVoucherService == null || savedVoucher == null) {
+            return;
+        }
+        if (!hasTransitionedToRunning(previousStatus, savedVoucher.getStatus())) {
+            return;
+        }
+        if (!isVoucherPubliclyAvailable(savedVoucher)) {
+            return;
+        }
+        customerVoucherService.assignVoucherToStoreFollowers(savedVoucher);
+    }
+
+    private void assignVoucherToAllCustomersIfRunningTransition(Voucher.VoucherStatus previousStatus, Voucher savedVoucher) {
+        if (customerVoucherService == null || savedVoucher == null) {
+            return;
+        }
+        if (!hasTransitionedToRunning(previousStatus, savedVoucher.getStatus())) {
+            return;
+        }
+        if (!isVoucherPubliclyAvailable(savedVoucher)) {
+            return;
+        }
+        customerVoucherService.assignVoucherToAllActiveCustomers(savedVoucher);
     }
 
     private boolean hasTransitionedToRunning(Voucher.VoucherStatus previousStatus, Voucher.VoucherStatus currentStatus) {

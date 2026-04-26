@@ -37,12 +37,19 @@ class VoucherServicePromotionNotificationTest {
     private StoreRepository storeRepository;
 
     private CapturingPromotionNotificationService promotionNotificationService;
+    private NoopCustomerVoucherService customerVoucherService;
     private VoucherService voucherService;
 
     @BeforeEach
     void setUp() {
         promotionNotificationService = new CapturingPromotionNotificationService();
-        voucherService = new VoucherService(voucherRepository, storeRepository, promotionNotificationService);
+        customerVoucherService = new NoopCustomerVoucherService();
+        voucherService = new VoucherService(
+                voucherRepository,
+                storeRepository,
+                promotionNotificationService,
+                customerVoucherService
+        );
     }
 
     @Test
@@ -192,6 +199,23 @@ class VoucherServicePromotionNotificationTest {
             marketplaceCampaignCodes.add(voucherCode);
             marketplaceCampaignStartDates.add(startDate);
             marketplaceCampaignEndDates.add(endDate);
+        }
+    }
+
+    private static final class NoopCustomerVoucherService extends CustomerVoucherService {
+
+        private NoopCustomerVoucherService() {
+            super(null, null, null, null, null);
+        }
+
+        @Override
+        public int assignVoucherToAllActiveCustomers(Voucher voucher) {
+            return 0;
+        }
+
+        @Override
+        public int assignVoucherToStoreFollowers(Voucher voucher) {
+            return 0;
         }
     }
 }

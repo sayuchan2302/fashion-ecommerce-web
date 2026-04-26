@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 public class OrderRequest {
     private UUID addressId;
     private String paymentMethod;
+    private UUID customerVoucherId;
     private String couponCode;
     private String note;
     private List<OrderItemRequest> items;

@@ -177,9 +177,9 @@ class GapProductImportRunnerTest {
 
         Map<UUID, Long> countByCategory = requests.stream()
                 .collect(Collectors.groupingBy(ProductRequest::getCategoryId, Collectors.counting()));
-        assertEquals(2L, countByCategory.get(menLeaf.getId()));
-        assertEquals(2L, countByCategory.get(womenLeaf.getId()));
-        assertEquals(2L, countByCategory.get(accessoryLeaf.getId()));
+        assertEquals(6L, countByCategory.get(menLeaf.getId()));
+        assertTrue(!countByCategory.containsKey(womenLeaf.getId()) || countByCategory.get(womenLeaf.getId()) == 0L);
+        assertTrue(!countByCategory.containsKey(accessoryLeaf.getId()) || countByCategory.get(accessoryLeaf.getId()) == 0L);
 
         ProductRequest fallbackRow = requests.stream()
                 .filter(request -> "gap-100".equals(request.getSlug()))

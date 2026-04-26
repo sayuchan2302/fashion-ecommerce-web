@@ -591,10 +591,23 @@ class OrderBusinessConsistencyApiIntegrationTest {
     }
 
     private Address getDefaultAddress(UUID userId) {
-        return addressRepository.findByUserIdOrderByIsDefaultDesc(userId)
-                .stream()
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Missing address for user " + userId));
+        List<Address> addresses = addressRepository.findByUserIdOrderByIsDefaultDesc(userId);
+        if (!addresses.isEmpty()) {
+            return addresses.get(0);
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("Missing user " + userId));
+        Address created = Address.builder()
+                .user(user)
+                .fullName(user.getName() == null || user.getName().isBlank() ? "Test User" : user.getName())
+                .phone(user.getPhone() == null || user.getPhone().isBlank() ? "0900000000" : user.getPhone())
+                .province("TP. Hồ Chí Minh")
+                .district("Quận 1")
+                .ward("Bến Nghé")
+                .detail("1 Test Street")
+                .isDefault(true)
+                .build();
+        return addressRepository.save(created);
     }
 
     private ProductVariant createProductWithSingleVariant(UUID storeId, int stock, BigDecimal basePrice) {

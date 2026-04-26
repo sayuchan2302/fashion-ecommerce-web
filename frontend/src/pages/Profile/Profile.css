@@ -1505,6 +1505,18 @@ body.modal-open {
   gap: 16px;
 }
 
+.voucher-list-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 420px;
+}
+
+.voucher-list-empty .empty-state {
+  width: 100%;
+  max-width: 520px;
+}
+
 .voucher-pagination {
   margin-top: 18px;
   display: flex;
@@ -1558,6 +1570,7 @@ body.modal-open {
 
 .voucher-card {
   display: flex;
+  position: relative;
   border-radius: 8px;
   overflow: hidden;
   background-color: var(--co-gray-100);
@@ -1576,7 +1589,7 @@ body.modal-open {
 
 .voucher-body {
   flex-grow: 1;
-  padding: 16px 20px;
+  padding: 24px 20px 16px;
 }
 
 .voucher-top {
@@ -1597,6 +1610,21 @@ body.modal-open {
   font-size: 13px;
   font-weight: 400;
   color: var(--co-gray-500);
+}
+
+.voucher-remain-available {
+  color: var(--co-gray-500);
+}
+
+.voucher-remain-used {
+  color: #0f766e;
+  font-weight: 600;
+}
+
+.voucher-remain-expired,
+.voucher-remain-revoked {
+  color: #b45309;
+  font-weight: 600;
 }
 
 .voucher-desc {
@@ -1630,6 +1658,33 @@ body.modal-open {
 
 .voucher-condition-btn:hover {
   text-decoration: underline;
+}
+
+.voucher-owner-badge {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  max-width: 170px;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.voucher-owner-badge.marketplace {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.voucher-owner-badge.vendor {
+  background: #e2e8f0;
+  color: #334155;
 }
 
 /* --- Address Book Tab --- */

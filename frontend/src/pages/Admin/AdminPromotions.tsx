@@ -25,7 +25,13 @@ interface PromotionFormState extends AdminPromotionUpsertInput {
   id?: string;
 }
 
-const ALL_MARKETPLACE_STORE = '__ALL_MARKETPLACE__';
+interface PromotionTableRow {
+  key: string;
+  campaignKey: string;
+  promotion: AdminPromotionRecord;
+  memberPromotions: AdminPromotionRecord[];
+  isGlobalCampaign: boolean;
+}
 
 const emptyPromotion = (): PromotionFormState => ({
   storeId: '',
@@ -49,7 +55,6 @@ const formatDate = (value: string) => {
 };
 
 const normalizeCode = (value: string) => value.trim().replace(/\s+/g, '').toUpperCase();
-const isAllMarketplaceSelection = (storeId: string) => storeId === ALL_MARKETPLACE_STORE;
 const campaignScopeKey = (promotion: AdminPromotionRecord) =>
   [
     normalizeCode(promotion.code),
@@ -93,38 +98,21 @@ const deriveStatus = (promotion: AdminPromotionRecord): 'running' | 'paused' | '
 const validateForm = (
   form: PromotionFormState,
   rows: AdminPromotionRecord[],
-  editingId: string | null,
-  selectableStores: StoreProfile[],
+  editingIds: Set<string>,
 ) => {
-  if (!form.storeId) return 'Vui lòng chọn gian hàng áp dụng.';
-  if (isAllMarketplaceSelection(form.storeId) && selectableStores.length === 0) {
-    return 'Không có gian hàng đã duyệt để áp dụng voucher toàn sàn.';
-  }
-  if (editingId && isAllMarketplaceSelection(form.storeId)) {
-    return 'Không thể chuyển chiến dịch hiện có sang toàn sàn. Hãy tạo chiến dịch mới.';
-  }
   if (!form.name.trim()) return 'Tên chiến dịch không được để trống.';
   if (!form.code.trim()) return 'Mã voucher không được để trống.';
   if (!/^[A-Z0-9-]{3,24}$/.test(form.code)) {
     return 'Mã voucher phải từ 3-24 ký tự, chỉ gồm chữ hoa, số và dấu gạch ngang.';
   }
 
-  const targetStoreIds = isAllMarketplaceSelection(form.storeId)
-    ? selectableStores.map((store) => store.id)
-    : [form.storeId];
   const duplicatedVoucher = rows.find(
     (item) =>
-      targetStoreIds.includes(item.storeId) &&
       normalizeCode(item.code) === normalizeCode(form.code) &&
-      item.id !== editingId,
+      !editingIds.has(item.id),
   );
-  if (
-    duplicatedVoucher
-  ) {
-    if (isAllMarketplaceSelection(form.storeId)) {
-      return `Mã voucher đã tồn tại ở gian hàng "${duplicatedVoucher.storeName || duplicatedVoucher.storeId}".`;
-    }
-    return 'Mã voucher đã tồn tại trong gian hàng đã chọn.';
+  if (duplicatedVoucher) {
+    return 'Mã voucher đã tồn tại trong hệ thống.';
   }
   if (form.discountValue <= 0) return 'Giá trị giảm phải lớn hơn 0.';
   if (form.discountType === 'percent' && form.discountValue > 100) {
@@ -137,7 +125,6 @@ const validateForm = (
   return null;
 };
 
-const discountTypeLabel = (type: AdminPromotionDiscountType) => (type === 'percent' ? 'Giảm %' : 'Giảm tiền');
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message.trim() ? error.message : fallback;
 
@@ -152,7 +139,7 @@ const AdminPromotions = () => {
   const [stores, setStores] = useState<StoreProfile[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingRows, setEditingRows] = useState<AdminPromotionRecord[]>([]);
   const [form, setForm] = useState<PromotionFormState>(emptyPromotion());
   const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -166,27 +153,74 @@ const AdminPromotions = () => {
   );
 
   const globalCampaignKeys = useMemo(() => {
-    if (selectableStores.length === 0) return new Set<string>();
-
-    const storesByCampaign = new Map<string, Set<string>>();
+    const campaignCounts = new Map<string, number>();
     rows.forEach((item) => {
-      if (!item.storeId) return;
       const key = campaignScopeKey(item);
-      if (!storesByCampaign.has(key)) {
-        storesByCampaign.set(key, new Set());
-      }
-      storesByCampaign.get(key)?.add(item.storeId);
+      campaignCounts.set(key, (campaignCounts.get(key) || 0) + 1);
     });
 
-    const requiredStoreCount = selectableStores.length;
     const result = new Set<string>();
-    storesByCampaign.forEach((storeIds, key) => {
-      if (storeIds.size === requiredStoreCount) {
+    campaignCounts.forEach((count, key) => {
+      if (count > 1) {
         result.add(key);
       }
     });
     return result;
-  }, [rows, selectableStores]);
+  }, [rows]);
+
+  const tableRows = useMemo(() => {
+    const groupedByCampaign = new Map<string, AdminPromotionRecord[]>();
+    rows.forEach((item) => {
+      const key = campaignScopeKey(item);
+      const list = groupedByCampaign.get(key);
+      if (list) {
+        list.push(item);
+      } else {
+        groupedByCampaign.set(key, [item]);
+      }
+    });
+
+    const emittedCampaignKeys = new Set<string>();
+    const result: PromotionTableRow[] = [];
+
+    rows.forEach((item) => {
+      const key = campaignScopeKey(item);
+      const isGlobalCampaign = globalCampaignKeys.has(key);
+
+      if (!isGlobalCampaign) {
+        result.push({
+          key: item.id,
+          campaignKey: key,
+          promotion: item,
+          memberPromotions: [item],
+          isGlobalCampaign: false,
+        });
+        return;
+      }
+
+      if (emittedCampaignKeys.has(key)) {
+        return;
+      }
+      emittedCampaignKeys.add(key);
+
+      const members = groupedByCampaign.get(key) || [item];
+      const representative = members[0] || item;
+      result.push({
+        key: `global:${key}`,
+        campaignKey: key,
+        promotion: representative,
+        memberPromotions: members,
+        isGlobalCampaign: true,
+      });
+    });
+
+    return result;
+  }, [rows, globalCampaignKeys]);
+
+  const editingIds = useMemo(
+    () => new Set(editingRows.map((item) => item.id)),
+    [editingRows],
+  );
 
   const loadData = useCallback(async () => {
     try {
@@ -220,31 +254,32 @@ const AdminPromotions = () => {
     next,
     prev,
     setPage,
-  } = useAdminListState<AdminPromotionRecord>({
-    items: rows,
+  } = useAdminListState<PromotionTableRow>({
+    items: tableRows,
     pageSize: 7,
     searchValue: view.search,
     onSearchChange: view.setSearch,
     pageValue: view.page,
     onPageChange: view.setPage,
-    getSearchText: (item) => `${item.name} ${item.code} ${item.description} ${item.storeName}`,
-    filterPredicate: (item) => view.status === 'all' || deriveStatus(item) === view.status,
+    getSearchText: (item) =>
+      `${item.promotion.name} ${item.promotion.code} ${item.promotion.description} ${item.promotion.storeName} ${item.isGlobalCampaign ? 'toàn sàn' : ''}`,
+    filterPredicate: (item) => view.status === 'all' || deriveStatus(item.promotion) === view.status,
     loadingDeps: [view.status],
   });
 
   const stats = useMemo(() => {
-    const running = rows.filter((item) => deriveStatus(item) === 'running').length;
-    const paused = rows.filter((item) => deriveStatus(item) === 'paused').length;
-    const expired = rows.filter((item) => deriveStatus(item) === 'expired').length;
-    const totalIssued = rows.reduce((sum, item) => sum + item.totalIssued, 0);
-    const totalUsed = rows.reduce((sum, item) => sum + item.usedCount, 0);
+    const running = tableRows.filter((item) => deriveStatus(item.promotion) === 'running').length;
+    const paused = tableRows.filter((item) => deriveStatus(item.promotion) === 'paused').length;
+    const expired = tableRows.filter((item) => deriveStatus(item.promotion) === 'expired').length;
+    const totalIssued = tableRows.reduce((sum, item) => sum + item.promotion.totalIssued, 0);
+    const totalUsed = tableRows.reduce((sum, item) => sum + item.promotion.usedCount, 0);
     return {
       running,
       paused,
       expired,
       usageRate: totalIssued > 0 ? Math.round((totalUsed / totalIssued) * 100) : 0,
     };
-  }, [rows]);
+  }, [tableRows]);
 
   const resetView = () => {
     view.resetCurrentView();
@@ -253,35 +288,36 @@ const AdminPromotions = () => {
   };
 
   const openCreate = () => {
-    setEditingId(null);
+    setEditingRows([]);
     setForm({
       ...emptyPromotion(),
-      storeId: selectableStores.length > 0 ? ALL_MARKETPLACE_STORE : '',
+      storeId: '',
     });
     setIsDrawerOpen(true);
   };
 
-  const openEdit = (promotion: AdminPromotionRecord) => {
-    setEditingId(promotion.id);
+  const openEdit = (row: PromotionTableRow) => {
+    const representative = row.promotion;
+    setEditingRows(row.memberPromotions);
     setForm({
-      id: promotion.id,
-      storeId: promotion.storeId,
-      name: promotion.name,
-      code: promotion.code,
-      description: promotion.description,
-      discountType: promotion.discountType,
-      discountValue: promotion.discountValue,
-      minOrderValue: promotion.minOrderValue,
-      totalIssued: promotion.totalIssued,
-      startDate: promotion.startDate,
-      endDate: promotion.endDate,
-      status: promotion.status,
+      id: representative.id,
+      storeId: representative.storeId,
+      name: representative.name,
+      code: representative.code,
+      description: representative.description,
+      discountType: representative.discountType,
+      discountValue: representative.discountValue,
+      minOrderValue: representative.minOrderValue,
+      totalIssued: representative.totalIssued,
+      startDate: representative.startDate,
+      endDate: representative.endDate,
+      status: representative.status,
     });
     setIsDrawerOpen(true);
   };
 
   const savePromotion = async () => {
-    const error = validateForm(form, rows, editingId, selectableStores);
+    const error = validateForm(form, rows, editingIds);
     if (error) {
       pushToast(error);
       return;
@@ -289,10 +325,19 @@ const AdminPromotions = () => {
 
     try {
       setIsSubmitting(true);
-      if (editingId) {
-        await adminPromotionService.update(editingId, toUpsertInput(form));
-        pushToast('Đã cập nhật chiến dịch.');
-      } else if (isAllMarketplaceSelection(form.storeId)) {
+
+      if (editingRows.length > 0) {
+        await Promise.all(
+          editingRows.map((item) =>
+            adminPromotionService.update(item.id, toUpsertInput(form, item.storeId)),
+          ),
+        );
+        pushToast(
+          editingRows.length > 1
+            ? `Đã cập nhật chiến dịch toàn sàn cho ${editingRows.length} gian hàng.`
+            : 'Đã cập nhật chiến dịch.',
+        );
+      } else {
         const campaign = await adminPromotionService.createMarketplaceCampaign(toUpsertInput(form));
         if (campaign.createdCount <= 0) {
           throw new Error('Không thể tạo chiến dịch toàn sàn.');
@@ -302,11 +347,10 @@ const AdminPromotions = () => {
         } else {
           pushToast(`Đã tạo voucher toàn sàn cho ${campaign.createdCount} gian hàng.`);
         }
-      } else {
-        await adminPromotionService.create(toUpsertInput(form));
-        pushToast('Đã tạo chiến dịch mới.');
       }
+
       setIsDrawerOpen(false);
+      setEditingRows([]);
       await loadData();
     } catch (error: unknown) {
       pushToast(getErrorMessage(error, 'Không thể lưu chiến dịch.'));
@@ -315,10 +359,12 @@ const AdminPromotions = () => {
     }
   };
 
-  const togglePause = async (promotion: AdminPromotionRecord) => {
-    const nextStatus: AdminPromotionStatus = promotion.status === 'running' ? 'paused' : 'running';
+  const togglePause = async (row: PromotionTableRow) => {
+    const nextStatus: AdminPromotionStatus = row.promotion.status === 'running' ? 'paused' : 'running';
     try {
-      await adminPromotionService.updateStatus(promotion.id, nextStatus);
+      await Promise.all(
+        row.memberPromotions.map((item) => adminPromotionService.updateStatus(item.id, nextStatus)),
+      );
       pushToast(nextStatus === 'paused' ? 'Đã tạm dừng chiến dịch.' : 'Đã kích hoạt lại chiến dịch.');
       await loadData();
     } catch (error: unknown) {
@@ -352,7 +398,7 @@ const AdminPromotions = () => {
       <div className="admin-stats grid-4">
         <div className="admin-stat-card">
           <div className="admin-stat-label">Tổng chiến dịch</div>
-          <div className="admin-stat-value">{rows.length}</div>
+          <div className="admin-stat-value">{tableRows.length}</div>
           <div className="admin-stat-sub">Tỷ lệ sử dụng toàn sàn: {stats.usageRate}%</div>
         </div>
         <div className="admin-stat-card success" onClick={() => view.setStatus('running')} style={{ cursor: 'pointer' }}>
@@ -374,7 +420,7 @@ const AdminPromotions = () => {
 
       <PanelTabs
         items={[
-          { key: 'all', label: 'Tất cả', count: rows.length },
+          { key: 'all', label: 'Tất cả', count: tableRows.length },
           { key: 'running', label: 'Đang chạy', count: stats.running },
           { key: 'paused', label: 'Tạm dừng', count: stats.paused },
           { key: 'expired', label: 'Hết hạn', count: stats.expired },
@@ -391,7 +437,7 @@ const AdminPromotions = () => {
 
           {isInitializing ? (
             <div className="admin-loading" style={{ padding: '3rem', textAlign: 'center' }}>Đang tải dữ liệu chiến dịch...</div>
-          ) : loadError && rows.length === 0 ? (
+          ) : loadError && tableRows.length === 0 ? (
             <AdminStateBlock
               type="error"
               title="Không thể tải chiến dịch"
@@ -408,12 +454,18 @@ const AdminPromotions = () => {
               onAction={resetView}
             />
           ) : (
-<div className="admin-table" role="table" aria-label="Bảng chiến dịch toàn sàn">
+            <div className="admin-table" role="table" aria-label="Bảng chiến dịch toàn sàn">
               <div className="admin-table-row admin-table-head promotions" role="row">
-                <div role="columnheader"><input type="checkbox" checked={selected.size === filteredItems.length && filteredItems.length > 0} onChange={(e) => setSelected(e.target.checked ? new Set(filteredItems.map((item) => item.id)) : new Set())} /></div>
+                <div role="columnheader">
+                  <input
+                    type="checkbox"
+                    checked={selected.size === filteredItems.length && filteredItems.length > 0}
+                    onChange={(e) => setSelected(e.target.checked ? new Set(filteredItems.map((item) => item.key)) : new Set())}
+                  />
+                </div>
                 <div role="columnheader">STT</div>
                 <div role="columnheader">Chiến dịch</div>
-                <div role="columnheader">Loại giảm giá</div>
+                <div role="columnheader">Phạm vi</div>
                 <div role="columnheader">Giá trị</div>
                 <div role="columnheader">Điều kiện</div>
                 <div role="columnheader">Đã sử dụng</div>
@@ -421,27 +473,27 @@ const AdminPromotions = () => {
                 <div role="columnheader">Trạng thái</div>
                 <div role="columnheader">Hành động</div>
               </div>
-              {pagedItems.map((promo, index) => {
+              {pagedItems.map((row, index) => {
+                const promo = row.promotion;
                 const usedPercent = promo.totalIssued > 0 ? Math.min(100, Math.round((promo.usedCount / promo.totalIssued) * 100)) : 0;
                 const currentStatus = deriveStatus(promo);
-                const isGlobalCampaign = globalCampaignKeys.has(campaignScopeKey(promo));
                 return (
                   <motion.div
-                    key={promo.id}
+                    key={row.key}
                     className="admin-table-row promotions"
                     role="row"
                     whileHover={{ y: -1 }}
-                    onClick={() => openEdit(promo)}
+                    onClick={() => openEdit(row)}
                     style={{ cursor: 'pointer' }}
                   >
                     <div role="cell" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
-                        checked={selected.has(promo.id)}
+                        checked={selected.has(row.key)}
                         onChange={(e) => {
                           const next = new Set(selected);
-                          if (e.target.checked) next.add(promo.id);
-                          else next.delete(promo.id);
+                          if (e.target.checked) next.add(row.key);
+                          else next.delete(row.key);
                           setSelected(next);
                         }}
                       />
@@ -450,9 +502,12 @@ const AdminPromotions = () => {
                     <div role="cell">
                       <p className="admin-bold promo-name">{promo.name}</p>
                       <p className="admin-muted promo-code">{promo.code}</p>
-                      <p className="admin-muted small">{isGlobalCampaign ? 'Toàn sàn' : (promo.storeName || 'Store không xác định')}</p>
                     </div>
-                    <div role="cell">{discountTypeLabel(promo.discountType)}</div>
+                    <div role="cell">
+                      <span className={`promo-scope-badge ${row.isGlobalCampaign ? 'global' : 'vendor'}`}>
+                        {row.isGlobalCampaign ? 'Toàn sàn' : (promo.storeName || 'Store không xác định')}
+                      </span>
+                    </div>
                     <div role="cell">
                       <p className="admin-bold">
                         {promo.discountType === 'percent' ? `${promo.discountValue}%` : formatCurrency(promo.discountValue)}
@@ -466,11 +521,11 @@ const AdminPromotions = () => {
                     <div role="cell" className="admin-muted">{formatDate(promo.startDate)} - {formatDate(promo.endDate)}</div>
                     <div role="cell"><span className={`admin-pill ${promotionStatusClass(currentStatus)}`}>{promotionStatusLabel(currentStatus)}</span></div>
                     <div role="cell" className="admin-actions" onClick={(e) => e.stopPropagation()}>
-                      <button className="admin-icon-btn subtle" onClick={() => openEdit(promo)}><Pencil size={16} /></button>
-                      <button className="admin-icon-btn subtle" onClick={() => void togglePause(promo)}>
+                      <button className="admin-icon-btn subtle" onClick={() => openEdit(row)}><Pencil size={16} /></button>
+                      <button className="admin-icon-btn subtle" onClick={() => void togglePause(row)}>
                         {promo.status === 'running' ? <Pause size={16} /> : <Play size={16} />}
                       </button>
-                      <button className="admin-icon-btn subtle danger-icon" onClick={() => setDeleteIds([promo.id])}><Trash2 size={16} /></button>
+                      <button className="admin-icon-btn subtle danger-icon" onClick={() => setDeleteIds(row.memberPromotions.map((item) => item.id))}><Trash2 size={16} /></button>
                     </div>
                   </motion.div>
                 );
@@ -509,7 +564,7 @@ const AdminPromotions = () => {
         <div className="drawer-header">
           <div>
             <p className="drawer-eyebrow">Chiến dịch nền tảng</p>
-            <h3>{editingId ? 'Cập nhật chiến dịch toàn sàn' : 'Tạo chiến dịch toàn sàn'}</h3>
+            <h3>{editingRows.length > 0 ? 'Cập nhật chiến dịch toàn sàn' : 'Tạo chiến dịch toàn sàn'}</h3>
           </div>
           <button className="admin-icon-btn" onClick={() => setIsDrawerOpen(false)} aria-label="Đóng"><X size={16} /></button>
         </div>
@@ -518,18 +573,8 @@ const AdminPromotions = () => {
             <h4>Thông tin</h4>
             <div className="form-grid">
               <label className="form-field">
-                <span>Gian hàng áp dụng</span>
-                <select value={form.storeId} onChange={(e) => setForm((prev) => ({ ...prev, storeId: e.target.value }))}>
-                  <option value="">Chọn gian hàng</option>
-                  {selectableStores.length > 0 && (
-                    <option value={ALL_MARKETPLACE_STORE} disabled={Boolean(editingId)}>
-                      Toàn sàn (mọi gian hàng đã duyệt)
-                    </option>
-                  )}
-                  {selectableStores.map((store) => (
-                    <option key={store.id} value={store.id}>{store.name}</option>
-                  ))}
-                </select>
+                <span>Phạm vi áp dụng</span>
+                <input value="Toàn sàn" disabled />
               </label>
               <label className="form-field">
                 <span>Tên chiến dịch</span>
@@ -598,5 +643,3 @@ const AdminPromotions = () => {
 };
 
 export default AdminPromotions;
-
-

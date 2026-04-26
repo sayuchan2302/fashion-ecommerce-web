@@ -1,4 +1,4 @@
-package vn.edu.hcmuaf.fit.marketplace.service;
+﻿package vn.edu.hcmuaf.fit.marketplace.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -127,7 +127,7 @@ class ReviewServiceNotificationTest {
     }
 
     @Test
-    void addStoreReplyAutoApprovesPendingReviewAndStillPushesNotification() {
+    void addStoreReplyPendingReviewKeepsStatusAndStillPushesNotification() {
         UUID reviewId = UUID.randomUUID();
         UUID storeId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
@@ -138,7 +138,7 @@ class ReviewServiceNotificationTest {
 
         ReviewResponse response = reviewService.addStoreReply(reviewId, storeId, "Shop phản hồi mới");
 
-        assertEquals("APPROVED", response.getStatus());
+        assertEquals("PENDING", response.getStatus());
         assertNotNull(response.getReplyAt());
         assertEquals(1, notificationDomainService.invocations.size());
     }

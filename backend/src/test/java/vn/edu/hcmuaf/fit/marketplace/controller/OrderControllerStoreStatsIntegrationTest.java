@@ -54,10 +54,7 @@ class OrderControllerStoreStatsIntegrationTest {
         User vendor = getUser(VENDOR_EMAIL);
         User customer = getUser(CUSTOMER_EMAIL);
         Store store = storeRepository.findByOwnerId(vendor.getId()).orElseThrow();
-        Address address = addressRepository.findByUserIdOrderByIsDefaultDesc(customer.getId())
-                .stream()
-                .findFirst()
-                .orElseThrow();
+        Address address = getOrCreateDefaultAddress(customer);
 
         createStoreOrder(store.getId(), customer, address, Order.OrderStatus.WAITING_FOR_VENDOR);
         createStoreOrder(store.getId(), customer, address, Order.OrderStatus.PENDING);
@@ -104,6 +101,22 @@ class OrderControllerStoreStatsIntegrationTest {
     private User getUser(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalStateException("Missing test user: " + email));
+    }
+
+    private Address getOrCreateDefaultAddress(User user) {
+        return addressRepository.findByUserIdOrderByIsDefaultDesc(user.getId())
+                .stream()
+                .findFirst()
+                .orElseGet(() -> addressRepository.save(Address.builder()
+                        .user(user)
+                        .fullName(user.getName() == null || user.getName().isBlank() ? "Test User" : user.getName())
+                        .phone(user.getPhone() == null || user.getPhone().isBlank() ? "0900000000" : user.getPhone())
+                        .province("TP. Hồ Chí Minh")
+                        .district("Quận 1")
+                        .ward("Bến Nghé")
+                        .detail("1 Test Street")
+                        .isDefault(true)
+                        .build()));
     }
 
     @SuppressWarnings("unchecked")

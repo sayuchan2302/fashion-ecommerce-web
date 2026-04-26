@@ -14,10 +14,12 @@ import { Link, useParams } from 'react-router-dom';
 import { BadgeCheck, ChevronLeft, Mail, MapPin, MessageCircle, Phone, ShoppingBag, Star, TicketPercent, Users } from 'lucide-react';
 import { storeService, type StoreProduct, type StoreProfile } from '../../services/storeService';
 import { couponService, type Coupon } from '../../services/couponService';
+import { customerVoucherService } from '../../services/customerVoucherService';
 import { reviewService, type Review } from '../../services/reviewService';
 import { storeFollowService } from '../../services/storeFollowService';
-import { hasBackendJwt } from '../../services/apiClient';
+import { ApiError, hasBackendJwt } from '../../services/apiClient';
 import { useCart } from '../../contexts/CartContext';
+import { useToast } from '../../contexts/ToastContext';
 import ProductCard from '../../components/ProductCard/ProductCard';
 import './StoreProfile.css';
 
@@ -123,6 +125,10 @@ interface StorefrontProductGridProps {
 
 interface BrowseTabContentProps {
   vouchers: Coupon[];
+  isAuthenticated: boolean;
+  claimedVoucherIds: Set<string>;
+  claimingVoucherId: string | null;
+  onClaimVoucher: (voucher: Coupon) => void;
   storeName: string;
   bannerUrl: string;
   topSellingProducts: StoreProduct[];
@@ -205,6 +211,10 @@ StorefrontProductGrid.displayName = 'StorefrontProductGrid';
 
 const BrowseTabContent = memo(({
   vouchers,
+  isAuthenticated,
+  claimedVoucherIds,
+  claimingVoucherId,
+  onClaimVoucher,
   storeName,
   bannerUrl,
   topSellingProducts,
@@ -217,26 +227,49 @@ const BrowseTabContent = memo(({
         <p className="storefront-empty">Hiện chưa có voucher công khai cho gian hàng này.</p>
       ) : (
         <div className="storefront-voucher-list">
-          {vouchers.slice(0, 10).map((voucher) => (
-            <article key={voucher.id || voucher.code} className="storefront-voucher">
-              <div className="storefront-voucher-cut storefront-voucher-cut-left" />
-              <div className="storefront-voucher-cut storefront-voucher-cut-right" />
-              <div className="storefront-voucher-content">
-                <div>
-                  <p className="storefront-voucher-code">{voucher.code}</p>
-                  <p className="storefront-voucher-text">
-                    {voucher.type === 'percent'
-                      ? `Giảm ${voucher.value}%`
-                      : `Giảm ${formatCurrency(voucher.value)}`}
-                  </p>
-                  <p className="storefront-voucher-meta">
-                    Đơn tối thiểu {formatCurrency(voucher.minOrderValue || 0)}
-                  </p>
+          {vouchers.slice(0, 10).map((voucher) => {
+            const voucherId = String(voucher.id || '').trim();
+            const isClaimed = voucherId ? claimedVoucherIds.has(voucherId) : false;
+            const isClaiming = voucherId !== '' && claimingVoucherId === voucherId;
+            const claimLabel = !isAuthenticated
+              ? 'Đăng nhập để nhận'
+              : isClaiming
+                ? 'Đang nhận...'
+                : isClaimed
+                  ? 'Đã nhận'
+                  : 'Nhận';
+
+            return (
+              <article key={voucher.id || voucher.code} className="storefront-voucher">
+                <div className="storefront-voucher-cut storefront-voucher-cut-left" />
+                <div className="storefront-voucher-cut storefront-voucher-cut-right" />
+                <div className="storefront-voucher-content">
+                  <div>
+                    <p className="storefront-voucher-code">{voucher.code}</p>
+                    <p className="storefront-voucher-text">
+                      {voucher.type === 'percent'
+                        ? `Giảm ${voucher.value}%`
+                        : `Giảm ${formatCurrency(voucher.value)}`}
+                    </p>
+                    <p className="storefront-voucher-meta">
+                      Đơn tối thiểu {formatCurrency(voucher.minOrderValue || 0)}
+                    </p>
+                  </div>
+                  <TicketPercent size={18} />
                 </div>
-                <TicketPercent size={18} />
-              </div>
-            </article>
-          ))}
+                <div className="storefront-voucher-actions">
+                  <button
+                    type="button"
+                    className={`storefront-voucher-claim ${isClaimed ? 'is-claimed' : ''}`}
+                    disabled={isClaiming || isClaimed || !voucherId}
+                    onClick={() => onClaimVoucher(voucher)}
+                  >
+                    {claimLabel}
+                  </button>
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
     </div>
@@ -412,6 +445,8 @@ const StoreProfilePage = () => {
   const [categoryProducts, setCategoryProducts] = useState<StoreProduct[] | null>(null);
   const [categoryLoading, setCategoryLoading] = useState(false);
   const [vouchers, setVouchers] = useState<Coupon[]>([]);
+  const [claimedVoucherIds, setClaimedVoucherIds] = useState<Set<string>>(() => new Set<string>());
+  const [claimingVoucherId, setClaimingVoucherId] = useState<string | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [followerCount, setFollowerCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -434,6 +469,7 @@ const StoreProfilePage = () => {
   });
 
   const { addToCart } = useCart();
+  const { addToast } = useToast();
 
   const setPanelNode = useCallback((tab: StoreTab, node: HTMLDivElement | null) => {
     panelNodesRef.current[tab] = node;
@@ -488,6 +524,8 @@ const StoreProfilePage = () => {
       setProductPageItems([]);
       setCategoryProducts(null);
       setCategoryLoading(false);
+      setClaimedVoucherIds(new Set<string>());
+      setClaimingVoucherId(null);
       setPanelHeights(EMPTY_PANEL_HEIGHTS);
       setStageMinHeight(0);
       setLoading(true);
@@ -499,13 +537,18 @@ const StoreProfilePage = () => {
         setStore(storeRow);
         if (!storeRow) {
           setVouchers([]);
+          setClaimedVoucherIds(new Set<string>());
           setReviews([]);
           setFollowerCount(0);
           setIsFollowing(false);
           return;
         }
 
-        const [initialProductPage, couponRes, reviewRes, followerRes] = await Promise.all([
+        const claimedVoucherPromise = hasBackendJwt()
+          ? customerVoucherService.getClaimedVoucherIdsByStore(storeRow.id).catch(() => new Set<string>())
+          : Promise.resolve(new Set<string>());
+
+        const [initialProductPage, couponRes, reviewRes, followerRes, claimedVoucherSet] = await Promise.all([
           storeService.getStoreProducts(storeRow.id, 1, PRODUCTS_PAGE_SIZE),
           couponService.getAvailableCoupons([storeRow.id]).catch(() => [] as Coupon[]),
           reviewService.getReviewsByStore(storeRow.id).catch(() => [] as Review[]),
@@ -514,6 +557,7 @@ const StoreProfilePage = () => {
             followerCount: 0,
             followedByCurrentUser: false,
           })),
+          claimedVoucherPromise,
         ]);
         if (!isCurrentRequest()) return;
 
@@ -523,6 +567,7 @@ const StoreProfilePage = () => {
         setProductTotal(Math.max(Number(initialProductPage.total || 0), 0));
         setProductTotalPages(Math.max(Number(initialProductPage.totalPages || 1), 1));
         setVouchers(couponRes || []);
+        setClaimedVoucherIds(new Set(claimedVoucherSet));
         setReviews(reviewRes || []);
         setFollowerCount(Math.max(0, Number(followerRes.followerCount || 0)));
         setIsFollowing(Boolean(followerRes.followedByCurrentUser));
@@ -648,6 +693,42 @@ const StoreProfilePage = () => {
     setStageMinHeight(Math.max(0, panelHeights[activeTab] || 0));
   }, [activeTab, panelHeights]);
 
+  const handleClaimVoucher = useCallback(async (voucher: Coupon) => {
+    const voucherId = String(voucher.id || '').trim();
+    if (!voucherId) {
+      return;
+    }
+
+    if (!hasBackendJwt()) {
+      if (typeof window !== 'undefined') {
+        window.location.href = buildLoginRedirectTarget();
+      }
+      return;
+    }
+
+    if (claimedVoucherIds.has(voucherId) || claimingVoucherId === voucherId) {
+      return;
+    }
+
+    setClaimingVoucherId(voucherId);
+    try {
+      await customerVoucherService.claimVoucher(voucherId);
+      setClaimedVoucherIds((current) => {
+        const next = new Set(current);
+        next.add(voucherId);
+        return next;
+      });
+      addToast(`Đã nhận voucher ${voucher.code}`, 'success');
+    } catch (error) {
+      const message = error instanceof ApiError
+        ? error.message
+        : (error instanceof Error ? error.message : 'Không thể nhận voucher lúc này.');
+      addToast(message || 'Không thể nhận voucher lúc này.', 'error');
+    } finally {
+      setClaimingVoucherId((current) => (current === voucherId ? null : current));
+    }
+  }, [addToast, claimedVoucherIds, claimingVoucherId]);
+
   const handleToggleFollow = async () => {
     if (!store || followSubmitting) return;
 
@@ -660,12 +741,22 @@ const StoreProfilePage = () => {
 
     setFollowSubmitting(true);
     try {
+      const shouldSyncWalletVoucher = !isFollowing;
       const response = isFollowing
         ? await storeFollowService.unfollow(store.id)
         : await storeFollowService.follow(store.id);
 
       setFollowerCount(Math.max(0, Number(response.followerCount || 0)));
       setIsFollowing(Boolean(response.followedByCurrentUser));
+
+      if (shouldSyncWalletVoucher) {
+        try {
+          const claimedIds = await customerVoucherService.getClaimedVoucherIdsByStore(store.id);
+          setClaimedVoucherIds(claimedIds);
+        } catch {
+          // ignore wallet sync failure after follow
+        }
+      }
     } finally {
       setFollowSubmitting(false);
     }
@@ -881,6 +972,10 @@ const StoreProfilePage = () => {
             <StorefrontTabPanel active={activeTab === 'browse'} panelRef={(node) => setPanelNode('browse', node)}>
               <BrowseTabContent
                 vouchers={vouchers}
+                isAuthenticated={hasBackendJwt()}
+                claimedVoucherIds={claimedVoucherIds}
+                claimingVoucherId={claimingVoucherId}
+                onClaimVoucher={handleClaimVoucher}
                 storeName={store.name}
                 bannerUrl={store.banner || PLACEHOLDER_BANNER}
                 topSellingProducts={topSellingProducts}

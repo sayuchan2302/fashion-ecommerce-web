@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "check:utf8": "node ./scripts/check-utf8.mjs src",
     "lint": "npm run check:utf8 && eslint .",
+    "e2e:voucher-phase2": "node ./scripts/e2e-voucher-phase2.mjs",
     "smoke": "node ./scripts/smoke-regression.mjs",
     "preview": "vite preview"
   },

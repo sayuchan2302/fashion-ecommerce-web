@@ -69,6 +69,9 @@ public class Order extends BaseEntity {
     @Column(name = "coupon_code")
     private String couponCode;
 
+    @Column(name = "customer_voucher_id")
+    private UUID customerVoucherId;
+
     @Builder.Default
     @Column(name = "discount_usage_consumed")
     private Boolean discountUsageConsumed = false;

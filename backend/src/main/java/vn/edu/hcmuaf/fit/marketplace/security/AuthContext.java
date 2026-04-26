@@ -134,6 +134,14 @@ public class AuthContext {
         return ctx;
     }
 
+    public UserContext requireCustomer(String authHeader) {
+        UserContext ctx = fromAuthHeader(authHeader);
+        if (!ctx.isCustomer()) {
+            throw new ForbiddenException("This action requires customer role");
+        }
+        return ctx;
+    }
+
     /**
      * Get storeId for vendor operations. Admin can optionally specify a storeId.
      * @param ctx User context

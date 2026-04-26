@@ -12,20 +12,29 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import vn.edu.hcmuaf.fit.marketplace.entity.Address;
 import vn.edu.hcmuaf.fit.marketplace.entity.Order;
 import vn.edu.hcmuaf.fit.marketplace.entity.OrderItem;
+import vn.edu.hcmuaf.fit.marketplace.entity.Product;
+import vn.edu.hcmuaf.fit.marketplace.entity.ProductVariant;
 import vn.edu.hcmuaf.fit.marketplace.entity.ReturnRequest;
 import vn.edu.hcmuaf.fit.marketplace.entity.Store;
 import vn.edu.hcmuaf.fit.marketplace.entity.User;
+import vn.edu.hcmuaf.fit.marketplace.repository.AddressRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.OrderRepository;
+import vn.edu.hcmuaf.fit.marketplace.repository.ProductRepository;
+import vn.edu.hcmuaf.fit.marketplace.repository.ProductVariantRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.ReturnRequestRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.StoreRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.UserRepository;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -61,7 +70,16 @@ class ReturnRequestAdminVendorIntegrationTest {
     private StoreRepository storeRepository;
 
     @Autowired
+    private AddressRepository addressRepository;
+
+    @Autowired
     private OrderRepository orderRepository;
+
+    @Autowired
+    private ProductRepository productRepository;
+
+    @Autowired
+    private ProductVariantRepository productVariantRepository;
 
     @Autowired
     private ReturnRequestRepository returnRequestRepository;
@@ -193,14 +211,19 @@ class ReturnRequestAdminVendorIntegrationTest {
         Optional<Order> candidate = orderRepository.findByUserIdOrderByCreatedAtDesc(customer.getId()).stream()
                 .filter(order -> store.getId().equals(order.getStoreId()))
                 .findFirst();
-        Order order = candidate.orElseThrow(() -> new IllegalStateException(
-                "Missing fixture order for store " + store.getId() + " and customer " + customer.getId()
-        ));
+        Order order = candidate.orElseGet(() -> createFixtureOrderForStore(store, customer));
         Order orderWithItems = orderRepository.findByIdWithItems(order.getId())
                 .orElseThrow(() -> new IllegalStateException("Missing fixture order with items: " + order.getId()));
-        OrderItem item = orderWithItems.getItems().stream()
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Fixture order has no items: " + order.getId()));
+        OrderItem item = orderWithItems.getItems().stream().findFirst()
+                .orElseGet(() -> {
+                    Order recreated = createFixtureOrderForStore(store, customer);
+                    return orderRepository.findByIdWithItems(recreated.getId())
+                            .orElseThrow(() -> new IllegalStateException("Missing recreated order with items: " + recreated.getId()))
+                            .getItems()
+                            .stream()
+                            .findFirst()
+                            .orElseThrow(() -> new IllegalStateException("Recreated fixture order has no items: " + recreated.getId()));
+                });
 
         ReturnRequest request = ReturnRequest.builder()
                 .returnCode(buildReturnCode(tag))
@@ -231,6 +254,77 @@ class ReturnRequestAdminVendorIntegrationTest {
                 .build();
 
         return returnRequestRepository.save(request);
+    }
+
+    private Order createFixtureOrderForStore(Store store, User customer) {
+        Address address = getOrCreateDefaultAddress(customer);
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase(Locale.ROOT);
+        Product product = productRepository.save(Product.builder()
+                .name("Return Fixture " + suffix)
+                .slug("return-fixture-" + suffix.toLowerCase(Locale.ROOT))
+                .sku("RT-P-" + suffix)
+                .stockQuantity(20)
+                .storeId(store.getId())
+                .basePrice(new BigDecimal("120000"))
+                .salePrice(new BigDecimal("99000"))
+                .status(Product.ProductStatus.ACTIVE)
+                .approvalStatus(Product.ApprovalStatus.APPROVED)
+                .build());
+        ProductVariant variant = productVariantRepository.save(ProductVariant.builder()
+                .product(product)
+                .sku("RT-V-" + suffix)
+                .color("Black")
+                .size("L")
+                .stockQuantity(20)
+                .priceAdjustment(BigDecimal.ZERO)
+                .isActive(true)
+                .build());
+
+        Order order = Order.builder()
+                .orderCode("ORD-RT-" + suffix)
+                .user(customer)
+                .shippingAddress(address)
+                .storeId(store.getId())
+                .status(Order.OrderStatus.DELIVERED)
+                .paymentMethod(Order.PaymentMethod.COD)
+                .paymentStatus(Order.PaymentStatus.PAID)
+                .subtotal(new BigDecimal("99000"))
+                .shippingFee(BigDecimal.ZERO)
+                .discount(BigDecimal.ZERO)
+                .items(new ArrayList<>())
+                .build();
+        order.calculateTotal();
+        Order savedOrder = orderRepository.save(order);
+
+        OrderItem item = OrderItem.builder()
+                .order(savedOrder)
+                .product(product)
+                .variant(variant)
+                .productName(product.getName())
+                .variantName(variant.getColor() + " / " + variant.getSize())
+                .quantity(1)
+                .unitPrice(new BigDecimal("99000"))
+                .totalPrice(new BigDecimal("99000"))
+                .storeId(store.getId())
+                .build();
+        savedOrder.setItems(new ArrayList<>(List.of(item)));
+        return orderRepository.save(savedOrder);
+    }
+
+    private Address getOrCreateDefaultAddress(User user) {
+        return addressRepository.findByUserIdOrderByIsDefaultDesc(user.getId())
+                .stream()
+                .findFirst()
+                .orElseGet(() -> addressRepository.save(Address.builder()
+                        .user(user)
+                        .fullName(user.getName() == null || user.getName().isBlank() ? "Test User" : user.getName())
+                        .phone(user.getPhone() == null || user.getPhone().isBlank() ? "0900000000" : user.getPhone())
+                        .province("TP. Hồ Chí Minh")
+                        .district("Quận 1")
+                        .ward("Bến Nghé")
+                        .detail("1 Test Street")
+                        .isDefault(true)
+                        .build()));
     }
 
     private String buildReturnCode(String tag) {

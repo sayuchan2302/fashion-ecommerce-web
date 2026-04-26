@@ -8,6 +8,7 @@ import { formatPrice } from '../../utils/formatters';
 import { isValidVietnamesePhone, normalizeVietnamesePhone } from '../../utils/phone';
 import { CLIENT_TEXT } from '../../utils/texts';
 import { couponService, type Coupon } from '../../services/couponService';
+import { customerVoucherService, type CustomerWalletVoucher } from '../../services/customerVoucherService';
 import { addressService } from '../../services/addressService';
 import { productService } from '../../services/productService';
 import { authService } from '../../services/authService';
@@ -53,10 +54,15 @@ interface FormErrors {
   note?: string;
 }
 
+interface CheckoutCoupon extends Coupon {
+  customerVoucherId?: string;
+}
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const FREE_SHIPPING_THRESHOLD = 500000;
 const DEFAULT_SHIPPING_FEE = 30000;
 const PENDING_VNPAY_RECONCILE_TTL_MS = 2 * 60 * 60 * 1000;
+const normalizeCouponCode = (value: string) => value.trim().replace(/\s+/g, '').toUpperCase();
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -82,11 +88,11 @@ const Checkout = () => {
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
 
   const [couponInput, setCouponInput] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<CheckoutCoupon | null>(null);
   const [couponError, setCouponError] = useState('');
   const [isCouponLoading, setIsCouponLoading] = useState(false);
   const [isCouponsFetching, setIsCouponsFetching] = useState(false);
-  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
+  const [availableCoupons, setAvailableCoupons] = useState<CustomerWalletVoucher[]>([]);
   const [selectedCartIds, setSelectedCartIds] = useState<string[]>(() => getSelectedCartIdsForCheckout());
   const [hasExplicitSelection] = useState<boolean>(() => getSelectedCartIdsForCheckout().length > 0);
 
@@ -257,7 +263,7 @@ const Checkout = () => {
       ? checkoutStoreKey.split(',').filter(Boolean)
       : [];
 
-    couponService.getAvailableCoupons(storeIdsForCoupons)
+    customerVoucherService.getAvailableWalletCoupons(storeIdsForCoupons)
       .then((coupons) => {
         if (!cancelled) {
           setAvailableCoupons(coupons);
@@ -284,10 +290,13 @@ const Checkout = () => {
       return;
     }
 
-    const stillAvailable = availableCoupons.some((coupon) => (
-      coupon.code === appliedCoupon.code
-      && (coupon.storeId || '') === (appliedCoupon.storeId || '')
-    ));
+    if (!appliedCoupon.customerVoucherId) {
+      return;
+    }
+
+    const stillAvailable = availableCoupons.some(
+      (coupon) => coupon.customerVoucherId === appliedCoupon.customerVoucherId,
+    );
 
     if (!stillAvailable) {
       setAppliedCoupon(null);
@@ -312,11 +321,47 @@ const Checkout = () => {
     });
   };
 
+  const applyWalletCoupon = (coupon: CustomerWalletVoucher) => {
+    const applicableOrderValue = coupon.storeId && Number.isFinite(storeSubtotals[coupon.storeId])
+      ? storeSubtotals[coupon.storeId]
+      : subtotal;
+
+    if (coupon.minOrderValue && applicableOrderValue < coupon.minOrderValue) {
+      setCouponError(`Đơn tối thiểu ${coupon.minOrderValue.toLocaleString('vi-VN')}đ để dùng mã này`);
+      return false;
+    }
+
+    const walletDiscount = couponService.calculateDiscount(coupon, applicableOrderValue);
+    if (walletDiscount <= 0) {
+      setCouponError('Mã giảm giá không hợp lệ cho đơn hiện tại');
+      return false;
+    }
+
+    setAppliedCoupon(coupon);
+    setCouponInput('');
+    setCouponError('');
+    addToast(`Áp dụng mã ${coupon.code} thành công!`, 'success');
+    return true;
+  };
+
   const applyCouponCode = async (code: string) => {
     setIsCouponLoading(true);
     setCouponError('');
 
     try {
+      const normalizedCode = normalizeCouponCode(code || '');
+      const walletCandidates = availableCoupons.filter(
+        (coupon) => normalizeCouponCode(coupon.code) === normalizedCode,
+      );
+      const walletCoupon = walletCandidates.length <= 1
+        ? walletCandidates[0]
+        : walletCandidates.find((coupon) => coupon.storeId && checkoutStoreIds.includes(coupon.storeId))
+          || walletCandidates[0];
+
+      if (walletCoupon && applyWalletCoupon(walletCoupon)) {
+        return;
+      }
+
       const result = await couponService.validate(code, subtotal, {
         storeIds: checkoutStoreIds,
         storeSubtotals,
@@ -324,7 +369,7 @@ const Checkout = () => {
       });
 
       if (result.valid && result.coupon) {
-        setAppliedCoupon(result.coupon);
+        setAppliedCoupon({ ...result.coupon, customerVoucherId: undefined });
         setCouponInput('');
         addToast(`Áp dụng mã ${result.coupon.code} thành công!`, 'success');
         return;
@@ -352,13 +397,14 @@ const Checkout = () => {
     addToast('Đã xóa mã giảm giá', 'info');
   };
 
-  const handleSelectCoupon = async (coupon: Coupon) => {
-    if (appliedCoupon?.code === coupon.code) {
+  const handleSelectCoupon = (coupon: CustomerWalletVoucher) => {
+    if (appliedCoupon?.customerVoucherId === coupon.customerVoucherId) {
       setAppliedCoupon(null);
       addToast('Đã bỏ chọn mã giảm giá', 'info');
-    } else {
-      await applyCouponCode(coupon.code);
+      return;
     }
+
+    applyWalletCoupon(coupon);
   };
 
   const subtotal = checkoutItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -515,7 +561,8 @@ const Checkout = () => {
       const backendOrder = await orderService.createBackendOrder({
         addressId: backendAddress.id,
         paymentMethod: paymentMethod.toUpperCase(),
-        couponCode: appliedCoupon?.code,
+        customerVoucherId: appliedCoupon?.customerVoucherId,
+        couponCode: appliedCoupon?.customerVoucherId ? undefined : appliedCoupon?.code,
         note: formValues.note.trim() || undefined,
         items: orderItems,
       });
@@ -532,7 +579,11 @@ const Checkout = () => {
         });
       }
 
-      if (appliedCoupon?.code) {
+      if (appliedCoupon?.customerVoucherId) {
+        setAvailableCoupons((current) =>
+          current.filter((coupon) => coupon.customerVoucherId !== appliedCoupon.customerVoucherId),
+        );
+      } else if (appliedCoupon?.code) {
         couponService.recordUsage(appliedCoupon.code);
       }
 
@@ -945,24 +996,27 @@ const Checkout = () => {
                       <div className="ticket-info">Hiện chưa có voucher phù hợp cho giỏ hàng này.</div>
                     </div>
                   )}
-                  {!isCouponsFetching && availableCoupons.map((coupon) => (
-                    <div
-                      key={coupon.code}
-                      className={`coupon-ticket ${appliedCoupon?.code === coupon.code ? 'coupon-selected' : ''}`}
-                      onClick={() => handleSelectCoupon(coupon)}
-                    >
-                      <div className="ticket-info">
-                        <strong>{coupon.code}</strong> ({t.ticketRemaining.replace('{count}', String(coupon.remaining))})<br />
-                        <span className="ticket-desc">{coupon.description}</span>
-                        <div className="ticket-expiry">{t.ticketExpiry.replace('{date}', new Date(coupon.expiresAt).toLocaleDateString('vi-VN'))}</div>
-                      </div>
-                      <div className="ticket-action">
-                        <div className={`ticket-radio ${appliedCoupon?.code === coupon.code ? 'checked' : ''}`}>
-                          {appliedCoupon?.code === coupon.code && <Check size={12} />}
+                  {!isCouponsFetching && availableCoupons.map((coupon) => {
+                    const isSelected = appliedCoupon?.customerVoucherId === coupon.customerVoucherId;
+                    return (
+                      <div
+                        key={coupon.customerVoucherId}
+                        className={`coupon-ticket ${isSelected ? 'coupon-selected' : ''}`}
+                        onClick={() => handleSelectCoupon(coupon)}
+                      >
+                        <div className="ticket-info">
+                          <strong>{coupon.code}</strong> ({t.ticketRemaining.replace('{count}', String(coupon.remaining))})<br />
+                          <span className="ticket-desc">{coupon.description}</span>
+                          <div className="ticket-expiry">{t.ticketExpiry.replace('{date}', new Date(coupon.expiresAt).toLocaleDateString('vi-VN'))}</div>
+                        </div>
+                        <div className="ticket-action">
+                          <div className={`ticket-radio ${isSelected ? 'checked' : ''}`}>
+                            {isSelected && <Check size={12} />}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Voucher Input */}
