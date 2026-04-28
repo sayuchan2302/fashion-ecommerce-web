@@ -11,6 +11,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -75,6 +76,14 @@ public class GlobalExceptionHandler {
             HttpServletRequest request
     ) {
         return build(HttpStatus.BAD_REQUEST, "Malformed JSON request body", request);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorResponse> handleMaxUploadSizeExceeded(
+            MaxUploadSizeExceededException ex,
+            HttpServletRequest request
+    ) {
+        return build(HttpStatus.PAYLOAD_TOO_LARGE, "Uploaded file is too large", request);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)

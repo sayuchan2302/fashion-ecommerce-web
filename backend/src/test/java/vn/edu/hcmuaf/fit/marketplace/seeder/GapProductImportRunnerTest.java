@@ -10,6 +10,7 @@ import vn.edu.hcmuaf.fit.marketplace.config.GapSeedProperties;
 import vn.edu.hcmuaf.fit.marketplace.dto.request.ProductRequest;
 import vn.edu.hcmuaf.fit.marketplace.entity.Category;
 import vn.edu.hcmuaf.fit.marketplace.entity.Product;
+import vn.edu.hcmuaf.fit.marketplace.entity.ProductVariant;
 import vn.edu.hcmuaf.fit.marketplace.entity.Store;
 import vn.edu.hcmuaf.fit.marketplace.repository.CategoryRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.FlashSaleCampaignRepository;
@@ -160,7 +161,12 @@ class GapProductImportRunnerTest {
         properties.setCleanBeforeImport(true);
 
         Product stale = new Product();
+        UUID staleProductId = UUID.randomUUID();
+        UUID staleVariantId = UUID.randomUUID();
+        stale.setId(staleProductId);
         stale.setSlug("gap-legacy");
+        ProductVariant staleVariant = new ProductVariant();
+        staleVariant.setId(staleVariantId);
 
         when(storeRepository.findByApprovalStatusAndStatus(Store.ApprovalStatus.APPROVED, Store.StoreStatus.ACTIVE))
                 .thenReturn(List.of(firstStore, secondStore));
@@ -168,6 +174,7 @@ class GapProductImportRunnerTest {
                 menRoot, womenRoot, accessoriesRoot, menLeaf, womenLeaf, accessoryLeaf
         ));
         when(productRepository.findBySlugStartingWithIgnoreCase("gap-")).thenReturn(List.of(stale));
+        when(productVariantRepository.findByProductIdIn(List.of(staleProductId))).thenReturn(List.of(staleVariant));
         when(productRepository.save(org.mockito.ArgumentMatchers.any(Product.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -175,6 +182,8 @@ class GapProductImportRunnerTest {
 
         verify(productRepository).deleteAll(List.of(stale));
         verify(productRepository).flush();
+        verify(flashSaleItemRepository).deleteByProductIds(List.of(staleProductId));
+        verify(flashSaleItemRepository).deleteByVariantIds(List.of(staleVariantId));
 
         List<ProductRequest> requests = productService.requests;
         List<UUID> storeIds = productService.storeIds;
@@ -208,6 +217,176 @@ class GapProductImportRunnerTest {
         assertEquals("Mixed", fallbackRow.getVariants().get(0).getColor());
     }
 
+    @Test
+    void importKeepsSockProductsOnSockLeaf() throws IOException {
+        Category accessoriesRoot = category("accessories", null);
+        Category backpackLeaf = category("balo", accessoriesRoot);
+        Category watchLeaf = category("dong-ho", accessoriesRoot);
+        Category scarfLeaf = category("khan", accessoriesRoot);
+        Category sockLeaf = category("tat", accessoriesRoot);
+
+        Store store = Store.builder().id(UUID.randomUUID()).build();
+
+        Path styles = writeStylesCsv(List.of(
+                "301,Men,Accessories,Fashion Accessories,Accessories,Blue,Summer,2026,Casual,Argyle Varsity Crew Socks",
+                "302,Men,Accessories,Fashion Accessories,Accessories,Grey,Summer,2026,Casual,Cable-Knit Crew Socks",
+                "303,Men,Accessories,Fashion Accessories,Accessories,Navy,Summer,2026,Casual,City Crew Socks",
+                "304,Men,Accessories,Fashion Accessories,Accessories,White,Summer,2026,Casual,CashSoft Crew Socks"
+        ));
+        Path images = writeImagesCsv(List.of(
+                "301.jpg,https://img.local/301.jpg",
+                "302.jpg,https://img.local/302.jpg",
+                "303.jpg,https://img.local/303.jpg",
+                "304.jpg,https://img.local/304.jpg"
+        ));
+
+        properties.setTargetCount(4);
+        properties.setStylesPath(styles.toString());
+        properties.setImagesPath(images.toString());
+        properties.setCleanBeforeImport(false);
+
+        when(storeRepository.findByApprovalStatusAndStatus(Store.ApprovalStatus.APPROVED, Store.StoreStatus.ACTIVE))
+                .thenReturn(List.of(store));
+        when(categoryRepository.findAll()).thenReturn(List.of(
+                accessoriesRoot, backpackLeaf, watchLeaf, scarfLeaf, sockLeaf
+        ));
+        when(productRepository.findBySlugStartingWithIgnoreCase(anyString())).thenReturn(List.of());
+
+        runner.runImport();
+
+        List<ProductRequest> requests = productService.requests;
+        assertEquals(4, requests.size());
+        for (ProductRequest request : requests) {
+            assertEquals(sockLeaf.getId(), request.getCategoryId());
+        }
+    }
+
+    @Test
+    void importCreatesMissingCategoriesNeededForGapMapping() throws IOException {
+        Category menRoot = category("men", null);
+        Category womenRoot = category("women", null);
+        Category accessoriesRoot = category("accessories", null);
+        List<Category> categories = new java.util.ArrayList<>(List.of(menRoot, womenRoot, accessoriesRoot));
+
+        Store store = Store.builder().id(UUID.randomUUID()).build();
+
+        Path styles = writeStylesCsv(List.of(
+                "401,Men,Accessories,Fashion Accessories,Accessories,White,Summer,2026,Casual,Varsity Crew Socks"
+        ));
+        Path images = writeImagesCsv(List.of(
+                "401.jpg,https://img.local/401.jpg"
+        ));
+
+        properties.setTargetCount(1);
+        properties.setStylesPath(styles.toString());
+        properties.setImagesPath(images.toString());
+        properties.setCleanBeforeImport(false);
+
+        when(storeRepository.findByApprovalStatusAndStatus(Store.ApprovalStatus.APPROVED, Store.StoreStatus.ACTIVE))
+                .thenReturn(List.of(store));
+        when(categoryRepository.findAll()).thenAnswer(invocation -> categories);
+        when(categoryRepository.save(org.mockito.ArgumentMatchers.any(Category.class)))
+                .thenAnswer(invocation -> {
+                    Category saved = invocation.getArgument(0);
+                    if (saved.getId() == null) {
+                        saved.setId(UUID.randomUUID());
+                    }
+                    categories.add(saved);
+                    return saved;
+                });
+        when(productRepository.findBySlugStartingWithIgnoreCase(anyString())).thenReturn(List.of());
+
+        runner.runImport();
+
+        Category parent = categories.stream()
+                .filter(category -> "accessories-phu-kien-thoi-trang".equals(category.getSlug()))
+                .findFirst()
+                .orElseThrow();
+        Category sockLeaf = categories.stream()
+                .filter(category -> "tat".equals(category.getSlug()))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(parent.getId(), sockLeaf.getParent().getId());
+        assertEquals(1, productService.requests.size());
+        assertEquals(sockLeaf.getId(), productService.requests.get(0).getCategoryId());
+    }
+
+    @Test
+    void importUsesWordAwareAccessoryMatchingForCashSoftSocks() throws IOException {
+        Category accessoriesRoot = category("accessories", null);
+        Category accessoriesFashion = category("accessories-phu-kien-thoi-trang", accessoriesRoot);
+        Category hatLeaf = category("non-mu", accessoriesFashion);
+        Category sockLeaf = category("tat", accessoriesFashion);
+
+        Store store = Store.builder().id(UUID.randomUUID()).build();
+
+        Path styles = writeFullStylesCsv(List.of(
+                "501,Men,Accessories,Fashion Accessories,Accessories,White,White,,S/M|M/L,All,2026,Casual,CashSoft Crew Socks,\"Our bestselling fabric that feels cashmere-soft. | Supersoft knit crew socks.\",,,"
+        ));
+        Path images = writeImagesCsv(List.of(
+                "501.jpg,https://img.local/501.jpg"
+        ));
+
+        properties.setTargetCount(1);
+        properties.setStylesPath(styles.toString());
+        properties.setImagesPath(images.toString());
+        properties.setCleanBeforeImport(false);
+
+        when(storeRepository.findByApprovalStatusAndStatus(Store.ApprovalStatus.APPROVED, Store.StoreStatus.ACTIVE))
+                .thenReturn(List.of(store));
+        when(categoryRepository.findAll()).thenReturn(List.of(
+                accessoriesRoot, accessoriesFashion, hatLeaf, sockLeaf
+        ));
+        when(productRepository.findBySlugStartingWithIgnoreCase(anyString())).thenReturn(List.of());
+
+        runner.runImport();
+
+        assertEquals(1, productService.requests.size());
+        assertEquals(sockLeaf.getId(), productService.requests.get(0).getCategoryId());
+    }
+
+    @Test
+    void importDoesNotClassifyTshirtsOrSweatshirtsAsShirts() throws IOException {
+        Category menRoot = category("men", null);
+        Category menShirtLeaf = category("men-ao-so-mi", menRoot);
+        Category menTeeLeaf = category("men-ao-thun", menRoot);
+        Category menHoodieLeaf = category("men-ao-hoodie", menRoot);
+
+        Store store = Store.builder().id(UUID.randomUUID()).build();
+
+        Path styles = writeStylesCsv(List.of(
+                "601,Men,Apparel,Topwear,Tshirts,White,Summer,2026,Casual,Adult Heavyweight Relaxed T-Shirt",
+                "602,Men,Apparel,Topwear,Sweatshirts,Black,Summer,2026,Casual,Adult VintageSoft Arch Logo Hoodie",
+                "603,Men,Apparel,Topwear,Shirts,Blue,Summer,2026,Casual,Oxford Button-Down Shirt"
+        ));
+        Path images = writeImagesCsv(List.of(
+                "601.jpg,https://img.local/601.jpg",
+                "602.jpg,https://img.local/602.jpg",
+                "603.jpg,https://img.local/603.jpg"
+        ));
+
+        properties.setTargetCount(3);
+        properties.setStylesPath(styles.toString());
+        properties.setImagesPath(images.toString());
+        properties.setCleanBeforeImport(false);
+
+        when(storeRepository.findByApprovalStatusAndStatus(Store.ApprovalStatus.APPROVED, Store.StoreStatus.ACTIVE))
+                .thenReturn(List.of(store));
+        when(categoryRepository.findAll()).thenReturn(List.of(
+                menRoot, menShirtLeaf, menTeeLeaf, menHoodieLeaf
+        ));
+        when(productRepository.findBySlugStartingWithIgnoreCase(anyString())).thenReturn(List.of());
+
+        runner.runImport();
+
+        Map<String, UUID> categoryBySlug = productService.requests.stream()
+                .collect(Collectors.toMap(ProductRequest::getSlug, ProductRequest::getCategoryId));
+        assertEquals(menTeeLeaf.getId(), categoryBySlug.get("gap-601"));
+        assertEquals(menHoodieLeaf.getId(), categoryBySlug.get("gap-602"));
+        assertEquals(menShirtLeaf.getId(), categoryBySlug.get("gap-603"));
+    }
+
     private Category category(String slug, Category parent) {
         Category category = new Category();
         category.setId(UUID.randomUUID());
@@ -221,6 +400,13 @@ class GapProductImportRunnerTest {
     private Path writeStylesCsv(List<String> rows) throws IOException {
         Path path = tempDir.resolve("styles.csv");
         String header = "id,gender,masterCategory,subCategory,articleType,baseColour,season,year,usage,productDisplayName";
+        Files.writeString(path, header + System.lineSeparator() + String.join(System.lineSeparator(), rows));
+        return path;
+    }
+
+    private Path writeFullStylesCsv(List<String> rows) throws IOException {
+        Path path = tempDir.resolve("styles-full.csv");
+        String header = "id,gender,masterCategory,subCategory,articleType,baseColour,colorOptions,colorHexOptions,sizeOptions,season,year,usage,productDisplayName,productDetails,sizeFitDetails,fabricDetails,careDetails";
         Files.writeString(path, header + System.lineSeparator() + String.join(System.lineSeparator(), rows));
         return path;
     }

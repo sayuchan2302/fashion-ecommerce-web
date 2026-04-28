@@ -44,4 +44,11 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
               AND COALESCE(v.isActive, true) = true
             """)
     Long sumActiveStockByProductId(@Param("productId") UUID productId);
+
+    @Query("""
+            SELECT v
+            FROM ProductVariant v
+            WHERE v.product.id IN :productIds
+            """)
+    List<ProductVariant> findByProductIdIn(@Param("productIds") List<UUID> productIds);
 }

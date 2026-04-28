@@ -30,6 +30,7 @@ class SearchServiceLogicTests(unittest.TestCase):
             self._rows = rows
             self.executed_sql = ""
             self.executed_params = []
+            self.execute_calls = []
 
         def __enter__(self):
             return self
@@ -40,6 +41,7 @@ class SearchServiceLogicTests(unittest.TestCase):
         def execute(self, sql, params):
             self.executed_sql = sql
             self.executed_params = params
+            self.execute_calls.append((sql, params))
 
         def fetchall(self):
             return self._rows
@@ -369,6 +371,26 @@ class SearchServiceLogicTests(unittest.TestCase):
         self.assertNotIn("category_slug = %s", fake_cursor.executed_sql)
         self.assertNotIn("store_slug = %s", fake_cursor.executed_sql)
         self.assertEqual(len(fake_cursor.executed_params), 3)
+
+    def test_query_similar_images_sets_hnsw_ef_search_with_set_config(self) -> None:
+        fake_cursor = self._FakeCursor([])
+        service = ImageSearchService(clip_service=object())  # type: ignore[arg-type]
+
+        with patch("app.search_service.settings.search_hnsw_ef_search", 120), patch(
+            "app.search_service.get_connection", return_value=nullcontext(self._FakeConnection(fake_cursor))
+        ):
+            service._query_similar_images(
+                vector=[0.3, 0.4],
+                ann_limit=6,
+                category_slug=None,
+                store_slug=None,
+            )
+
+        self.assertGreaterEqual(len(fake_cursor.execute_calls), 2)
+        self.assertEqual(
+            fake_cursor.execute_calls[0],
+            ("SELECT set_config('hnsw.ef_search', %s, true)", ("120",)),
+        )
 
     def test_build_query_views_adds_foreground_and_center_views(self) -> None:
         image = Image.new("RGB", (100, 100), color="white")

@@ -503,7 +503,10 @@ class ImageSearchService:
         with get_connection() as conn:
             with conn.cursor() as cur:
                 if settings.search_hnsw_ef_search > 0:
-                    cur.execute("SET LOCAL hnsw.ef_search = %s", (settings.search_hnsw_ef_search,))
+                    cur.execute(
+                        "SELECT set_config('hnsw.ef_search', %s, true)",
+                        (str(settings.search_hnsw_ef_search),),
+                    )
                 cur.execute(sql, [vector, *params, vector, ann_limit])
                 rows = cur.fetchall()
 

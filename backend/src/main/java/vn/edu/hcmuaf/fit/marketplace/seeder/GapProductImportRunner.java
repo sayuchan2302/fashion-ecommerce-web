@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import vn.edu.hcmuaf.fit.marketplace.config.GapSeedProperties;
 import vn.edu.hcmuaf.fit.marketplace.dto.request.ProductRequest;
 import vn.edu.hcmuaf.fit.marketplace.entity.Category;
@@ -60,6 +61,84 @@ public class GapProductImportRunner {
     private static final int MAX_SIZES_PER_PRODUCT = 6;
     private static final String DEFAULT_IMAGE =
             "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=672&h=990&fit=crop&fm=webp&q=80&auto=format";
+    private static final List<ImportCategoryDefinition> IMPORT_CATEGORY_DEFINITIONS = List.of(
+            new ImportCategoryDefinition("Nam", "men", "Danh mục gốc cho thời trang nam.", null, 1),
+            new ImportCategoryDefinition("Nữ", "women", "Danh mục gốc cho thời trang nữ.", null, 2),
+            new ImportCategoryDefinition("Phụ kiện", "accessories", "Danh mục gốc cho phụ kiện.", null, 3),
+
+            new ImportCategoryDefinition("Áo nam", "men-ao", "Nhóm áo dành cho nam.", "men", 10),
+            new ImportCategoryDefinition("Quần nam", "men-quan", "Nhóm quần dành cho nam.", "men", 20),
+            new ImportCategoryDefinition("Đồ thể thao nam", "men-do-the-thao", "Nhóm đồ thể thao nam.", "men", 30),
+            new ImportCategoryDefinition("Đồ mặc nhà nam", "men-do-mac-nha", "Nhóm đồ mặc nhà nam.", "men", 40),
+
+            new ImportCategoryDefinition("Áo nữ", "women-ao", "Nhóm áo dành cho nữ.", "women", 10),
+            new ImportCategoryDefinition("Váy đầm nữ", "women-vay-dam", "Nhóm váy đầm dành cho nữ.", "women", 20),
+            new ImportCategoryDefinition("Quần nữ", "women-quan", "Nhóm quần dành cho nữ.", "women", 30),
+            new ImportCategoryDefinition("Đồ thể thao nữ", "women-do-the-thao", "Nhóm đồ thể thao nữ.", "women", 40),
+            new ImportCategoryDefinition("Đồ mặc nhà nữ", "women-do-mac-nha", "Nhóm đồ mặc nhà nữ.", "women", 50),
+
+            new ImportCategoryDefinition("Túi và ví", "accessories-tui-va-vi", "Nhóm túi và ví.", "accessories", 10),
+            new ImportCategoryDefinition("Phụ kiện thời trang", "accessories-phu-kien-thoi-trang", "Nhóm phụ kiện thời trang.", "accessories", 20),
+            new ImportCategoryDefinition("Phụ kiện khác", "accessories-phu-kien-khac", "Nhóm phụ kiện khác.", "accessories", 30),
+
+            new ImportCategoryDefinition("Áo thun nam", "men-ao-thun", "Áo thun nam.", "men-ao", 1),
+            new ImportCategoryDefinition("Áo polo nam", "men-ao-polo", "Áo polo nam.", "men-ao", 2),
+            new ImportCategoryDefinition("Áo sơ mi nam", "men-ao-so-mi", "Áo sơ mi nam.", "men-ao", 3),
+            new ImportCategoryDefinition("Áo hoodie nam", "men-ao-hoodie", "Áo hoodie nam.", "men-ao", 4),
+            new ImportCategoryDefinition("Áo len nam", "men-ao-len", "Áo len nam.", "men-ao", 5),
+
+            new ImportCategoryDefinition("Quần jeans nam", "men-quan-jeans", "Quần jeans nam.", "men-quan", 1),
+            new ImportCategoryDefinition("Quần tây nam", "men-quan-tay", "Quần tây nam.", "men-quan", 2),
+            new ImportCategoryDefinition("Quần kaki nam", "men-quan-kaki", "Quần kaki nam.", "men-quan", 3),
+            new ImportCategoryDefinition("Quần short nam", "men-quan-short", "Quần short nam.", "men-quan", 4),
+            new ImportCategoryDefinition("Quần jogger nam", "men-quan-jogger", "Quần jogger nam.", "men-quan", 5),
+
+            new ImportCategoryDefinition("Áo thể thao nam", "men-ao-the-thao", "Áo thể thao nam.", "men-do-the-thao", 1),
+            new ImportCategoryDefinition("Quần thể thao nam", "men-quan-the-thao", "Quần thể thao nam.", "men-do-the-thao", 2),
+            new ImportCategoryDefinition("Set thể thao nam", "men-set-the-thao", "Set thể thao nam.", "men-do-the-thao", 3),
+
+            new ImportCategoryDefinition("Áo mặc nhà nam", "men-ao-mac-nha", "Áo mặc nhà nam.", "men-do-mac-nha", 1),
+            new ImportCategoryDefinition("Quần mặc nhà nam", "men-quan-mac-nha", "Quần mặc nhà nam.", "men-do-mac-nha", 2),
+            new ImportCategoryDefinition("Bộ mặc nhà nam", "men-bo-mac-nha", "Bộ mặc nhà nam.", "men-do-mac-nha", 3),
+
+            new ImportCategoryDefinition("Áo thun nữ", "women-ao-thun", "Áo thun nữ.", "women-ao", 1),
+            new ImportCategoryDefinition("Áo kiểu nữ", "women-ao-kieu", "Áo kiểu nữ.", "women-ao", 2),
+            new ImportCategoryDefinition("Áo sơ mi nữ", "women-ao-so-mi", "Áo sơ mi nữ.", "women-ao", 3),
+            new ImportCategoryDefinition("Áo croptop nữ", "women-ao-croptop", "Áo croptop nữ.", "women-ao", 4),
+            new ImportCategoryDefinition("Áo khoác nữ", "women-ao-khoac", "Áo khoác nữ.", "women-ao", 5),
+
+            new ImportCategoryDefinition("Váy liền nữ", "women-vay-lien", "Váy liền nữ.", "women-vay-dam", 1),
+            new ImportCategoryDefinition("Váy dự tiệc nữ", "women-vay-du-tiec", "Váy dự tiệc nữ.", "women-vay-dam", 2),
+            new ImportCategoryDefinition("Váy công sở nữ", "women-vay-cong-so", "Váy công sở nữ.", "women-vay-dam", 3),
+            new ImportCategoryDefinition("Váy maxi nữ", "women-vay-maxi", "Váy maxi nữ.", "women-vay-dam", 4),
+
+            new ImportCategoryDefinition("Quần jeans nữ", "women-quan-jeans", "Quần jeans nữ.", "women-quan", 1),
+            new ImportCategoryDefinition("Quần short nữ", "women-quan-short", "Quần short nữ.", "women-quan", 2),
+            new ImportCategoryDefinition("Quần tây nữ", "women-quan-tay", "Quần tây nữ.", "women-quan", 3),
+            new ImportCategoryDefinition("Quần legging nữ", "women-quan-legging", "Quần legging nữ.", "women-quan", 4),
+
+            new ImportCategoryDefinition("Áo thể thao nữ", "women-ao-the-thao", "Áo thể thao nữ.", "women-do-the-thao", 1),
+            new ImportCategoryDefinition("Quần thể thao nữ", "women-quan-the-thao", "Quần thể thao nữ.", "women-do-the-thao", 2),
+            new ImportCategoryDefinition("Set thể thao nữ", "women-set-the-thao", "Set thể thao nữ.", "women-do-the-thao", 3),
+
+            new ImportCategoryDefinition("Áo mặc nhà nữ", "women-ao-mac-nha", "Áo mặc nhà nữ.", "women-do-mac-nha", 1),
+            new ImportCategoryDefinition("Quần mặc nhà nữ", "women-quan-mac-nha", "Quần mặc nhà nữ.", "women-do-mac-nha", 2),
+            new ImportCategoryDefinition("Bộ mặc nhà nữ", "women-bo-mac-nha", "Bộ mặc nhà nữ.", "women-do-mac-nha", 3),
+
+            new ImportCategoryDefinition("Túi xách", "tui-xach", "Túi xách.", "accessories-tui-va-vi", 1),
+            new ImportCategoryDefinition("Túi đeo chéo", "tui-deo-cheo", "Túi đeo chéo.", "accessories-tui-va-vi", 2),
+            new ImportCategoryDefinition("Balo", "balo", "Balo.", "accessories-tui-va-vi", 3),
+            new ImportCategoryDefinition("Ví", "vi", "Ví.", "accessories-tui-va-vi", 4),
+
+            new ImportCategoryDefinition("Nón mũ", "non-mu", "Nón mũ.", "accessories-phu-kien-thoi-trang", 1),
+            new ImportCategoryDefinition("Thắt lưng", "that-lung", "Thắt lưng.", "accessories-phu-kien-thoi-trang", 2),
+            new ImportCategoryDefinition("Khăn", "khan", "Khăn.", "accessories-phu-kien-thoi-trang", 3),
+            new ImportCategoryDefinition("Tất", "tat", "Tất.", "accessories-phu-kien-thoi-trang", 4),
+
+            new ImportCategoryDefinition("Kính mắt", "kinh-mat", "Kính mắt.", "accessories-phu-kien-khac", 1),
+            new ImportCategoryDefinition("Đồng hồ", "dong-ho", "Đồng hồ.", "accessories-phu-kien-khac", 2),
+            new ImportCategoryDefinition("Trang sức", "trang-suc", "Trang sức.", "accessories-phu-kien-khac", 3)
+    );
     private static final AtomicBoolean EXECUTED = new AtomicBoolean(false);
 
     private final GapSeedProperties properties;
@@ -92,6 +171,7 @@ public class GapProductImportRunner {
     }
 
     @EventListener(ApplicationReadyEvent.class)
+    @Transactional
     public void onApplicationReady() {
         if (!EXECUTED.compareAndSet(false, true)) {
             return;
@@ -99,6 +179,7 @@ public class GapProductImportRunner {
         runImport();
     }
 
+    @Transactional
     void runImport() {
         int targetCount = Math.max(0, properties.getTargetCount());
         if (targetCount == 0) {
@@ -144,9 +225,7 @@ public class GapProductImportRunner {
 
         List<Product> existingBatch = findExistingImportedProducts();
         if (properties.isCleanBeforeImport() && !existingBatch.isEmpty()) {
-            productRepository.deleteAll(existingBatch);
-            productRepository.flush();
-            log.info("Removed {} existing GAP-imported products with slug prefix gap-.", existingBatch.size());
+            removeExistingImportedProducts(existingBatch);
             existingBatch = List.of();
         }
 
@@ -334,6 +413,7 @@ public class GapProductImportRunner {
     }
 
     private List<LeafCategory> loadLeafCategories() {
+        ensureImportCategoryTree();
         List<Category> categories = categoryRepository.findAll();
         if (categories.isEmpty()) {
             return List.of();
@@ -379,6 +459,74 @@ public class GapProductImportRunner {
 
         leaves.sort(Comparator.comparing(LeafCategory::slug));
         return leaves;
+    }
+
+    private void ensureImportCategoryTree() {
+        List<Category> categories = new ArrayList<>(categoryRepository.findAll());
+        Map<String, Category> categoryBySlug = categories.stream()
+                .filter(category -> category.getSlug() != null && !category.getSlug().isBlank())
+                .collect(Collectors.toMap(
+                        category -> normalizedToken(category.getSlug()),
+                        category -> category,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+
+        int created = 0;
+        List<ImportCategoryDefinition> pending = new ArrayList<>();
+        for (ImportCategoryDefinition definition : IMPORT_CATEGORY_DEFINITIONS) {
+            if (!categoryBySlug.containsKey(normalizedToken(definition.slug()))) {
+                pending.add(definition);
+            }
+        }
+
+        boolean createdInPass;
+        do {
+            createdInPass = false;
+            List<ImportCategoryDefinition> remaining = new ArrayList<>();
+            for (ImportCategoryDefinition definition : pending) {
+                Category parent = null;
+                if (definition.parentSlug() != null) {
+                    parent = categoryBySlug.get(normalizedToken(definition.parentSlug()));
+                    if (parent == null) {
+                        remaining.add(definition);
+                        continue;
+                    }
+                }
+
+                Category category = new Category();
+                category.setName(definition.name());
+                category.setSlug(definition.slug());
+                category.setDescription(definition.description());
+                category.setParent(parent);
+                category.setSortOrder(definition.sortOrder());
+                category.setIsVisible(true);
+                category.setShowOnMenu(false);
+
+                Category saved = categoryRepository.save(category);
+                categoryBySlug.put(normalizedToken(definition.slug()), saved);
+                categories.add(saved);
+                created++;
+                createdInPass = true;
+            }
+            pending = remaining;
+        } while (createdInPass && !pending.isEmpty());
+
+        if (!pending.isEmpty()) {
+            String unresolved = pending.stream()
+                    .map(definition -> definition.slug() + "->" + definition.parentSlug())
+                    .limit(8)
+                    .collect(Collectors.joining(", "));
+            log.warn(
+                    "Skipped auto-creating {} GAP import categories because parent chain is incomplete: {}",
+                    pending.size(),
+                    unresolved
+            );
+        }
+
+        if (created > 0) {
+            log.info("Created {} missing categories required for GAP import.", created);
+        }
     }
 
     private String resolveRootSlug(UUID categoryId, Map<UUID, String> slugById, Map<UUID, UUID> parentById) {
@@ -484,11 +632,12 @@ public class GapProductImportRunner {
                 }
 
                 usedStyleIds.add(picked.row().styleId());
-                assigned.add(new AssignedCandidate(picked, leaf));
+                assigned.add(new AssignedCandidate(picked, picked.preferredLeaf()));
             }
         }
 
-        // Keep taxonomy semantics stable: never force cross-root assignments.
+        // Keep taxonomy semantics stable: quota backfill may borrow from sibling queues,
+        // but category assignment must always stay on the candidate's preferred leaf.
         // If we still need more items to reach target, assign remaining candidates to their preferred leaf.
         while (assigned.size() < effectiveTarget) {
             Candidate fallback = pollCandidate(global, usedStyleIds);
@@ -856,12 +1005,49 @@ public class GapProductImportRunner {
             return bySubCategory;
         }
 
+        String byText = mapByDescriptiveText(row);
+        if (!byText.isBlank()) {
+            return byText;
+        }
+
         String byUsage = mapByUsage(usage, female, male, row.masterCategory());
         if (!byUsage.isBlank()) {
             return byUsage;
         }
 
         return mapByGender(female, male, row.masterCategory());
+    }
+
+    private String mapByDescriptiveText(StyleRow row) {
+        if (!"accessories".equals(normalizedToken(row.masterCategory()))) {
+            return "";
+        }
+
+        String descriptiveText = String.join(" ",
+                normalizedToken(row.productDisplayName()),
+                normalizedToken(row.productDetails())
+        ).trim();
+        if (descriptiveText.isBlank()) {
+            return "";
+        }
+
+        if (containsAnyDescriptiveToken(descriptiveText, "crossbody", "messenger", "sling")) return "tui-deo-cheo";
+        if (containsAnyDescriptiveToken(descriptiveText, "handbag", "tote", "hobo", "satchel", "clutch", "bag", "bags")) return "tui-xach";
+        if (containsAnyDescriptiveToken(descriptiveText, "backpack", "backpacks")) return "balo";
+        if (containsAnyDescriptiveToken(descriptiveText, "wallet", "wallets")) return "vi";
+        if (containsAnyDescriptiveToken(descriptiveText, "belt", "belts")) return "that-lung";
+        if (containsAnyDescriptiveToken(descriptiveText, "cap", "caps", "hat", "hats", "beanie")) return "non-mu";
+        if (containsAnyDescriptiveToken(descriptiveText, "scarf", "scarves", "stole", "dupatta")) return "khan";
+        if (containsAnyDescriptiveToken(descriptiveText, "sock", "socks")) return "tat";
+        if (containsAnyDescriptiveToken(descriptiveText, "sunglass", "sunglasses", "eyewear", "frame", "frames")) return "kinh-mat";
+        if (containsAnyDescriptiveToken(descriptiveText, "watch", "watches")) return "dong-ho";
+        if (containsAnyDescriptiveToken(
+                descriptiveText,
+                "ring", "rings", "earring", "earrings", "necklace", "necklaces", "bracelet", "bracelets", "jewellery", "jewelry"
+        )) {
+            return "trang-suc";
+        }
+        return "";
     }
 
     private String mapByArticleType(
@@ -887,14 +1073,14 @@ public class GapProductImportRunner {
             if (containsAny(article, "ring", "earring", "necklace", "bracelet", "jewellery", "jewelry")) return "trang-suc";
         }
 
-        if (containsAny(article, "polo")) return male ? "men-ao-polo" : "women-ao-kieu";
-        if (containsAny(article, "shirt", "shirts")) return female ? "women-ao-so-mi" : "men-ao-so-mi";
         if (containsAny(article, "hoodie", "sweatshirt")) return female ? "women-ao-khoac" : "men-ao-hoodie";
-        if (containsAny(article, "sweater", "pullover", "cardigan", "shrug", "jacket", "coat", "blazer")) {
-            return female ? "women-ao-khoac" : "men-ao-len";
-        }
         if (containsAny(article, "tshirt", "t-shirt", "tees", "tee", "top", "tops", "camisole", "vest", "tank")) {
             return female ? "women-ao-thun" : "men-ao-thun";
+        }
+        if (containsAny(article, "polo")) return male ? "men-ao-polo" : "women-ao-kieu";
+        if (containsAny(article, "shirt", "shirts")) return female ? "women-ao-so-mi" : "men-ao-so-mi";
+        if (containsAny(article, "sweater", "pullover", "cardigan", "shrug", "jacket", "coat", "blazer")) {
+            return female ? "women-ao-khoac" : "men-ao-len";
         }
         if (containsAny(article, "dress", "dresses", "gown", "kurta", "kurtas", "saree", "skirt", "lehenga")) {
             if (female || containsAny(subCategory, "dress")) {
@@ -1007,6 +1193,29 @@ public class GapProductImportRunner {
             }
         }
         return false;
+    }
+
+    private boolean containsAnyDescriptiveToken(String source, String... tokens) {
+        String normalizedSource = normalizeDescriptiveText(source);
+        if (normalizedSource.isBlank()) {
+            return false;
+        }
+        String paddedSource = " " + normalizedSource + " ";
+        for (String token : tokens) {
+            String normalizedToken = normalizeDescriptiveText(token);
+            if (!normalizedToken.isBlank() && paddedSource.contains(" " + normalizedToken + " ")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String normalizeDescriptiveText(String value) {
+        String normalized = normalizedToken(value);
+        if (normalized.isBlank()) {
+            return "";
+        }
+        return normalized.replaceAll("[^\\p{Alnum}]+", " ").trim().replaceAll("\\s+", " ");
     }
 
     private Map<Long, List<String>> loadImageLinks(Path path) throws IOException {
@@ -1339,6 +1548,37 @@ public class GapProductImportRunner {
         return productRepository.findBySlugStartingWithIgnoreCase("gap-");
     }
 
+    private void removeExistingImportedProducts(List<Product> existingBatch) {
+        List<UUID> productIds = existingBatch.stream()
+                .map(Product::getId)
+                .filter(id -> id != null)
+                .toList();
+
+        if (!productIds.isEmpty()) {
+            List<ProductVariant> variants = productVariantRepository.findByProductIdIn(productIds);
+            List<UUID> variantIds = (variants == null ? List.<ProductVariant>of() : variants).stream()
+                    .map(ProductVariant::getId)
+                    .filter(id -> id != null)
+                    .toList();
+
+            int flashSaleItemsDeleted = flashSaleItemRepository.deleteByProductIds(productIds);
+            if (!variantIds.isEmpty()) {
+                flashSaleItemsDeleted += flashSaleItemRepository.deleteByVariantIds(variantIds);
+            }
+            if (flashSaleItemsDeleted > 0) {
+                flashSaleItemRepository.flush();
+                log.info(
+                        "Removed {} flash sale items linked to existing GAP-imported products before cleanup.",
+                        flashSaleItemsDeleted
+                );
+            }
+        }
+
+        productRepository.deleteAll(existingBatch);
+        productRepository.flush();
+        log.info("Removed {} existing GAP-imported products with slug prefix gap-.", existingBatch.size());
+    }
+
     private void applyGalleryImages(Product product, List<String> imageUrls) {
         List<String> normalized = resolveCandidateImageUrls(imageUrls);
         List<ProductImage> images = new ArrayList<>(normalized.size());
@@ -1383,4 +1623,12 @@ public class GapProductImportRunner {
     private record AssignedCandidate(Candidate candidate, LeafCategory assignedLeaf) {}
 
     private record PricePlan(BigDecimal basePrice, BigDecimal salePrice) {}
+
+    private record ImportCategoryDefinition(
+            String name,
+            String slug,
+            String description,
+            String parentSlug,
+            int sortOrder
+    ) {}
 }

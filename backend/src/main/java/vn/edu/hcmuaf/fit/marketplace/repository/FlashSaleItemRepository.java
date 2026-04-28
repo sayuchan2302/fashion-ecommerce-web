@@ -3,6 +3,7 @@ package vn.edu.hcmuaf.fit.marketplace.repository;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -84,4 +85,19 @@ public interface FlashSaleItemRepository extends JpaRepository<FlashSaleItem, UU
             WHERE i.id = :id
             """)
     Optional<FlashSaleItem> findByIdForUpdate(@Param("id") UUID id);
+
+    @Modifying
+    @Query("""
+            DELETE FROM FlashSaleItem i
+            WHERE i.product.id IN :productIds
+            """)
+    int deleteByProductIds(@Param("productIds") List<UUID> productIds);
+
+    @Modifying
+    @Query("""
+            DELETE FROM FlashSaleItem i
+            WHERE i.variant IS NOT NULL
+              AND i.variant.id IN :variantIds
+            """)
+    int deleteByVariantIds(@Param("variantIds") List<UUID> variantIds);
 }
