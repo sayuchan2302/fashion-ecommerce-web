@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS vision.product_image_embeddings (
     image_url text NOT NULL,
     image_index integer NOT NULL DEFAULT 0,
     is_primary boolean NOT NULL DEFAULT false,
+    source_updated_at timestamptz,
     embedding vector({settings.embedding_dimension}) NOT NULL,
     is_active boolean NOT NULL DEFAULT true,
     model_name text NOT NULL,
@@ -31,6 +32,9 @@ CREATE TABLE IF NOT EXISTS vision.product_image_embeddings (
     updated_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE (backend_product_id, image_url)
 );
+
+ALTER TABLE vision.product_image_embeddings
+    ADD COLUMN IF NOT EXISTS source_updated_at timestamptz;
 
 CREATE INDEX IF NOT EXISTS product_image_embeddings_product_idx
     ON vision.product_image_embeddings (backend_product_id);
@@ -43,6 +47,9 @@ CREATE INDEX IF NOT EXISTS product_image_embeddings_store_slug_idx
 
 CREATE INDEX IF NOT EXISTS product_image_embeddings_category_slug_idx
     ON vision.product_image_embeddings (category_slug);
+
+CREATE INDEX IF NOT EXISTS product_image_embeddings_source_updated_at_idx
+    ON vision.product_image_embeddings (source_updated_at);
 
 CREATE INDEX IF NOT EXISTS product_image_embeddings_embedding_hnsw_idx
     ON vision.product_image_embeddings
@@ -65,4 +72,3 @@ def bootstrap_database() -> None:
         with conn.cursor() as cur:
             cur.execute(BOOTSTRAP_SQL)
         conn.commit()
-

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from io import BytesIO
-from uuid import NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 import requests
 from PIL import Image
@@ -15,6 +16,7 @@ from .openclip_service import OpenClipService
 
 
 CATALOG_ENDPOINT = "/api/internal/vision/catalog"
+DEACTIVATED_PRODUCTS_ENDPOINT = "/api/internal/vision/catalog/deactivated-products"
 
 
 class CatalogSyncService:
@@ -26,13 +28,21 @@ class CatalogSyncService:
         sync_token = datetime.now(UTC).isoformat()
         synced_rows = 0
         failed_rows = 0
+        deactivated_rows = 0
         failures: list[dict[str, str]] = []
+        changed_images_by_product: dict[str, set[str]] = defaultdict(set)
+
+        updated_since = self._resolve_updated_since_cursor()
+        incremental_mode = updated_since is not None
 
         page = 0
         total_pages = 1
         while page < total_pages:
-            payload = self._fetch_catalog_page(page)
+            payload = self._fetch_catalog_page(page=page, updated_since=updated_since)
             total_pages = max(1, payload.total_pages)
+
+            for item in payload.items:
+                changed_images_by_product[str(item.backend_product_id)].add(item.image_url)
 
             for batch in self._iter_batches(payload.items, settings.sync_batch_size):
                 images: list[Image.Image] = []
@@ -59,9 +69,14 @@ class CatalogSyncService:
 
             page += 1
 
-        deactivated_rows = self._deactivate_stale_rows(sync_token)
-        index_version = self._resolve_index_version()
+        if incremental_mode:
+            deactivated_rows += self._deactivate_missing_images_for_changed_products(changed_images_by_product)
+            deactivated_product_ids = self._fetch_deactivated_product_ids(updated_since)
+            deactivated_rows += self._deactivate_products(deactivated_product_ids)
+        else:
+            deactivated_rows += self._deactivate_stale_rows(sync_token)
 
+        index_version = self._resolve_index_version()
         return SyncCatalogResponse(
             synced_rows=synced_rows,
             failed_rows=failed_rows,
@@ -71,15 +86,35 @@ class CatalogSyncService:
             failures=failures[:100],
         )
 
-    def _fetch_catalog_page(self, page: int) -> VisionCatalogPage:
+    def _fetch_catalog_page(self, page: int, updated_since: datetime | None) -> VisionCatalogPage:
+        params: dict[str, str | int] = {"page": page, "size": settings.sync_page_size}
+        if updated_since is not None:
+            params["updatedSince"] = self._format_updated_since(updated_since)
+
         response = self.http.get(
             settings.marketplace_base_url.rstrip("/") + CATALOG_ENDPOINT,
-            params={"page": page, "size": settings.sync_page_size},
+            params=params,
             headers={"X-Vision-Internal-Secret": settings.vision_internal_secret},
             timeout=(settings.connect_timeout_seconds, settings.read_timeout_seconds),
         )
         response.raise_for_status()
         return VisionCatalogPage.model_validate(response.json())
+
+    def _fetch_deactivated_product_ids(self, updated_since: datetime | None) -> list[str]:
+        if updated_since is None:
+            return []
+
+        response = self.http.get(
+            settings.marketplace_base_url.rstrip("/") + DEACTIVATED_PRODUCTS_ENDPOINT,
+            params={"updatedSince": self._format_updated_since(updated_since)},
+            headers={"X-Vision-Internal-Secret": settings.vision_internal_secret},
+            timeout=(settings.connect_timeout_seconds, settings.read_timeout_seconds),
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, list):
+            return []
+        return [str(product_id).strip() for product_id in payload if str(product_id).strip()]
 
     def _download_image(self, image_url: str) -> Image.Image:
         response = self.http.get(
@@ -103,6 +138,7 @@ class CatalogSyncService:
                 item.image_url,
                 item.image_index,
                 item.is_primary,
+                item.source_updated_at,
                 vector,
                 True,
                 settings.openclip_model_name,
@@ -124,6 +160,7 @@ class CatalogSyncService:
                 image_url,
                 image_index,
                 is_primary,
+                source_updated_at,
                 embedding,
                 is_active,
                 model_name,
@@ -131,7 +168,7 @@ class CatalogSyncService:
                 sync_token
             )
             VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
             ON CONFLICT (backend_product_id, image_url)
             DO UPDATE SET
@@ -141,6 +178,7 @@ class CatalogSyncService:
                 category_slug = EXCLUDED.category_slug,
                 image_index = EXCLUDED.image_index,
                 is_primary = EXCLUDED.is_primary,
+                source_updated_at = EXCLUDED.source_updated_at,
                 embedding = EXCLUDED.embedding,
                 is_active = true,
                 model_name = EXCLUDED.model_name,
@@ -169,6 +207,88 @@ class CatalogSyncService:
             conn.commit()
         return max(0, updated)
 
+    def _deactivate_missing_images_for_changed_products(self, product_images: dict[str, set[str]]) -> int:
+        if not product_images:
+            return 0
+
+        updated = 0
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                for product_id, image_urls in product_images.items():
+                    cleaned_urls = sorted(url for url in image_urls if url)
+                    if cleaned_urls:
+                        placeholders = ",".join(["%s"] * len(cleaned_urls))
+                        sql = f"""
+                            UPDATE vision.product_image_embeddings
+                            SET is_active = false, updated_at = now()
+                            WHERE backend_product_id = %s
+                              AND is_active = true
+                              AND image_url NOT IN ({placeholders})
+                        """
+                        cur.execute(sql, [product_id, *cleaned_urls])
+                    else:
+                        cur.execute(
+                            """
+                            UPDATE vision.product_image_embeddings
+                            SET is_active = false, updated_at = now()
+                            WHERE backend_product_id = %s
+                              AND is_active = true
+                            """,
+                            (product_id,),
+                        )
+                    updated += max(0, cur.rowcount)
+            conn.commit()
+        return updated
+
+    def _deactivate_products(self, product_ids: list[str]) -> int:
+        uuids: list[UUID] = []
+        for value in product_ids:
+            try:
+                uuids.append(UUID(value))
+            except ValueError:
+                continue
+
+        if not uuids:
+            return 0
+
+        updated = 0
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                for chunk in self._iter_batches(uuids, 200):
+                    placeholders = ",".join(["%s"] * len(chunk))
+                    sql = f"""
+                        UPDATE vision.product_image_embeddings
+                        SET is_active = false, updated_at = now()
+                        WHERE backend_product_id IN ({placeholders})
+                          AND is_active = true
+                    """
+                    cur.execute(sql, list(chunk))
+                    updated += max(0, cur.rowcount)
+            conn.commit()
+        return updated
+
+    def _resolve_updated_since_cursor(self) -> datetime | None:
+        sql = """
+            SELECT MAX(source_updated_at)
+            FROM vision.product_image_embeddings
+            WHERE is_active = true
+        """
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql)
+                row = cur.fetchone()
+
+        if not row:
+            return None
+        value = row[0]
+        return value if isinstance(value, datetime) else None
+
+    def _format_updated_since(self, value: datetime) -> str:
+        normalized = value
+        if normalized.tzinfo is not None:
+            normalized = normalized.astimezone(UTC).replace(tzinfo=None)
+        return normalized.isoformat(timespec="microseconds")
+
     def _resolve_index_version(self) -> str:
         sql = """
             SELECT sync_token
@@ -183,8 +303,7 @@ class CatalogSyncService:
                 row = cur.fetchone()
         return row[0] if row else "empty"
 
-    def _iter_batches(self, items: list[VisionCatalogItem], size: int) -> Iterator[list[VisionCatalogItem]]:
+    def _iter_batches(self, items: list, size: int) -> Iterator[list]:
         step = max(1, size)
         for index in range(0, len(items), step):
             yield items[index:index + step]
-

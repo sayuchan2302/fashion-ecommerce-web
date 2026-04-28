@@ -177,11 +177,23 @@ public class MarketplacePublicService {
     }
 
     @Transactional(readOnly = true)
-    public MarketplaceImageSearchResponse searchProductsByImage(MultipartFile file, int limit) {
+    public MarketplaceImageSearchResponse searchProductsByImage(
+            MultipartFile file,
+            int limit,
+            String categorySlug,
+            String storeSlug
+    ) {
         validateImageSearchFile(file);
         int resolvedLimit = Math.min(Math.max(limit, 1), Math.max(1, visionSearchProperties.getMaxCandidates()));
+        String normalizedCategorySlug = normalizeScopeSlug(categorySlug);
+        String normalizedStoreSlug = normalizeScopeSlug(storeSlug);
 
-        VisionSearchClient.VisionSearchResult rawResult = visionSearchClient.searchImage(file, resolvedLimit);
+        VisionSearchClient.VisionSearchResult rawResult = visionSearchClient.searchImage(
+                file,
+                resolvedLimit,
+                normalizedCategorySlug,
+                normalizedStoreSlug
+        );
         List<UUID> rankedIds = rawResult.candidates().stream()
                 .map(VisionSearchClient.VisionCandidate::backendProductId)
                 .filter(Objects::nonNull)
@@ -194,6 +206,7 @@ public class MarketplacePublicService {
                     .totalCandidates(0)
                     .mode("image")
                     .indexVersion(rawResult.indexVersion())
+                    .matches(List.of())
                     .build();
         }
 
@@ -203,25 +216,56 @@ public class MarketplacePublicService {
                 .collect(Collectors.toMap(Product::getId, product -> product, (left, right) -> left, LinkedHashMap::new));
         Map<UUID, Store> storesById = loadStoresByProductOwnership(products);
 
-        List<MarketplaceProductCardResponse> items = rankedIds.stream()
-                .map(productsById::get)
-                .filter(Objects::nonNull)
-                .map(product -> toProductCardResponse(product, storesById.get(product.getStoreId())))
-                .limit(resolvedLimit)
-                .toList();
+        LinkedHashSet<UUID> seen = new LinkedHashSet<>();
+        List<MarketplaceProductCardResponse> items = new ArrayList<>();
+        List<MarketplaceImageSearchResponse.ImageSearchMatch> matches = new ArrayList<>();
+
+        for (VisionSearchClient.VisionCandidate candidate : rawResult.candidates()) {
+            UUID productId = candidate.backendProductId();
+            if (productId == null || !seen.add(productId)) {
+                continue;
+            }
+
+            Product product = productsById.get(productId);
+            if (product == null) {
+                continue;
+            }
+
+            items.add(toProductCardResponse(product, storesById.get(product.getStoreId())));
+            matches.add(MarketplaceImageSearchResponse.ImageSearchMatch.builder()
+                    .productId(productId)
+                    .rank(items.size())
+                    .score(candidate.score())
+                    .matchedImageUrl(candidate.matchedImageUrl())
+                    .matchedImageIndex(candidate.matchedImageIndex())
+                    .isPrimary(candidate.isPrimary())
+                    .build());
+
+            if (items.size() >= resolvedLimit) {
+                break;
+            }
+        }
 
         return MarketplaceImageSearchResponse.builder()
                 .items(items)
                 .totalCandidates(rawResult.totalCandidates())
                 .mode("image")
                 .indexVersion(rawResult.indexVersion())
+                .matches(matches)
                 .build();
     }
 
     @Transactional(readOnly = true)
     public VisionCatalogPageResponse exportVisionCatalog(Pageable pageable) {
+        return exportVisionCatalog(pageable, null);
+    }
+
+    @Transactional(readOnly = true)
+    public VisionCatalogPageResponse exportVisionCatalog(Pageable pageable, LocalDateTime updatedSince) {
         Pageable resolved = resolveVisionCatalogPageable(pageable);
-        Page<Product> productPage = productRepository.findPublicMarketplaceProducts(resolved);
+        Page<Product> productPage = updatedSince == null
+                ? productRepository.findPublicMarketplaceProducts(resolved)
+                : productRepository.findPublicMarketplaceProductsUpdatedSince(updatedSince, resolved);
         Map<UUID, Store> storesById = loadStoresByProductOwnership(productPage.getContent());
 
         List<VisionCatalogItemResponse> rows = productPage.getContent().stream()
@@ -236,6 +280,14 @@ public class MarketplacePublicService {
                 .totalPages(productPage.getTotalPages())
                 .generatedAt(LocalDateTime.now())
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<UUID> exportVisionDeactivatedProductIds(LocalDateTime updatedSince) {
+        if (updatedSince == null) {
+            return List.of();
+        }
+        return productRepository.findVisionDeactivatedProductIdsUpdatedSince(updatedSince);
     }
 
     @Transactional(readOnly = true)
@@ -357,6 +409,14 @@ public class MarketplacePublicService {
             return null;
         }
         String normalized = categorySlug.trim().toLowerCase(Locale.ROOT);
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String normalizeScopeSlug(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
         return normalized.isEmpty() ? null : normalized;
     }
 
@@ -535,8 +595,28 @@ public class MarketplacePublicService {
                         .imageUrl(image.getUrl().trim())
                         .imageIndex(image.getSortOrder() == null ? 0 : image.getSortOrder())
                         .isPrimary(Boolean.TRUE.equals(image.getIsPrimary()))
+                        .sourceUpdatedAt(resolveVisionSourceUpdatedAt(product, image))
                         .build())
                 .toList();
+    }
+
+    private LocalDateTime resolveVisionSourceUpdatedAt(Product product, ProductImage image) {
+        LocalDateTime latest = null;
+        latest = newestDate(latest, product.getUpdatedAt());
+        latest = newestDate(latest, product.getCreatedAt());
+        latest = newestDate(latest, image.getUpdatedAt());
+        latest = newestDate(latest, image.getCreatedAt());
+        return latest;
+    }
+
+    private LocalDateTime newestDate(LocalDateTime left, LocalDateTime right) {
+        if (right == null) {
+            return left;
+        }
+        if (left == null || right.isAfter(left)) {
+            return right;
+        }
+        return left;
     }
 
     private boolean hasAvailableStock(Product product) {

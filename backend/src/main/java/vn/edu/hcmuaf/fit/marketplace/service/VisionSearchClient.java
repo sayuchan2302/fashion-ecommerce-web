@@ -14,8 +14,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
+import java.util.StringJoiner;
 import java.util.UUID;
 
 @Service
@@ -29,7 +32,12 @@ public class VisionSearchClient {
         this.objectMapper = objectMapper;
     }
 
-    public VisionSearchResult searchImage(MultipartFile file, int limit) {
+    public VisionSearchResult searchImage(
+            MultipartFile file,
+            int limit,
+            String categorySlug,
+            String storeSlug
+    ) {
         if (!properties.isEnabled()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Image search service is disabled");
         }
@@ -43,7 +51,9 @@ public class VisionSearchClient {
         try {
             String boundary = "vision-search-" + UUID.randomUUID();
             byte[] body = buildMultipartBody(file, boundary);
-            HttpURLConnection connection = (HttpURLConnection) new URL(buildSearchUrl(limit)).openConnection();
+            HttpURLConnection connection = (HttpURLConnection) new URL(
+                    buildSearchUrl(limit, categorySlug, storeSlug)
+            ).openConnection();
             connection.setConnectTimeout(Math.max(500, properties.getConnectTimeoutMs()));
             connection.setReadTimeout(Math.max(1000, properties.getReadTimeoutMs()));
             connection.setRequestMethod("POST");
@@ -80,8 +90,33 @@ public class VisionSearchClient {
         return value.replaceAll("/+$", "");
     }
 
-    private String buildSearchUrl(int limit) {
-        return normalizeBaseUrl(properties.getBaseUrl()) + "/v1/search/image?limit=" + limit;
+    private String buildSearchUrl(int limit, String categorySlug, String storeSlug) {
+        StringJoiner query = new StringJoiner("&");
+        query.add("limit=" + limit);
+
+        String normalizedCategorySlug = normalizeScopeSlug(categorySlug);
+        if (normalizedCategorySlug != null) {
+            query.add("category_slug=" + encodeValue(normalizedCategorySlug));
+        }
+
+        String normalizedStoreSlug = normalizeScopeSlug(storeSlug);
+        if (normalizedStoreSlug != null) {
+            query.add("store_slug=" + encodeValue(normalizedStoreSlug));
+        }
+
+        return normalizeBaseUrl(properties.getBaseUrl()) + "/v1/search/image?" + query;
+    }
+
+    private String normalizeScopeSlug(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String encodeValue(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     private byte[] buildMultipartBody(MultipartFile file, String boundary) throws IOException {

@@ -90,6 +90,8 @@ const Search = () => {
   const scope: SearchScope = searchParams.get('scope') === 'stores' ? 'stores' : 'products';
   const isFlashSaleMode = searchParams.get('flashSale') === '1';
   const imageSearchToken = searchParams.get('imageSearch') || '';
+  const imageCategory = (searchParams.get('imageCategory') || '').trim();
+  const imageStore = (searchParams.get('imageStore') || '').trim();
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [productResults, setProductResults] = useState<Product[]>([]);
@@ -152,7 +154,10 @@ const Search = () => {
     const previewUrl = URL.createObjectURL(file);
 
     try {
-      const response = await marketplaceService.searchProductsByImage(file, 120);
+      const response = await marketplaceService.searchProductsByImage(file, 120, {
+        categorySlug: imageCategory || undefined,
+        storeSlug: imageStore || undefined,
+      });
       setProductResults(response.items);
       setStoreResults([]);
       setImageSearchSession({
@@ -172,7 +177,7 @@ const Search = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [clearSearchResults]);
+  }, [clearSearchResults, imageCategory, imageStore]);
 
   const handleImageInputChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

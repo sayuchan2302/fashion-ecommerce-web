@@ -60,8 +60,10 @@ public class MarketplacePublicController {
     @PostMapping(value = "/search/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<MarketplaceImageSearchResponse> searchProductsByImage(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(name = "limit", defaultValue = "120") int limit
+            @RequestParam(name = "limit", defaultValue = "120") int limit,
+            @RequestParam(name = "category", required = false) String categorySlug,
+            @RequestParam(name = "store", required = false) String storeSlug
     ) {
-        return ResponseEntity.ok(marketplacePublicService.searchProductsByImage(file, limit));
+        return ResponseEntity.ok(marketplacePublicService.searchProductsByImage(file, limit, categorySlug, storeSlug));
     }
 }

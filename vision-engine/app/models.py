@@ -16,6 +16,7 @@ class VisionCatalogItem(BaseModel):
     image_url: str
     image_index: int = 0
     is_primary: bool = False
+    source_updated_at: datetime | None = None
 
 
 class VisionCatalogPage(BaseModel):

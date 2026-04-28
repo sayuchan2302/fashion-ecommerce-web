@@ -5,15 +5,19 @@ from pathlib import Path
 import sys
 import unittest
 from uuid import uuid4
+from contextlib import nullcontext
+from unittest.mock import patch
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.search_service import (  # noqa: E402
+    ImageSearchService,
     SearchValidationError,
     apply_candidate_thresholds,
+    build_query_views,
     decode_search_image,
     group_search_candidates,
     validate_image_upload,
@@ -21,6 +25,32 @@ from app.search_service import (  # noqa: E402
 
 
 class SearchServiceLogicTests(unittest.TestCase):
+    class _FakeCursor:
+        def __init__(self, rows):
+            self._rows = rows
+            self.executed_sql = ""
+            self.executed_params = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            return False
+
+        def execute(self, sql, params):
+            self.executed_sql = sql
+            self.executed_params = params
+
+        def fetchall(self):
+            return self._rows
+
+    class _FakeConnection:
+        def __init__(self, cursor):
+            self._cursor = cursor
+
+        def cursor(self):
+            return self._cursor
+
     def test_validate_image_upload_rejects_non_image_content_type(self) -> None:
         with self.assertRaises(SearchValidationError) as context:
             validate_image_upload("application/pdf", b"fake")
@@ -159,6 +189,123 @@ class SearchServiceLogicTests(unittest.TestCase):
         decoded = decode_search_image(payload)
 
         self.assertEqual(decoded.size, (4, 4))
+
+    def test_query_similar_images_applies_category_store_filters(self) -> None:
+        fake_cursor = self._FakeCursor([
+            (uuid4(), "https://example.com/a.jpg", 0, True, 0.91),
+        ])
+        service = ImageSearchService(clip_service=object())  # type: ignore[arg-type]
+
+        with patch("app.search_service.get_connection", return_value=nullcontext(self._FakeConnection(fake_cursor))):
+            rows = service._query_similar_images(
+                vector=[0.1, 0.2],
+                ann_limit=10,
+                category_slug="men",
+                store_slug="vision-store",
+            )
+
+        self.assertEqual(len(rows), 1)
+        self.assertIn("category_slug = %s", fake_cursor.executed_sql)
+        self.assertIn("store_slug = %s", fake_cursor.executed_sql)
+        self.assertEqual(fake_cursor.executed_params[1], "men")
+        self.assertEqual(fake_cursor.executed_params[2], "vision-store")
+
+    def test_query_similar_images_skips_scope_filters_when_empty(self) -> None:
+        fake_cursor = self._FakeCursor([])
+        service = ImageSearchService(clip_service=object())  # type: ignore[arg-type]
+
+        with patch("app.search_service.get_connection", return_value=nullcontext(self._FakeConnection(fake_cursor))):
+            service._query_similar_images(
+                vector=[0.3, 0.4],
+                ann_limit=6,
+                category_slug=None,
+                store_slug=None,
+            )
+
+        self.assertNotIn("category_slug = %s", fake_cursor.executed_sql)
+        self.assertNotIn("store_slug = %s", fake_cursor.executed_sql)
+        self.assertEqual(len(fake_cursor.executed_params), 3)
+
+    def test_build_query_views_adds_foreground_and_center_views(self) -> None:
+        image = Image.new("RGB", (100, 100), color="white")
+        drawer = ImageDraw.Draw(image)
+        drawer.rectangle([38, 12, 62, 88], fill="black")
+
+        views = build_query_views(image)
+        names = [view.name for view in views]
+
+        self.assertIn("foreground", names)
+        self.assertIn("center", names)
+        self.assertIn("original", names)
+
+    def test_query_similar_images_with_views_prefers_foreground_consensus(self) -> None:
+        service = ImageSearchService(clip_service=object())  # type: ignore[arg-type]
+
+        product_a = uuid4()
+        product_b = uuid4()
+
+        responses = [
+            [
+                {
+                    "backend_product_id": product_a,
+                    "image_url": "https://example.com/a.jpg",
+                    "image_index": 0,
+                    "is_primary": True,
+                    "score": 0.62,
+                },
+                {
+                    "backend_product_id": product_b,
+                    "image_url": "https://example.com/b.jpg",
+                    "image_index": 0,
+                    "is_primary": True,
+                    "score": 0.81,
+                },
+            ],
+            [
+                {
+                    "backend_product_id": product_a,
+                    "image_url": "https://example.com/a.jpg",
+                    "image_index": 0,
+                    "is_primary": True,
+                    "score": 0.87,
+                },
+            ],
+            [
+                {
+                    "backend_product_id": product_a,
+                    "image_url": "https://example.com/a.jpg",
+                    "image_index": 0,
+                    "is_primary": True,
+                    "score": 0.79,
+                },
+                {
+                    "backend_product_id": product_b,
+                    "image_url": "https://example.com/b.jpg",
+                    "image_index": 0,
+                    "is_primary": True,
+                    "score": 0.7,
+                },
+            ],
+        ]
+        call_index = {"value": 0}
+
+        def fake_query(vector, ann_limit, category_slug, store_slug):
+            index = call_index["value"]
+            call_index["value"] += 1
+            return responses[index]
+
+        service._query_similar_images = fake_query  # type: ignore[method-assign]
+
+        ranked = service._query_similar_images_with_views(
+            vectors=[[0.1], [0.2], [0.3]],
+            view_names=["foreground", "center", "original"],
+            limit=10,
+            category_slug=None,
+            store_slug=None,
+        )
+
+        self.assertGreaterEqual(len(ranked), 2)
+        self.assertEqual(ranked[0]["backend_product_id"], product_a)
 
 
 if __name__ == "__main__":

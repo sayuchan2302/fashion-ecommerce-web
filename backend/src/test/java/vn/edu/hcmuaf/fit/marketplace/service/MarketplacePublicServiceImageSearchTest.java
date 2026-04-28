@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -104,7 +105,12 @@ class MarketplacePublicServiceImageSearchTest {
                 .thenReturn(List.of(store));
 
         MockMultipartFile file = new MockMultipartFile("file", "query.jpg", "image/jpeg", new byte[] {1, 2, 3});
-        MarketplaceImageSearchResponse response = marketplacePublicService.searchProductsByImage(file, 120);
+        MarketplaceImageSearchResponse response = marketplacePublicService.searchProductsByImage(
+                file,
+                120,
+                " Men ",
+                "Vision-Store"
+        );
 
         assertEquals(2, response.getItems().size());
         assertEquals("Second Product", response.getItems().get(0).getName());
@@ -112,6 +118,15 @@ class MarketplacePublicServiceImageSearchTest {
         assertEquals(3, response.getTotalCandidates());
         assertEquals("image", response.getMode());
         assertEquals("sync-2026-04-27", response.getIndexVersion());
+        assertNotNull(response.getMatches());
+        assertEquals(2, response.getMatches().size());
+        assertEquals(secondId, response.getMatches().get(0).getProductId());
+        assertEquals(1, response.getMatches().get(0).getRank());
+        assertEquals(0.91, response.getMatches().get(0).getScore());
+        assertEquals(firstId, response.getMatches().get(1).getProductId());
+        assertEquals(2, response.getMatches().get(1).getRank());
+        assertEquals("men", visionSearchClient.lastCategorySlug);
+        assertEquals("vision-store", visionSearchClient.lastStoreSlug);
     }
 
     private Product buildProduct(UUID productId, UUID storeId, String slug, String name, String imageUrl) {
@@ -140,13 +155,22 @@ class MarketplacePublicServiceImageSearchTest {
 
     private static final class StubVisionSearchClient extends VisionSearchClient {
         private VisionSearchResult result = new VisionSearchResult(List.of(), 0, null);
+        private String lastCategorySlug;
+        private String lastStoreSlug;
 
         private StubVisionSearchClient(VisionSearchProperties properties) {
             super(properties, new ObjectMapper());
         }
 
         @Override
-        public VisionSearchResult searchImage(org.springframework.web.multipart.MultipartFile file, int limit) {
+        public VisionSearchResult searchImage(
+                org.springframework.web.multipart.MultipartFile file,
+                int limit,
+                String categorySlug,
+                String storeSlug
+        ) {
+            this.lastCategorySlug = categorySlug;
+            this.lastStoreSlug = storeSlug;
             return result;
         }
 

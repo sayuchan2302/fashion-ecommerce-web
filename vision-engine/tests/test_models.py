@@ -26,6 +26,7 @@ class VisionCatalogModelTests(unittest.TestCase):
                     "image_url": "https://example.com/image.jpg",
                     "image_index": 1,
                     "is_primary": True,
+                    "source_updated_at": "2026-04-27T11:55:00",
                 }
             ],
             "totalProducts": 12,
@@ -42,6 +43,7 @@ class VisionCatalogModelTests(unittest.TestCase):
         self.assertEqual(page.page, 0)
         self.assertEqual(page.items[0].product_slug, "sample-product")
         self.assertEqual(str(page.items[0].backend_product_id), backend_product_id)
+        self.assertIsNotNone(page.items[0].source_updated_at)
 
 
 if __name__ == "__main__":

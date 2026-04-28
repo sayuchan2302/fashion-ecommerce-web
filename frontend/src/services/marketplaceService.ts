@@ -69,6 +69,16 @@ export interface MarketplaceImageSearchData {
   totalCandidates: number;
   mode?: string;
   indexVersion?: string;
+  matches?: MarketplaceImageSearchMatch[];
+}
+
+export interface MarketplaceImageSearchMatch {
+  productId: string;
+  rank: number;
+  score: number;
+  matchedImageUrl?: string;
+  matchedImageIndex?: number;
+  isPrimary?: boolean;
 }
 
 export interface MarketplaceFlashSaleItem {
@@ -191,6 +201,14 @@ interface MarketplaceImageSearchPayload {
   totalCandidates?: number;
   mode?: string;
   indexVersion?: string;
+  matches?: Array<{
+    productId?: string;
+    rank?: number;
+    score?: number;
+    matchedImageUrl?: string;
+    matchedImageIndex?: number;
+    isPrimary?: boolean;
+  }>;
 }
 
 interface BackendCategoryTreeNode {
@@ -580,24 +598,57 @@ export const marketplaceService = {
     };
   },
 
-  async searchProductsByImage(file: File, limit = 120): Promise<MarketplaceImageSearchData> {
+  async searchProductsByImage(
+    file: File,
+    limit = 120,
+    options?: { categorySlug?: string; storeSlug?: string },
+  ): Promise<MarketplaceImageSearchData> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('limit', String(Math.max(1, limit)));
+    const params = new URLSearchParams();
+    params.set('limit', String(Math.max(1, limit)));
+    const categorySlug = (options?.categorySlug || '').trim();
+    const storeSlug = (options?.storeSlug || '').trim();
+    if (categorySlug) {
+      params.set('category', categorySlug);
+    }
+    if (storeSlug) {
+      params.set('store', storeSlug);
+    }
 
     const payload = await apiRequest<MarketplaceImageSearchPayload>(
-      '/api/public/marketplace/search/image',
+      `/api/public/marketplace/search/image?${params.toString()}`,
       {
         method: 'POST',
         body: formData,
       },
     );
 
+    const matches: MarketplaceImageSearchMatch[] = [];
+    for (const match of payload.matches || []) {
+      const productId = String(match.productId || '').trim();
+      if (!productId) {
+        continue;
+      }
+      matches.push({
+        productId,
+        rank: Math.max(1, Math.round(toNumber(match.rank, 1))),
+        score: toNumber(match.score, 0),
+        matchedImageUrl: String(match.matchedImageUrl || '').trim() || undefined,
+        matchedImageIndex: Number.isFinite(match.matchedImageIndex)
+          ? Number(match.matchedImageIndex)
+          : undefined,
+        isPrimary: typeof match.isPrimary === 'boolean' ? match.isPrimary : undefined,
+      });
+    }
+
     return {
       items: (payload.items || []).map(mapProductCard),
       totalCandidates: Math.max(0, Number(payload.totalCandidates || 0)),
       mode: (payload.mode || '').trim() || undefined,
       indexVersion: (payload.indexVersion || '').trim() || undefined,
+      matches,
     };
   },
 };

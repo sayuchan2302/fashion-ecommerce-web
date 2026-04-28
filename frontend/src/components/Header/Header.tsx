@@ -159,6 +159,33 @@ const Header = () => {
   const imageInputRef = React.useRef<HTMLInputElement | null>(null);
   const [isImageSearchModalOpen, setIsImageSearchModalOpen] = useState(false);
   const [imageSearchDraft, setImageSearchDraft] = useState<ImageSearchDraft | null>(null);
+  const imageSearchContext = React.useMemo(() => {
+    const decodePathSegment = (value: string): string => {
+      try {
+        return decodeURIComponent(value).trim().toLowerCase();
+      } catch {
+        return value.trim().toLowerCase();
+      }
+    };
+
+    const pathname = location.pathname || '';
+    const categoryMatch = pathname.match(/^\/category\/([^/?#]+)/i);
+    if (categoryMatch?.[1]) {
+      const categorySlug = decodePathSegment(categoryMatch[1]);
+      if (categorySlug && categorySlug !== 'all' && categorySlug !== 'sale' && categorySlug !== 'new') {
+        return { categorySlug, storeSlug: '' };
+      }
+      return { categorySlug: '', storeSlug: '' };
+    }
+
+    const storeMatch = pathname.match(/^\/store\/([^/?#]+)/i);
+    if (storeMatch?.[1]) {
+      const storeSlug = decodePathSegment(storeMatch[1]);
+      return { categorySlug: '', storeSlug };
+    }
+
+    return { categorySlug: '', storeSlug: '' };
+  }, [location.pathname]);
 
   const toggleMobileSubMenu = (menuId: string) => {
     setExpandedMobileMenu((prev) => (prev === menuId ? null : menuId));
@@ -315,6 +342,12 @@ const Header = () => {
     const params = new URLSearchParams();
     params.set('scope', 'products');
     params.set('imageSearch', `${Date.now()}`);
+    if (imageSearchContext.categorySlug) {
+      params.set('imageCategory', imageSearchContext.categorySlug);
+    }
+    if (imageSearchContext.storeSlug) {
+      params.set('imageStore', imageSearchContext.storeSlug);
+    }
     navigate(`/search?${params.toString()}`);
   };
 

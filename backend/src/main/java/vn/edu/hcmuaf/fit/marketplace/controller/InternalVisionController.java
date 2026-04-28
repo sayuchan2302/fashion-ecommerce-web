@@ -4,6 +4,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,6 +17,9 @@ import vn.edu.hcmuaf.fit.marketplace.service.MarketplacePublicService;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/internal/vision")
@@ -38,11 +42,25 @@ public class InternalVisionController {
     public ResponseEntity<VisionCatalogPageResponse> exportCatalog(
             @RequestHeader(name = SECRET_HEADER, required = false) String secret,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "100") int size
+            @RequestParam(defaultValue = "100") int size,
+            @RequestParam(name = "updatedSince", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime updatedSince
     ) {
         ensureAuthorized(secret);
         Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, size));
-        return ResponseEntity.ok(marketplacePublicService.exportVisionCatalog(pageable));
+        return ResponseEntity.ok(marketplacePublicService.exportVisionCatalog(pageable, updatedSince));
+    }
+
+    @GetMapping("/catalog/deactivated-products")
+    public ResponseEntity<List<UUID>> exportDeactivatedProductIds(
+            @RequestHeader(name = SECRET_HEADER, required = false) String secret,
+            @RequestParam(name = "updatedSince", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime updatedSince
+    ) {
+        ensureAuthorized(secret);
+        return ResponseEntity.ok(marketplacePublicService.exportVisionDeactivatedProductIds(updatedSince));
     }
 
     private void ensureAuthorized(String providedSecret) {

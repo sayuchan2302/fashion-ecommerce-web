@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Data
@@ -36,5 +37,7 @@ public class VisionCatalogItemResponse {
 
     @JsonProperty("is_primary")
     private Boolean isPrimary;
-}
 
+    @JsonProperty("source_updated_at")
+    private LocalDateTime sourceUpdatedAt;
+}

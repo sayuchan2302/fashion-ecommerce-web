@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 import vn.edu.hcmuaf.fit.marketplace.entity.Product;
 import jakarta.persistence.LockModeType;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -211,6 +212,61 @@ public interface ProductRepository extends JpaRepository<Product, UUID>, JpaSpec
               )
             """)
     List<Product> findPublicMarketplaceProductsByIds(@Param("ids") List<UUID> ids);
+
+    @EntityGraph(attributePaths = {"category"})
+    @Query("""
+            SELECT DISTINCT p FROM Product p
+            WHERE p.status = 'ACTIVE'
+              AND (p.approvalStatus = 'APPROVED' OR p.approvalStatus IS NULL)
+              AND p.storeId IS NOT NULL
+              AND p.storeId IN (
+                  SELECT s.id FROM Store s
+                  WHERE s.approvalStatus = 'APPROVED'
+                    AND s.status = 'ACTIVE'
+              )
+              AND (
+                p.updatedAt >= :updatedSince
+                OR EXISTS (
+                  SELECT 1 FROM ProductImage pi
+                  WHERE pi.product = p
+                    AND pi.updatedAt >= :updatedSince
+                )
+              )
+            """)
+    Page<Product> findPublicMarketplaceProductsUpdatedSince(
+            @Param("updatedSince") LocalDateTime updatedSince,
+            Pageable pageable
+    );
+
+    @Query("""
+            SELECT DISTINCT p.id FROM Product p
+            WHERE (
+                p.updatedAt >= :updatedSince
+                OR EXISTS (
+                  SELECT 1 FROM ProductImage pi
+                  WHERE pi.product = p
+                    AND pi.updatedAt >= :updatedSince
+                )
+            )
+            AND (
+                p.status <> 'ACTIVE'
+                OR (p.approvalStatus IS NOT NULL AND p.approvalStatus <> 'APPROVED')
+                OR p.storeId IS NULL
+                OR p.storeId NOT IN (
+                    SELECT s.id FROM Store s
+                    WHERE s.approvalStatus = 'APPROVED'
+                      AND s.status = 'ACTIVE'
+                )
+                OR NOT EXISTS (
+                    SELECT 1 FROM ProductImage pi2
+                    WHERE pi2.product = p
+                      AND LENGTH(TRIM(COALESCE(pi2.url, ''))) > 0
+                )
+            )
+            """)
+    List<UUID> findVisionDeactivatedProductIdsUpdatedSince(
+            @Param("updatedSince") LocalDateTime updatedSince
+    );
 
     @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.images WHERE p.id = :id")
     Optional<Product> findByIdWithDetails(UUID id);
