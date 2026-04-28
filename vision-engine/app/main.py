@@ -159,7 +159,7 @@ async def search_image(
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
     logger.info(
-        "image_search status=%s empty_reason=%s content_type=%s bytes=%s grouped=%s returned=%s threshold_filtered=%s top_score=%s score_floor=%s search_ms=%.2f encode_ms=%.2f db_ms=%.2f category_slug=%s store_slug=%s",
+        "image_search status=%s empty_reason=%s content_type=%s bytes=%s grouped=%s returned=%s threshold_filtered=%s top_score=%s score_floor=%s search_ms=%.2f encode_ms=%.2f db_ms=%.2f category_slug=%s store_slug=%s inferred_category=%s inferred_score=%s category_filter=%s",
         result.status,
         result.empty_reason or "-",
         file.content_type or "unknown",
@@ -174,6 +174,9 @@ async def search_image(
         result.db_query_latency_ms,
         category_slug or "-",
         store_slug or "-",
+        result.inferred_category or "-",
+        format_score(result.inferred_category_score),
+        result.category_filter_applied,
     )
     search_metrics.record_request(
         status=result.status,
@@ -191,6 +194,9 @@ async def search_image(
         candidates=result.candidates,
         total_candidates=len(result.candidates),
         index_version=result.index_version,
+        inferred_category=result.inferred_category,
+        inferred_category_score=result.inferred_category_score,
+        category_filter_applied=result.category_filter_applied,
     )
 
 

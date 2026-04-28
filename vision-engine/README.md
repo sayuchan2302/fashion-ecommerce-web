@@ -48,6 +48,10 @@ Optional relevance tuning:
 - `IMAGE_SEARCH_PRODUCT_CATEGORY_MATCH_BOOST`
 - `IMAGE_SEARCH_PRODUCT_IN_STOCK_BOOST`
 - `IMAGE_SEARCH_CATEGORY_FILTER_MODE`
+- `IMAGE_SEARCH_AUTO_CATEGORY_ENABLED`
+- `IMAGE_SEARCH_AUTO_CATEGORY_HARD_THRESHOLD`
+- `IMAGE_SEARCH_AUTO_CATEGORY_SOFT_THRESHOLD`
+- `IMAGE_SEARCH_AUTO_CATEGORY_SOFT_BOOST`
 - `SEARCH_HNSW_EF_SEARCH`
 - `DB_POOL_MIN_SIZE`
 - `DB_POOL_MAX_SIZE`
@@ -61,6 +65,32 @@ For local Windows development without Docker, use:
 ```powershell
 Copy-Item vision-engine/.env.local.example vision-engine/.env
 ```
+
+## Optional auto category classification
+
+Image search can optionally infer a fashion category from the uploaded image using OpenCLIP image-text similarity. This helps queries where color or background dominates visual similarity, such as white socks matching white pants or shirts.
+
+The feature is disabled by default:
+
+```powershell
+IMAGE_SEARCH_AUTO_CATEGORY_ENABLED=false
+```
+
+When enabled and the request does not include `category_slug`, `vision-engine` compares the query image embedding with cached category prompt embeddings:
+
+- score >= `IMAGE_SEARCH_AUTO_CATEGORY_HARD_THRESHOLD`: apply the inferred category as a hard filter
+- score >= `IMAGE_SEARCH_AUTO_CATEGORY_SOFT_THRESHOLD`: keep global search and add `IMAGE_SEARCH_AUTO_CATEGORY_SOFT_BOOST` to matching categories
+- score below soft threshold: keep the existing global search behavior
+
+Prompt keys in `app/category_classifier.py` must match indexed `category_slug` values from `vision.product_image_embeddings`. The current catalog uses slugs such as `tat`, `kinh-mat`, `tui-xach`, `non-mu`, `men-ao-thun`, `women-ao-thun`, `men-quan-jeans`, `women-quan-jeans`, and `women-vay-lien`; do not use generic keys that are not indexed.
+
+Manual socks check:
+
+1. Set `IMAGE_SEARCH_AUTO_CATEGORY_ENABLED=true`
+2. Restart `vision-engine`
+3. Run a full catalog sync
+4. POST a socks image directly to `/v1/search/image` without `category_slug`
+5. Expect `inferred_category=tat`; if the score reaches the hard threshold, expect `category_filter_applied=hard`
 
 ## Start with Docker
 

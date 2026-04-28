@@ -182,6 +182,49 @@ class SearchRepositoryTests(unittest.TestCase):
         self.assertEqual(ranked[0]["backend_product_id"], product_a)
         self.assertGreaterEqual(db_query_latency_ms, 0.0)
 
+    def test_query_similar_images_with_views_can_force_hard_category_filter(self) -> None:
+        repository = SearchRepository()
+        captured = []
+
+        def fake_query(vector, ann_limit, category_slug, store_slug):
+            captured.append(category_slug)
+            return []
+
+        repository.query_similar_images = fake_query  # type: ignore[method-assign]
+
+        with patch("app.search_repository.settings.image_search_category_filter_mode", "soft"):
+            repository.query_similar_images_with_views(
+                vectors=[[0.1]],
+                view_names=["original"],
+                limit=10,
+                category_slug="tat",
+                store_slug=None,
+                force_hard_category_filter=True,
+            )
+
+        self.assertEqual(captured, ["tat"])
+
+    def test_query_similar_images_with_views_uses_global_search_for_soft_category_mode(self) -> None:
+        repository = SearchRepository()
+        captured = []
+
+        def fake_query(vector, ann_limit, category_slug, store_slug):
+            captured.append(category_slug)
+            return []
+
+        repository.query_similar_images = fake_query  # type: ignore[method-assign]
+
+        with patch("app.search_repository.settings.image_search_category_filter_mode", "soft"):
+            repository.query_similar_images_with_views(
+                vectors=[[0.1]],
+                view_names=["original"],
+                limit=10,
+                category_slug="tat",
+                store_slug=None,
+            )
+
+        self.assertEqual(captured, [None])
+
     def test_load_index_info_queries_and_caches_counts(self) -> None:
         fake_cursor = self._FakeCursor([], one=(12, 7, "sync-token"))
         repository = SearchRepository()

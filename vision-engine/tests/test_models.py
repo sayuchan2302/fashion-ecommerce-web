@@ -8,7 +8,7 @@ from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.models import VisionCatalogPage  # noqa: E402
+from app.models import SearchResponse, VisionCatalogPage  # noqa: E402
 
 
 class VisionCatalogModelTests(unittest.TestCase):
@@ -46,6 +46,35 @@ class VisionCatalogModelTests(unittest.TestCase):
         self.assertEqual(page.items[0].available_stock, 7)
         self.assertEqual(str(page.items[0].backend_product_id), backend_product_id)
         self.assertIsNotNone(page.items[0].source_updated_at)
+
+    def test_search_response_accepts_missing_auto_category_debug_fields(self) -> None:
+        response = SearchResponse.model_validate(
+            {
+                "candidates": [],
+                "total_candidates": 0,
+                "index_version": "sync-token",
+            }
+        )
+
+        self.assertIsNone(response.inferred_category)
+        self.assertIsNone(response.inferred_category_score)
+        self.assertIsNone(response.category_filter_applied)
+
+    def test_search_response_accepts_auto_category_debug_fields(self) -> None:
+        response = SearchResponse.model_validate(
+            {
+                "candidates": [],
+                "total_candidates": 0,
+                "index_version": "sync-token",
+                "inferred_category": "tat",
+                "inferred_category_score": 0.31,
+                "category_filter_applied": "hard",
+            }
+        )
+
+        self.assertEqual(response.inferred_category, "tat")
+        self.assertEqual(response.inferred_category_score, 0.31)
+        self.assertEqual(response.category_filter_applied, "hard")
 
 
 if __name__ == "__main__":

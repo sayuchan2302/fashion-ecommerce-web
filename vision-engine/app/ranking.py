@@ -26,6 +26,8 @@ def build_product_ranking_score(
     *,
     category_slug: str | None,
     apply_soft_category_boost: bool,
+    auto_category_slug: str | None = None,
+    auto_category_soft_boost: float = 0.0,
 ) -> float:
     ranking_score = float(row["score"]) * settings.image_search_product_best_image_weight
 
@@ -35,10 +37,13 @@ def build_product_ranking_score(
     if int(row.get("available_stock") or 0) > 0:
         ranking_score += settings.image_search_product_in_stock_boost
 
+    row_category_slug = normalize_slug(str(row.get("category_slug") or ""))
     if apply_soft_category_boost:
-        row_category_slug = normalize_slug(str(row.get("category_slug") or ""))
         if row_category_slug and row_category_slug == category_slug:
             ranking_score += settings.image_search_product_category_match_boost
+
+    if auto_category_slug and auto_category_soft_boost > 0 and row_category_slug == auto_category_slug:
+        ranking_score += auto_category_soft_boost
 
     return ranking_score
 
@@ -60,14 +65,19 @@ def group_search_candidates(
     *,
     category_slug: str | None = None,
     apply_soft_category_boost: bool = False,
+    auto_category_slug: str | None = None,
+    auto_category_soft_boost: float = 0.0,
 ) -> list[RankedSearchCandidate]:
     normalized_category_slug = normalize_slug(category_slug)
+    normalized_auto_category_slug = normalize_slug(auto_category_slug)
     grouped: OrderedDict[str, RankedSearchCandidate] = OrderedDict()
     for row in rows:
         ranking_score = build_product_ranking_score(
             row,
             category_slug=normalized_category_slug,
             apply_soft_category_boost=apply_soft_category_boost,
+            auto_category_slug=normalized_auto_category_slug,
+            auto_category_soft_boost=auto_category_soft_boost,
         )
         candidate = SearchCandidate(
             backend_product_id=row["backend_product_id"],

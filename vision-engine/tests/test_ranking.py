@@ -75,6 +75,40 @@ class RankingTests(unittest.TestCase):
         self.assertEqual(status, "accepted")
         self.assertEqual(candidates[0].backend_product_id, product_b)
 
+    def test_group_search_candidates_applies_auto_category_soft_boost(self) -> None:
+        product_a = uuid4()
+        product_b = uuid4()
+        rows = [
+            {
+                "backend_product_id": product_a,
+                "image_url": "https://example.com/a.jpg",
+                "image_index": 0,
+                "is_primary": False,
+                "category_slug": "women-quan-tay",
+                "available_stock": 0,
+                "score": 0.82,
+            },
+            {
+                "backend_product_id": product_b,
+                "image_url": "https://example.com/b.jpg",
+                "image_index": 0,
+                "is_primary": False,
+                "category_slug": "tat",
+                "available_stock": 0,
+                "score": 0.78,
+            },
+        ]
+
+        grouped = group_search_candidates(
+            rows,
+            auto_category_slug="tat",
+            auto_category_soft_boost=0.12,
+        )
+        candidates, _, _, status, _, _ = apply_candidate_thresholds(grouped)
+
+        self.assertEqual(status, "accepted")
+        self.assertEqual(candidates[0].backend_product_id, product_b)
+
     def test_apply_candidate_thresholds_breaks_ties_by_backend_product_id(self) -> None:
         lower_product_id = uuid4()
         higher_product_id = uuid4()

@@ -41,6 +41,9 @@ class SearchResponse(BaseModel):
     candidates: list[SearchCandidate]
     total_candidates: int
     index_version: str | None = None
+    inferred_category: str | None = None
+    inferred_category_score: float | None = None
+    category_filter_applied: str | None = None
 
 
 class IndexInfoResponse(BaseModel):

@@ -65,13 +65,14 @@ class SearchRepository:
         limit: int,
         category_slug: str | None,
         store_slug: str | None,
+        force_hard_category_filter: bool = False,
     ) -> tuple[list[dict[str, Any]], float]:
         if not vectors:
             return [], 0.0
 
         ann_limit = min(max(limit * settings.search_candidate_multiplier, limit), settings.search_candidate_cap)
         weights = self._resolve_query_view_weights(view_names)
-        query_category_slug = None if self.should_apply_soft_category_boost(category_slug) else category_slug
+        query_category_slug = self._resolve_query_category_slug(category_slug, force_hard_category_filter)
         merged: OrderedDict[tuple[str, str, int, bool], dict[str, Any]] = OrderedDict()
         db_query_latency_ms = 0.0
 
@@ -163,6 +164,13 @@ class SearchRepository:
             uniform = 1.0 / len(view_names)
             return {name: uniform for name in view_names}
         return {name: base_weights.get(name, 0.0) / active_total for name in view_names}
+
+    def _resolve_query_category_slug(self, category_slug: str | None, force_hard_category_filter: bool) -> str | None:
+        if force_hard_category_filter:
+            return category_slug
+        if self.should_apply_soft_category_boost(category_slug):
+            return None
+        return category_slug
 
     def _merge_view_rows(
         self,

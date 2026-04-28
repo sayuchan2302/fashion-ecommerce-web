@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     image_search_product_category_match_boost: float = 0.02
     image_search_product_in_stock_boost: float = 0.04
     image_search_category_filter_mode: str = "hard"
+    image_search_auto_category_enabled: bool = False
+    image_search_auto_category_hard_threshold: float = 0.28
+    image_search_auto_category_soft_threshold: float = 0.22
+    image_search_auto_category_soft_boost: float = 0.12
     sync_page_size: int = 100
     sync_batch_size: int = 32
 
