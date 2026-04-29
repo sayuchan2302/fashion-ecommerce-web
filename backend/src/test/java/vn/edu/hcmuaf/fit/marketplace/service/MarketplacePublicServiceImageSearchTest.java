@@ -102,7 +102,10 @@ class MarketplacePublicServiceImageSearchTest {
                         new VisionSearchClient.VisionCandidate(firstId, 0.83, "/uploads/products/first.jpg", 0, true)
                 ),
                 3,
-                "sync-2026-04-27"
+                "sync-2026-04-27",
+                "tat",
+                0.31,
+                "hard"
         ));
         when(productRepository.findPublicMarketplaceProductsByIds(List.of(secondId, staleId, firstId)))
                 .thenReturn(List.of(first, second));
@@ -123,6 +126,9 @@ class MarketplacePublicServiceImageSearchTest {
         assertEquals(3, response.getTotalCandidates());
         assertEquals("image", response.getMode());
         assertEquals("sync-2026-04-27", response.getIndexVersion());
+        assertEquals("tat", response.getInferredCategory());
+        assertEquals(0.31, response.getInferredCategoryScore());
+        assertEquals("hard", response.getCategoryFilterApplied());
         assertNotNull(response.getMatches());
         assertEquals(2, response.getMatches().size());
         assertEquals(secondId, response.getMatches().get(0).getProductId());
@@ -159,7 +165,7 @@ class MarketplacePublicServiceImageSearchTest {
     }
 
     private static final class StubVisionSearchClient extends VisionSearchClient {
-        private VisionSearchResult result = new VisionSearchResult(List.of(), 0, null);
+        private VisionSearchResult result = new VisionSearchResult(List.of(), 0, null, null, null, null);
         private String lastCategorySlug;
         private String lastStoreSlug;
 

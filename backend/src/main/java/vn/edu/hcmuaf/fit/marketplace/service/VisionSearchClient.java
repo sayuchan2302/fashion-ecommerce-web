@@ -1,5 +1,6 @@
 package vn.edu.hcmuaf.fit.marketplace.service;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
@@ -72,12 +73,7 @@ public class VisionSearchClient {
                 throw translateError(statusCode, responseBody);
             }
 
-            VisionSearchResponse payload = objectMapper.readValue(responseBody, VisionSearchResponse.class);
-            return new VisionSearchResult(
-                    payload == null || payload.candidates == null ? List.of() : payload.candidates,
-                    payload == null || payload.totalCandidates == null ? 0 : payload.totalCandidates,
-                    payload == null ? null : payload.indexVersion
-            );
+            return deserializeSearchResponse(responseBody);
         } catch (IOException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to process image search response", ex);
         }
@@ -196,10 +192,25 @@ public class VisionSearchClient {
         return body;
     }
 
+    VisionSearchResult deserializeSearchResponse(String responseBody) throws IOException {
+        VisionSearchResponse payload = objectMapper.readValue(responseBody, VisionSearchResponse.class);
+        return new VisionSearchResult(
+                payload == null || payload.candidates == null ? List.of() : payload.candidates,
+                payload == null || payload.totalCandidates == null ? 0 : payload.totalCandidates,
+                payload == null ? null : payload.indexVersion,
+                payload == null ? null : payload.inferredCategory,
+                payload == null ? null : payload.inferredCategoryScore,
+                payload == null ? null : payload.categoryFilterApplied
+        );
+    }
+
     public record VisionSearchResult(
             List<VisionCandidate> candidates,
             int totalCandidates,
-            String indexVersion
+            String indexVersion,
+            String inferredCategory,
+            Double inferredCategoryScore,
+            String categoryFilterApplied
     ) {
     }
 
@@ -217,6 +228,7 @@ public class VisionSearchClient {
     ) {
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     private static class VisionSearchResponse {
         @JsonProperty("candidates")
         private List<VisionCandidate> candidates;
@@ -226,8 +238,18 @@ public class VisionSearchClient {
 
         @JsonProperty("index_version")
         private String indexVersion;
+
+        @JsonProperty("inferred_category")
+        private String inferredCategory;
+
+        @JsonProperty("inferred_category_score")
+        private Double inferredCategoryScore;
+
+        @JsonProperty("category_filter_applied")
+        private String categoryFilterApplied;
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     private static class VisionSearchErrorPayload {
         @JsonProperty("detail")
         private String detail;

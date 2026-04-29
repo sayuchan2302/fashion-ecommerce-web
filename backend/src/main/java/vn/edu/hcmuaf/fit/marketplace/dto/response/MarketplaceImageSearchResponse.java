@@ -17,6 +17,9 @@ public class MarketplaceImageSearchResponse {
     private Integer totalCandidates;
     private String mode;
     private String indexVersion;
+    private String inferredCategory;
+    private Double inferredCategoryScore;
+    private String categoryFilterApplied;
     private List<ImageSearchMatch> matches;
 
     @Data

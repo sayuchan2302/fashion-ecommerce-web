@@ -215,6 +215,9 @@ public class MarketplacePublicService {
                     .totalCandidates(0)
                     .mode("image")
                     .indexVersion(rawResult.indexVersion())
+                    .inferredCategory(rawResult.inferredCategory())
+                    .inferredCategoryScore(rawResult.inferredCategoryScore())
+                    .categoryFilterApplied(rawResult.categoryFilterApplied())
                     .matches(List.of())
                     .build();
         }
@@ -260,6 +263,9 @@ public class MarketplacePublicService {
                 .totalCandidates(rawResult.totalCandidates())
                 .mode("image")
                 .indexVersion(rawResult.indexVersion())
+                .inferredCategory(rawResult.inferredCategory())
+                .inferredCategoryScore(rawResult.inferredCategoryScore())
+                .categoryFilterApplied(rawResult.categoryFilterApplied())
                 .matches(matches)
                 .build();
     }
