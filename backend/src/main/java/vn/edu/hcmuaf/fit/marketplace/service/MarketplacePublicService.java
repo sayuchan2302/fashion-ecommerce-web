@@ -28,11 +28,13 @@ import vn.edu.hcmuaf.fit.marketplace.repository.CategoryRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.FlashSaleCampaignRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.FlashSaleItemRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.ProductRepository;
+import vn.edu.hcmuaf.fit.marketplace.repository.ProductVariantRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.StoreRepository;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayDeque;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -54,10 +56,15 @@ public class MarketplacePublicService {
 
     private static final int HOME_STORE_LIMIT = 4;
     private static final int HOME_PRODUCT_LIMIT = 8;
+    private static final int DEFAULT_FLASH_SALE_ITEM_LIMIT = 24;
     private static final String DEFAULT_PRODUCT_IMAGE =
             "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=672&h=990&fit=crop&fm=webp&q=80&auto=format";
+    private static final String DEFAULT_FLASH_SALE_NAME = "Flash Sale gio vang";
+    private static final String DEFAULT_FLASH_SALE_DESCRIPTION = "Campaign mac dinh cho moi truong local seed.";
+    private static final String DEFAULT_FLASH_SALE_UPDATED_BY = "gap-seed";
 
     private final ProductRepository productRepository;
+    private final ProductVariantRepository productVariantRepository;
     private final StoreRepository storeRepository;
     private final CategoryRepository categoryRepository;
     private final FlashSaleCampaignRepository flashSaleCampaignRepository;
@@ -68,6 +75,7 @@ public class MarketplacePublicService {
 
     public MarketplacePublicService(
             ProductRepository productRepository,
+            ProductVariantRepository productVariantRepository,
             StoreRepository storeRepository,
             CategoryRepository categoryRepository,
             FlashSaleCampaignRepository flashSaleCampaignRepository,
@@ -77,6 +85,7 @@ public class MarketplacePublicService {
             VisionSearchProperties visionSearchProperties
     ) {
         this.productRepository = productRepository;
+        this.productVariantRepository = productVariantRepository;
         this.storeRepository = storeRepository;
         this.categoryRepository = categoryRepository;
         this.flashSaleCampaignRepository = flashSaleCampaignRepository;
@@ -290,7 +299,7 @@ public class MarketplacePublicService {
         return productRepository.findVisionDeactivatedProductIdsUpdatedSince(updatedSince);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public MarketplaceFlashSaleResponse getActiveFlashSale() {
         LocalDateTime now = LocalDateTime.now();
         FlashSaleCampaign campaign = flashSaleCampaignRepository.findFirstActiveAt(now).orElse(null);
@@ -301,22 +310,42 @@ public class MarketplacePublicService {
                     .build();
         }
 
+        List<MarketplaceFlashSaleItemResponse> items = resolveDisplayableFlashSaleItems(campaign, now);
+
+        if (items.isEmpty() && isLocalDefaultFlashSaleCampaign(campaign)) {
+            FlashSaleCampaign rebuiltCampaign = rebuildLocalDefaultFlashSaleCampaign(campaign, now);
+            if (rebuiltCampaign != null && rebuiltCampaign.getId() != null) {
+                campaign = rebuiltCampaign;
+                items = resolveDisplayableFlashSaleItems(campaign, now);
+            }
+        }
+
+        return MarketplaceFlashSaleResponse.builder()
+                .campaignId(campaign.getId())
+                .campaignName(campaign.getName())
+                .startAt(campaign.getStartAt())
+                .endAt(campaign.getEndAt())
+                .serverTime(now)
+                .items(items)
+                .build();
+    }
+
+    private List<MarketplaceFlashSaleItemResponse> resolveDisplayableFlashSaleItems(
+            FlashSaleCampaign campaign,
+            LocalDateTime now
+    ) {
+        if (campaign == null || campaign.getId() == null) {
+            return List.of();
+        }
+
         List<FlashSaleItem> rawItems = flashSaleItemRepository.findPublicActiveByCampaignId(
                 campaign.getId(),
                 FlashSaleCampaign.CampaignStatus.RUNNING,
                 FlashSaleItem.ItemStatus.ACTIVE,
                 now
         );
-
         if (rawItems.isEmpty()) {
-            return MarketplaceFlashSaleResponse.builder()
-                    .campaignId(campaign.getId())
-                    .campaignName(campaign.getName())
-                    .startAt(campaign.getStartAt())
-                    .endAt(campaign.getEndAt())
-                    .serverTime(now)
-                    .items(List.of())
-                    .build();
+            return List.of();
         }
 
         Set<UUID> storeIds = rawItems.stream()
@@ -331,19 +360,109 @@ public class MarketplacePublicService {
                 : storeRepository.findAllById(storeIds).stream()
                 .collect(Collectors.toMap(Store::getId, store -> store, (left, right) -> right, HashMap::new));
 
-        List<MarketplaceFlashSaleItemResponse> items = rawItems.stream()
+        return rawItems.stream()
+                .filter(this::hasDisplayableFlashSaleProduct)
                 .map(item -> toFlashSaleItemResponse(item, storesById.get(item.getProduct() != null ? item.getProduct().getStoreId() : null)))
                 .filter(Objects::nonNull)
                 .toList();
+    }
 
-        return MarketplaceFlashSaleResponse.builder()
-                .campaignId(campaign.getId())
-                .campaignName(campaign.getName())
-                .startAt(campaign.getStartAt())
-                .endAt(campaign.getEndAt())
-                .serverTime(now)
-                .items(items)
-                .build();
+    private FlashSaleCampaign rebuildLocalDefaultFlashSaleCampaign(FlashSaleCampaign currentCampaign, LocalDateTime now) {
+        if (currentCampaign == null || currentCampaign.getId() == null) {
+            return null;
+        }
+
+        flashSaleCampaignRepository.delete(currentCampaign);
+        flashSaleCampaignRepository.flush();
+
+        List<Product> publicProducts = productRepository.findAllPublicProducts().stream()
+                .filter(this::hasCatalogImage)
+                .sorted(Comparator
+                        .comparing(Product::getUpdatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(Product::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(product -> product.getId() != null ? product.getId().toString() : ""))
+                .toList();
+        if (publicProducts.isEmpty()) {
+            return null;
+        }
+
+        FlashSaleCampaign campaign = flashSaleCampaignRepository.save(FlashSaleCampaign.builder()
+                .name(DEFAULT_FLASH_SALE_NAME)
+                .description(DEFAULT_FLASH_SALE_DESCRIPTION)
+                .scope(FlashSaleCampaign.CampaignScope.PLATFORM)
+                .status(FlashSaleCampaign.CampaignStatus.RUNNING)
+                .startAt(now.minusHours(1))
+                .endAt(now.plusDays(3))
+                .updatedBy(DEFAULT_FLASH_SALE_UPDATED_BY)
+                .build());
+
+        int createdItems = 0;
+        int sortOrder = 0;
+        for (Product product : publicProducts) {
+            if (createdItems >= DEFAULT_FLASH_SALE_ITEM_LIMIT) {
+                break;
+            }
+            if (product == null || product.getId() == null) {
+                continue;
+            }
+
+            ProductVariant variant = productVariantRepository.findByProductIdAndIsActiveTrue(product.getId()).stream()
+                    .filter(v -> v.getStockQuantity() != null && v.getStockQuantity() > 0)
+                    .findFirst()
+                    .orElse(null);
+
+            int stock = variant != null
+                    ? Math.max(defaultInteger(variant.getStockQuantity()), 0)
+                    : Math.max(defaultInteger(product.getStockQuantity()), 0);
+            if (stock <= 0) {
+                continue;
+            }
+
+            BigDecimal basePrice = resolveEffectivePrice(product);
+            if (basePrice == null || basePrice.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            if (variant != null && variant.getPriceAdjustment() != null) {
+                basePrice = basePrice.add(variant.getPriceAdjustment());
+            }
+            if (basePrice.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            BigDecimal flashPrice = basePrice.multiply(new BigDecimal("0.80")).setScale(0, RoundingMode.HALF_UP);
+            if (flashPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            flashSaleItemRepository.save(FlashSaleItem.builder()
+                    .campaign(campaign)
+                    .product(product)
+                    .variant(variant)
+                    .flashPrice(flashPrice)
+                    .quota(Math.max(20, Math.min(120, stock)))
+                    .soldCount(0)
+                    .status(FlashSaleItem.ItemStatus.ACTIVE)
+                    .sortOrder(sortOrder++)
+                    .build());
+            createdItems++;
+        }
+
+        if (createdItems == 0) {
+            flashSaleCampaignRepository.delete(campaign);
+            flashSaleCampaignRepository.flush();
+            return null;
+        }
+
+        return campaign;
+    }
+
+    private boolean isLocalDefaultFlashSaleCampaign(FlashSaleCampaign campaign) {
+        if (campaign == null) {
+            return false;
+        }
+        return DEFAULT_FLASH_SALE_UPDATED_BY.equalsIgnoreCase(String.valueOf(campaign.getUpdatedBy()).trim())
+                && DEFAULT_FLASH_SALE_NAME.equals(campaign.getName())
+                && DEFAULT_FLASH_SALE_DESCRIPTION.equals(campaign.getDescription());
     }
 
     private Pageable resolveProductSearchPageable(Pageable pageable) {
@@ -759,6 +878,24 @@ public class MarketplacePublicService {
                 .sizes(resolveSizes(product))
                 .variants(resolveVariants(product))
                 .build();
+    }
+
+    private boolean hasDisplayableFlashSaleProduct(FlashSaleItem item) {
+        if (item == null || item.getProduct() == null) {
+            return false;
+        }
+        return hasCatalogImage(item.getProduct());
+    }
+
+    private boolean hasCatalogImage(Product product) {
+        List<ProductImage> images = product.getImages();
+        if (images == null || images.isEmpty()) {
+            return false;
+        }
+        return images.stream()
+                .filter(Objects::nonNull)
+                .map(ProductImage::getUrl)
+                .anyMatch(this::hasText);
     }
 
     private String resolvePrimaryImage(Product product) {

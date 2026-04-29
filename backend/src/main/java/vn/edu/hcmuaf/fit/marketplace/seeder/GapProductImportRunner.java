@@ -412,16 +412,25 @@ public class GapProductImportRunner implements ApplicationRunner {
         long campaignCount = flashSaleCampaignRepository.count();
         long itemCount = flashSaleItemRepository.count();
         if (campaignCount > 0 && itemCount > 0) {
-            return;
+            if (hasDisplayableFlashSaleItems()) {
+                return;
+            }
+            flashSaleCampaignRepository.deleteAll();
         }
 
         if (campaignCount > 0 && itemCount == 0) {
             flashSaleCampaignRepository.deleteAll();
         }
 
-        List<Product> publicProducts = productRepository.findAllPublicProducts();
+        List<Product> publicProducts = productRepository.findAllPublicProducts().stream()
+                .filter(this::hasCatalogImage)
+                .sorted(Comparator
+                        .comparing(Product::getUpdatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(Product::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(product -> product.getId() != null ? product.getId().toString() : ""))
+                .toList();
         if (publicProducts.isEmpty()) {
-            log.warn("Skip Flash Sale seed because no public products are available.");
+            log.warn("Skip Flash Sale seed because no public products with catalog images are available.");
             return;
         }
 
@@ -496,6 +505,26 @@ public class GapProductImportRunner implements ApplicationRunner {
         }
 
         log.info("Seeded default Flash Sale campaign with {} items for local environment.", createdItems);
+    }
+
+    private boolean hasDisplayableFlashSaleItems() {
+        return flashSaleItemRepository.findAll().stream()
+                .map(FlashSaleItem::getProduct)
+                .anyMatch(this::hasCatalogImage);
+    }
+
+    private boolean hasCatalogImage(Product product) {
+        if (product == null) {
+            return false;
+        }
+        List<ProductImage> images = product.getImages();
+        if (images == null || images.isEmpty()) {
+            return false;
+        }
+        return images.stream()
+                .filter(image -> image != null && image.getUrl() != null)
+                .map(ProductImage::getUrl)
+                .anyMatch(url -> !url.trim().isEmpty());
     }
 
     private List<LeafCategory> loadLeafCategories() {

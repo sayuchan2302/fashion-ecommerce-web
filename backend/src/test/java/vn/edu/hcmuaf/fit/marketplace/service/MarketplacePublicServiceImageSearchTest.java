@@ -17,6 +17,7 @@ import vn.edu.hcmuaf.fit.marketplace.repository.FlashSaleCampaignRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.FlashSaleItemRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.OrderRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.ProductRepository;
+import vn.edu.hcmuaf.fit.marketplace.repository.ProductVariantRepository;
 import vn.edu.hcmuaf.fit.marketplace.repository.StoreRepository;
 
 import java.math.BigDecimal;
@@ -41,6 +42,9 @@ class MarketplacePublicServiceImageSearchTest {
     private CategoryRepository categoryRepository;
 
     @Mock
+    private ProductVariantRepository productVariantRepository;
+
+    @Mock
     private FlashSaleCampaignRepository flashSaleCampaignRepository;
 
     @Mock
@@ -63,6 +67,7 @@ class MarketplacePublicServiceImageSearchTest {
 
         marketplacePublicService = new MarketplacePublicService(
                 productRepository,
+                productVariantRepository,
                 storeRepository,
                 categoryRepository,
                 flashSaleCampaignRepository,

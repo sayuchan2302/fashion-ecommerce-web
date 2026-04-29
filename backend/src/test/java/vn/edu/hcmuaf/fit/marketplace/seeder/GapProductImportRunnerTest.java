@@ -6,12 +6,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import vn.edu.hcmuaf.fit.marketplace.config.GapSeedProperties;
 import vn.edu.hcmuaf.fit.marketplace.dto.request.ProductRequest;
 import vn.edu.hcmuaf.fit.marketplace.entity.Category;
+import vn.edu.hcmuaf.fit.marketplace.entity.FlashSaleCampaign;
+import vn.edu.hcmuaf.fit.marketplace.entity.FlashSaleItem;
 import vn.edu.hcmuaf.fit.marketplace.entity.Product;
+import vn.edu.hcmuaf.fit.marketplace.entity.ProductImage;
 import vn.edu.hcmuaf.fit.marketplace.entity.ProductVariant;
 import vn.edu.hcmuaf.fit.marketplace.entity.Store;
 import vn.edu.hcmuaf.fit.marketplace.repository.CategoryRepository;
@@ -23,8 +27,10 @@ import vn.edu.hcmuaf.fit.marketplace.repository.StoreRepository;
 import vn.edu.hcmuaf.fit.marketplace.service.ProductService;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -35,6 +41,7 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -458,6 +465,55 @@ class GapProductImportRunnerTest {
     }
 
     @Test
+    void importSeedsFlashSaleOnlyFromProductsWithCatalogImages() throws IOException {
+        Category menRoot = category("men", null);
+        Category teeLeaf = category("men-ao-thun", menRoot);
+        Store store = Store.builder().id(UUID.randomUUID()).build();
+
+        Path styles = writeStylesCsv(List.of(
+                "851,Men,Apparel,Topwear,Tshirts,White,Summer,2026,Casual,Flash Sale Tee"
+        ));
+        Path images = writeImagesCsv(List.of(
+                "851.jpg,https://img.local/851.jpg"
+        ));
+
+        Product imagelessFixture = flashSaleProduct("it-product-fixture", null);
+        Product imagedProduct = flashSaleProduct("gap-851", "https://img.local/851.jpg");
+
+        properties.setTargetCount(1);
+        properties.setStylesPath(styles.toString());
+        properties.setImagesPath(images.toString());
+        properties.setCleanBeforeImport(false);
+
+        when(flashSaleCampaignRepository.count()).thenReturn(0L);
+        when(flashSaleItemRepository.count()).thenReturn(0L);
+        when(storeRepository.findByApprovalStatusAndStatus(Store.ApprovalStatus.APPROVED, Store.StoreStatus.ACTIVE))
+                .thenReturn(List.of(store));
+        when(categoryRepository.findAll()).thenReturn(List.of(menRoot, teeLeaf));
+        when(productRepository.findBySlugStartingWithIgnoreCase(anyString())).thenReturn(List.of());
+        when(productRepository.findAllPublicProducts()).thenReturn(List.of(imagelessFixture, imagedProduct));
+        when(productVariantRepository.findByProductIdAndIsActiveTrue(any())).thenReturn(List.of());
+        when(flashSaleCampaignRepository.save(any(FlashSaleCampaign.class)))
+                .thenAnswer(invocation -> {
+                    FlashSaleCampaign campaign = invocation.getArgument(0);
+                    if (campaign.getId() == null) {
+                        campaign.setId(UUID.randomUUID());
+                    }
+                    return campaign;
+                });
+        when(flashSaleItemRepository.save(any(FlashSaleItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(productRepository.save(any(Product.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        runner.runImport();
+
+        ArgumentCaptor<FlashSaleItem> flashItemCaptor = ArgumentCaptor.forClass(FlashSaleItem.class);
+        verify(flashSaleItemRepository).save(flashItemCaptor.capture());
+        assertEquals(imagedProduct.getId(), flashItemCaptor.getValue().getProduct().getId());
+    }
+
+    @Test
     void importReportPreservesBeforeSnapshotWhenCleanBeforeImportIsEnabled() throws IOException {
         Category menRoot = category("men", null);
         Category poloLeaf = category("men-ao-polo", menRoot);
@@ -518,6 +574,30 @@ class GapProductImportRunnerTest {
         product.setSlug(slug);
         product.setName(slug);
         product.setCategory(category);
+        return product;
+    }
+
+    private Product flashSaleProduct(String slug, String imageUrl) {
+        Product product = new Product();
+        product.setId(UUID.randomUUID());
+        product.setSlug(slug);
+        product.setName(slug);
+        product.setStoreId(UUID.randomUUID());
+        product.setStockQuantity(10);
+        product.setBasePrice(new BigDecimal("100"));
+        product.setSalePrice(new BigDecimal("100"));
+        product.setStatus(Product.ProductStatus.ACTIVE);
+        product.setApprovalStatus(Product.ApprovalStatus.APPROVED);
+        product.setCreatedAt(LocalDateTime.now().minusDays(1));
+        product.setUpdatedAt(LocalDateTime.now());
+        if (imageUrl != null) {
+            ProductImage image = new ProductImage();
+            image.setProduct(product);
+            image.setUrl(imageUrl);
+            image.setIsPrimary(true);
+            image.setSortOrder(0);
+            product.setImages(List.of(image));
+        }
         return product;
     }
 
